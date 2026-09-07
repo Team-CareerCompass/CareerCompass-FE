@@ -87,7 +87,7 @@ Figma 09 Edge Cases 는 상태 화면을 **다섯 장**만 그려 두었다 — 
 
 ### 2.1 오프라인 · 네트워크 실패
 
-판정 근거는 `CoreDataFailure.NetworkUnavailable` 하나다 — data 계층이 `IOException` 을 **전부** 이 값으로 접는다([`ApiFailureMapper.kt`](../../core/data/src/main/kotlin/com/careercompass/core/data/failure/ApiFailureMapper.kt)). 사용자에게는 cleartext 차단도 TLS 회귀도 「네트워크 오류」라는 판정이다. 단 하나 더 갈라 보는 것이 **타임아웃**(`NetworkUnavailable.isTimeout`)이고, 그 구분을 쓰는 화면은 게시판 등록뿐이다.
+판정 근거는 `CoreDataFailure.NetworkUnavailable` 하나다 — data 계층이 `IOException` 을 **전부** 이 값으로 접는다([`ApiFailureMapper.kt`](../../core/network/src/main/kotlin/com/careercompass/core/network/failure/ApiFailureMapper.kt)). 사용자에게는 cleartext 차단도 TLS 회귀도 「네트워크 오류」라는 판정이다. 단 하나 더 갈라 보는 것이 **타임아웃**(`NetworkUnavailable.isTimeout`)이고, 그 구분을 쓰는 화면은 게시판 등록뿐이다.
 
 | 화면 | 컴포넌트 | 문구(리소스 = 값) | 버튼 → 동작 |
 |---|---|---|---|
