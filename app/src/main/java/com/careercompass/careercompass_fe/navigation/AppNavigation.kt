@@ -212,15 +212,7 @@ public fun AppNavigation(
                         entry<Route.PastApplications> {
                             PastApplicationListScreen(
                                 onBackClick = { appState.popBack() },
-                                // 등록 화면(#181)이 붙기 전까지 자리표시자로 보낸다.
-                                onAddClick = { appState.backStack.pushSingleTop(Route.PastApplicationUploadPlaceholder) },
                                 onSessionEnded = { cause -> onSessionEnded(cause.toSessionEndCause()) },
-                            )
-                        }
-                        entry<Route.PastApplicationUploadPlaceholder> {
-                            PlaceholderScreen(
-                                title = stringResource(R.string.placeholder_past_application_upload_title),
-                                onBackClick = { appState.popBack() },
                             )
                         }
                         entry<Route.NotificationSettingsPlaceholder> {

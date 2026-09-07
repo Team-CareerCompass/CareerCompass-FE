@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -25,9 +26,10 @@ import com.careercompass.core.model.application.MAX_PAST_APPLICATIONS
 import com.careercompass.core.ui.component.CareerCompassButton
 import com.careercompass.core.ui.component.CareerCompassButtonSize
 import com.careercompass.core.ui.component.CareerCompassButtonVariant
+import com.careercompass.core.ui.component.DirectInputEvent
+import com.careercompass.core.ui.component.DirectInputSheet
 import com.careercompass.core.ui.component.PastApplicationItemCategoryEvent
 import com.careercompass.core.ui.component.PastApplicationItemCategorySheet
-import com.careercompass.core.ui.mvi.ObserveFlag
 import com.careercompass.core.ui.mvi.ObserveSignal
 import com.careercompass.core.ui.theme.CareerCompassTheme
 import com.careercompass.feature.profile.presentation.R
@@ -40,13 +42,13 @@ import kotlinx.coroutines.launch
  * 분류 시트는 온보딩 Step 4 와 같은 것을 쓴다(`core:ui`) — 분류 여섯 갈래와 그 문구가 두 벌이 되면
  * 한쪽에서 고친 값이 다른 쪽에서 다른 이름으로 보인다.
  *
- * @param onAddClick 지원서를 새로 올린다. 앱 안에서 직접 쓰는 길은 #181 몫이다.
+ * 「지원서 추가」는 앱 안에서 직접 쓰는 시트를 연다(#181) — 텍스트는 TXT 로 만들어 파일 업로드와 같은
+ * 엔드포인트로 나간다. 파일을 골라 올리는 길은 온보딩 Step 4 에 있고, 마이 탭 쪽 진입점은 아직 이슈가 없다.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 public fun PastApplicationListScreen(
     onBackClick: () -> Unit,
-    onAddClick: () -> Unit,
     onSessionEnded: (ProfileSessionEnd) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PastApplicationListViewModel = hiltViewModel(),
@@ -61,12 +63,6 @@ public fun PastApplicationListScreen(
         onPauseOrDispose { }
     }
 
-    ObserveFlag(
-        raised = state.isAddRequested,
-        consumed = PastApplicationListIntent.ConsumeAddRequest,
-        onIntent = viewModel::onIntent,
-        onRaised = onAddClick,
-    )
     ObserveSignal(
         signal = state.sessionEnd,
         consumed = PastApplicationListIntent.ConsumeSessionEnded,
@@ -118,6 +114,24 @@ public fun PastApplicationListScreen(
         }
     }
 
+    state.directInput?.let { input ->
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.onIntent(PastApplicationListIntent.DirectInput(DirectInputEvent.Dismissed)) },
+            // 올리는 중에는 스와이프·스크림으로 시트가 숨겨지지 않게 한다 — 쓰던 글을 잃지 않게.
+            sheetState =
+                rememberModalBottomSheetState(
+                    skipPartiallyExpanded = true,
+                    confirmValueChange = { value -> value != SheetValue.Hidden || !input.isSubmitting },
+                ),
+            containerColor = CareerCompassTheme.colors.surface,
+        ) {
+            DirectInputSheet(
+                state = input,
+                onEvent = { viewModel.onIntent(PastApplicationListIntent.DirectInput(it)) },
+            )
+        }
+    }
+
     state.pendingDeletion?.let { target ->
         AlertDialog(
             onDismissRequest = { viewModel.onIntent(PastApplicationListIntent.DismissDelete) },
@@ -164,5 +178,17 @@ private fun PastApplicationListMessage.text(resources: Resources): String =
 
         PastApplicationListMessage.DeleteFailed -> {
             resources.getString(R.string.profile_past_application_delete_failed)
+        }
+
+        PastApplicationListMessage.Uploaded -> {
+            resources.getString(R.string.profile_past_application_uploaded)
+        }
+
+        PastApplicationListMessage.UploadFailed -> {
+            resources.getString(R.string.profile_past_application_upload_failed)
+        }
+
+        PastApplicationListMessage.UploadTooLarge -> {
+            resources.getString(R.string.profile_past_application_upload_too_large)
         }
     }

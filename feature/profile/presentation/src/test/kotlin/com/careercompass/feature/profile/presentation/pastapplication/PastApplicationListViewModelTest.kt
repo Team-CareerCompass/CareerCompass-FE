@@ -6,10 +6,13 @@ import com.careercompass.core.domain.testing.FakePastApplicationRepository
 import com.careercompass.core.model.application.PastApplication
 import com.careercompass.core.model.application.PastApplicationCategory
 import com.careercompass.core.model.application.PastApplicationItem
+import com.careercompass.core.model.user.ProfileFieldViolation
+import com.careercompass.core.ui.component.DirectInputEvent
 import com.careercompass.core.ui.failure.FailureKind
 import com.careercompass.feature.profile.domain.usecase.DeletePastApplicationUseCase
 import com.careercompass.feature.profile.domain.usecase.GetPastApplicationsUseCase
 import com.careercompass.feature.profile.domain.usecase.UpdatePastApplicationItemCategoryUseCase
+import com.careercompass.feature.profile.domain.usecase.UploadPastApplicationTextUseCase
 import com.careercompass.feature.profile.presentation.home.ProfileSessionEnd
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -56,6 +59,7 @@ class PastApplicationListViewModelTest {
             getPastApplications = GetPastApplicationsUseCase(repository),
             updateItemCategory = UpdatePastApplicationItemCategoryUseCase(repository),
             deletePastApplication = DeletePastApplicationUseCase(repository),
+            uploadPastApplicationText = UploadPastApplicationTextUseCase(repository),
             errorReporter = reporter,
         )
 
@@ -80,7 +84,7 @@ class PastApplicationListViewModelTest {
         viewModel.onEvent(PastApplicationListEvent.AddClicked)
 
         assertEquals(PastApplicationListMessage.LimitReached, viewModel.state.value.message)
-        assertFalse(viewModel.state.value.isAddRequested)
+        assertNull(viewModel.state.value.directInput)
     }
 
     /** 한 번에 하나만 펼친다 — 같은 것을 다시 누르면 접힌다. */
@@ -222,6 +226,101 @@ class PastApplicationListViewModelTest {
         assertEquals(ProfileSessionEnd.Expired, viewModel().state.value.sessionEnd)
     }
 
+    // ── 직접 작성 (#181) ───────────────────────────────────────────────────────
+
+    @Test
+    fun `상한 아래면 빈 직접 작성 시트를 연다`() {
+        val viewModel = viewModel()
+
+        viewModel.onEvent(PastApplicationListEvent.AddClicked)
+
+        assertEquals(
+            "",
+            viewModel.state.value.directInput
+                ?.label,
+        )
+        assertEquals(
+            "",
+            viewModel.state.value.directInput
+                ?.content,
+        )
+    }
+
+    /** 하나씩 알리면 제출을 두 번 눌러야 두 칸이 다 빨개진다. */
+    @Test
+    fun `빈 채로 제출하면 라벨과 본문 오류를 한 번에 보인다`() {
+        val viewModel = viewModel()
+        viewModel.onEvent(PastApplicationListEvent.AddClicked)
+
+        viewModel.onDirectInput(DirectInputEvent.Submitted)
+
+        assertEquals(
+            ProfileFieldViolation.Required,
+            viewModel.state.value.directInput
+                ?.labelError,
+        )
+        assertEquals(
+            ProfileFieldViolation.Required,
+            viewModel.state.value.directInput
+                ?.contentError,
+        )
+        assertTrue(repository.uploads.isEmpty())
+    }
+
+    /** 텍스트를 TXT 로 만들어 파일 업로드와 같은 엔드포인트로 보낸다(#181 의 계약 판단). */
+    @Test
+    fun `직접 쓴 지원서를 TXT 로 올리고 목록을 다시 읽는다`() {
+        val viewModel = viewModel()
+        viewModel.onEvent(PastApplicationListEvent.AddClicked)
+        viewModel.onDirectInput(DirectInputEvent.LabelChanged(" 2024 카카오 인턴 자소서 "))
+        viewModel.onDirectInput(DirectInputEvent.ContentChanged("지원 동기는 ..."))
+
+        viewModel.onDirectInput(DirectInputEvent.Submitted)
+
+        val (file, label) = repository.uploads.single()
+        assertEquals("2024 카카오 인턴 자소서", label)
+        assertEquals("2024 카카오 인턴 자소서.txt", file.fileName)
+        assertEquals("지원 동기는 ...", file.openStream().readBytes().toString(Charsets.UTF_8))
+        assertNull(viewModel.state.value.directInput)
+        assertEquals(PastApplicationListMessage.Uploaded, viewModel.state.value.message)
+        assertEquals(1, viewModel.state.value.applications.size)
+    }
+
+    /** 쓰던 글을 버리면 다시 써야 한다 — 실패는 시트를 닫지 않는다. */
+    @Test
+    fun `업로드가 실패해도 쓰던 글은 시트에 남는다`() {
+        repository.onUpload = { _, _ -> Result.failure(IOException("offline")) }
+        val viewModel = viewModel()
+        viewModel.onEvent(PastApplicationListEvent.AddClicked)
+        viewModel.onDirectInput(DirectInputEvent.LabelChanged("2024 카카오"))
+        viewModel.onDirectInput(DirectInputEvent.ContentChanged("지원 동기는 ..."))
+
+        viewModel.onDirectInput(DirectInputEvent.Submitted)
+
+        assertEquals(
+            "지원 동기는 ...",
+            viewModel.state.value.directInput
+                ?.content,
+        )
+        assertEquals(PastApplicationListMessage.UploadFailed, viewModel.state.value.message)
+        assertEquals("past_application_upload", reporter.recorded.single()["profile_stage"])
+    }
+
+    @Test
+    fun `서버가 상한으로 거부하면 상한 문구로 알린다`() {
+        repository.onUpload = { _, _ ->
+            Result.failure(CoreDataFailure.LimitExceeded(code = "LIMIT_EXCEEDED", cause = IllegalStateException()))
+        }
+        val viewModel = viewModel()
+        viewModel.onEvent(PastApplicationListEvent.AddClicked)
+        viewModel.onDirectInput(DirectInputEvent.LabelChanged("2024 카카오"))
+        viewModel.onDirectInput(DirectInputEvent.ContentChanged("지원 동기는 ..."))
+
+        viewModel.onDirectInput(DirectInputEvent.Submitted)
+
+        assertEquals(PastApplicationListMessage.LimitReached, viewModel.state.value.message)
+    }
+
     private companion object {
         fun application(id: Long) =
             PastApplication(
@@ -241,6 +340,8 @@ class PastApplicationListViewModelTest {
             )
     }
 }
+
+private fun PastApplicationListViewModel.onDirectInput(event: DirectInputEvent) = onIntent(PastApplicationListIntent.DirectInput(event))
 
 private fun PastApplicationListViewModel.onEvent(event: PastApplicationListEvent) = onIntent(PastApplicationListIntent.Screen(event))
 

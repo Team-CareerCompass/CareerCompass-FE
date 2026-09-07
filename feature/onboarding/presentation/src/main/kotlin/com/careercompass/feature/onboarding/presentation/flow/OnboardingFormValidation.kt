@@ -43,7 +43,7 @@ internal object OnboardingStep1Rules {
 }
 
 /** 도메인 판정을 온보딩 화면의 오류 타입으로 옮긴다. 갈래가 늘면 `when` 이 빠진 분기를 알린다. */
-private fun ProfileFieldViolation?.toFieldError(): OnboardingFieldError? =
+internal fun ProfileFieldViolation?.toFieldError(): OnboardingFieldError? =
     when (this) {
         null -> null
         ProfileFieldViolation.Required -> OnboardingFieldError.Required
@@ -54,36 +54,3 @@ private fun ProfileFieldViolation?.toFieldError(): OnboardingFieldError? =
 
 /** Step 2 태그 정규화 — 규칙은 `core:model` 이 갖는다(마이 탭의 관심 편집이 같은 것을 쓴다, #177). */
 internal fun normalizeInterestTag(raw: String): String = InterestTagRules.normalize(raw)
-
-/**
- * 지원서 라벨 규칙 — 기능 스펙 F1-4 「각 지원서에 사용자가 직접 라벨 부여」.
- *
- * 직접 입력과 파일 업로드가 같은 라벨을 받으므로 규칙도 한 벌만 둔다. 서버에 라벨 수정 엔드포인트가 없어
- * (API_SPEC §4 는 업로드 요청 필드로만 받는다) 두 경로 모두 업로드 전에 여기서 거른다.
- */
-internal object PastApplicationLabelRules {
-    const val MAX_LENGTH = 50
-
-    /** 앞뒤 공백은 라벨의 일부가 아니다 — 검증도 업로드도 다듬은 값으로 한다. */
-    fun normalize(raw: String): String = raw.trim()
-
-    fun validate(raw: String): OnboardingFieldError? {
-        val label = normalize(raw)
-        return when {
-            label.isEmpty() -> OnboardingFieldError.Required
-            label.length > MAX_LENGTH -> OnboardingFieldError.TooLong(MAX_LENGTH)
-            else -> null
-        }
-    }
-
-    /**
-     * 파일 업로드 라벨의 기본값 — 확장자를 뺀 파일명.
-     *
-     * 기본값은 그대로 눌러도 통과해야 하므로 [MAX_LENGTH] 에서 자른다. 확장자만 있는 이름(`.pdf`)처럼
-     * 앞부분이 비면 파일명을 통째로 쓴다.
-     */
-    fun defaultLabelFor(fileName: String): String {
-        val base = normalize(fileName.substringBeforeLast('.')).ifEmpty { normalize(fileName) }
-        return base.take(MAX_LENGTH)
-    }
-}

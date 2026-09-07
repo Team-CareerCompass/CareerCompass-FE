@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.presentation.pastapplication
+package com.careercompass.core.ui.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,14 +23,9 @@ import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.careercompass.core.ui.component.CareerCompassButton
-import com.careercompass.core.ui.component.CareerCompassButtonSize
-import com.careercompass.core.ui.component.CareerCompassButtonVariant
-import com.careercompass.core.ui.component.CareerCompassTextField
-import com.careercompass.core.ui.component.CareerCompassTextFieldSize
+import com.careercompass.core.ui.R
+import com.careercompass.core.ui.failure.toMessage
 import com.careercompass.core.ui.theme.CareerCompassTheme
-import com.careercompass.feature.onboarding.presentation.R
-import com.careercompass.feature.onboarding.presentation.shared.util.toMessage
 
 /**
  * Step 4 「직접 입력하기」 시트의 본문. 시트 컨테이너는 호스트가 감싼다.
@@ -56,7 +51,7 @@ public fun DirectInputSheet(
         verticalArrangement = Arrangement.spacedBy(spacing.medium),
     ) {
         Text(
-            text = stringResource(R.string.onboarding_direct_input_title),
+            text = stringResource(R.string.core_ui_direct_input_title),
             modifier = Modifier.semantics { heading() },
             color = colors.onSurface,
             style = CareerCompassTheme.typography.headline4,
@@ -64,8 +59,8 @@ public fun DirectInputSheet(
         CareerCompassTextField(
             value = state.label,
             onValueChange = { onEvent(DirectInputEvent.LabelChanged(it)) },
-            label = stringResource(R.string.onboarding_direct_input_label_label),
-            placeholder = stringResource(R.string.onboarding_direct_input_label_placeholder),
+            label = stringResource(R.string.core_ui_direct_input_label_label),
+            placeholder = stringResource(R.string.core_ui_direct_input_label_placeholder),
             errorMessage = state.labelError?.let { it.toMessage() },
             isError = state.labelError != null,
             enabled = state.isInputEnabled,
@@ -82,7 +77,7 @@ public fun DirectInputSheet(
             horizontalArrangement = Arrangement.spacedBy(spacing.small),
         ) {
             CareerCompassButton(
-                text = stringResource(com.careercompass.core.ui.R.string.core_ui_sheet_cancel),
+                text = stringResource(R.string.core_ui_sheet_cancel),
                 onClick = { onEvent(DirectInputEvent.Dismissed) },
                 modifier = Modifier.weight(1f),
                 variant = CareerCompassButtonVariant.Secondary,
@@ -90,7 +85,7 @@ public fun DirectInputSheet(
                 enabled = state.isInputEnabled,
             )
             CareerCompassButton(
-                text = stringResource(R.string.onboarding_direct_input_submit),
+                text = stringResource(R.string.core_ui_direct_input_submit),
                 onClick = { onEvent(DirectInputEvent.Submitted) },
                 modifier = Modifier.weight(1f),
                 size = CareerCompassButtonSize.Large,
@@ -109,8 +104,8 @@ private fun ContentField(
 ) {
     val colors = CareerCompassTheme.colors
     val spacing = CareerCompassTheme.spacing
-    val label = stringResource(R.string.onboarding_direct_input_content_label)
-    val placeholder = stringResource(R.string.onboarding_direct_input_content_placeholder)
+    val label = stringResource(R.string.core_ui_direct_input_content_label)
+    val placeholder = stringResource(R.string.core_ui_direct_input_content_placeholder)
     val borderColor =
         when {
             !enabled -> colors.subtleOutline

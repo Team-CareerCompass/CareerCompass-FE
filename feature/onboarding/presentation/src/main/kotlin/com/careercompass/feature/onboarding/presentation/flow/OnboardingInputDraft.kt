@@ -4,7 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import com.careercompass.core.model.user.JobOptionCatalog
 import com.careercompass.core.model.user.MAX_JOB_INTERESTS
 import com.careercompass.core.model.user.MAX_PROFILE_TAGS
-import com.careercompass.feature.onboarding.presentation.pastapplication.DirectInputState
+import com.careercompass.core.ui.component.DirectInputState
 
 /**
  * 프로세스 사망을 건너 살아남는 온보딩 입력 초안 — 기능 스펙 F1-1 의 「중단된 단계부터 재개」 중 **입력** 쪽.

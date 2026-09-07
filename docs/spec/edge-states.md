@@ -63,11 +63,12 @@ Figma 09 Edge Cases 는 상태 화면을 **다섯 장**만 그려 두었다 — 
 | 프로필 편집 | 프리필할 값이 없을 때만 `CareerCompassFailureState`(실패 표 #204) · 기본 정보 저장 실패는 스낵바 `profile_edit_save_failed` · **전체 교체(직무·태그) 실패는 서버 값으로 되돌리고** `profile_edit_interests_reverted` | 첫 조회만 화면 가운데 진행 표시 | 없음 | 없음 | 오프라인과 같은 길 | 셸에 알림 → 로그인 |
 | 경험 카드 편집 시트 | 저장 실패는 시트를 열어 둔 채 스낵바 `profile_experience_save_failed` (상한 거부는 `profile_experience_limit_reached`) | 저장 중 시트 잠금(닫기 무시) | — | 없음 | 오프라인과 같은 길 | 셸에 알림 → 로그인 |
 | 경험 카드 목록 | 읽은 카드가 없을 때만 `CareerCompassFailureState`(실패 표 #204 · `FailureSurface.ExperienceCard`) · 이어 읽기 실패는 스낵바 `profile_experience_load_more_failed` | 첫 조회만 화면 가운데 진행 표시 | `CareerCompassEmptyState` × 2사유(미등록 → 「첫 카드 만들기」 · 필터 → 「전체 보기」) | 없음 | 오프라인과 같은 길 | 셸에 알림 → 로그인 |
+| 지원서 직접 작성 시트 | 업로드 실패는 시트를 열어 둔 채 스낵바 `profile_past_application_upload_failed` (상한은 `_limit_reached` · 10MB 초과는 `_upload_too_large`) | 올리는 중 시트 잠금(닫기 무시) | — | 없음 | 오프라인과 같은 길 | 셸에 알림 → 로그인 |
 | 과거 지원서 목록 | 읽은 지원서가 없을 때만 `CareerCompassFailureState`(실패 표 #204 · `FailureSurface.Application`) · 분류 변경·삭제 실패는 스낵바 | 첫 조회만 화면 가운데 진행 표시 | `CareerCompassEmptyState` — 사유 하나(아직 안 올렸다) → 「첫 지원서 올리기」 | 없음 | 오프라인과 같은 길 | 셸에 알림 → 로그인 |
 | 분석·지원서·알림 탭 | 미구현 | 미구현 | `CareerCompassEmptyState`(자리표시자) | 미구현 | 미구현 | 미구현 |
 
 `feature/editor` · `feature/foryou` · `feature/notification` 은 **Kotlin 파일이 하나도 없다** — 빌드 스크립트만 있는 자리표시자다. 앱 셸이 `PlaceholderTabScreen` 으로 대신 그린다.
-`feature/profile` 은 마이 홈(#175) · 프로필 편집(#176 · #177) · 경험 카드 목록과 편집 시트(#178 · #179) · 과거 지원서 목록(#180)이 서 있고, 지원서 등록(#181)과 알림 설정(#196)만 셸의 `PlaceholderScreen` 이다.
+`feature/profile` 은 마이 홈(#175) · 프로필 편집(#176 · #177) · 경험 카드 목록과 편집 시트(#178 · #179) · 과거 지원서 목록(#180)이 서 있고, 알림 설정(#196)만 셸의 `PlaceholderScreen` 이다.
 
 경험 카드 편집은 **저장 실패에 시트를 닫지 않는다.** 친 값을 버리면 다시 쳐야 하고, 전체 교체가 아니라 다시 누르면 되는 요청이다. 시트는 저장 중에만 잠긴다 — 숨긴 뒤 닫기를 무시하면 빈 창만 남는다.
 

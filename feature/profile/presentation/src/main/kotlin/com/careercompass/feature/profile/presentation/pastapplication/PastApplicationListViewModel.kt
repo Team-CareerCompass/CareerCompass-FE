@@ -7,6 +7,12 @@ import com.careercompass.core.model.application.MAX_PAST_APPLICATIONS
 import com.careercompass.core.model.application.PastApplication
 import com.careercompass.core.model.application.PastApplicationCategory
 import com.careercompass.core.model.application.PastApplicationItem
+import com.careercompass.core.model.application.PastApplicationLabelRules
+import com.careercompass.core.model.application.PastApplicationTextUploadException
+import com.careercompass.core.model.application.PastApplicationTextUploadFailure
+import com.careercompass.core.model.user.ProfileFieldViolation
+import com.careercompass.core.ui.component.DirectInputEvent
+import com.careercompass.core.ui.component.DirectInputState
 import com.careercompass.core.ui.component.PastApplicationItemCategoryState
 import com.careercompass.core.ui.failure.FailureKind
 import com.careercompass.core.ui.failure.toFailureKind
@@ -17,6 +23,7 @@ import com.careercompass.core.ui.mvi.UiState
 import com.careercompass.feature.profile.domain.usecase.DeletePastApplicationUseCase
 import com.careercompass.feature.profile.domain.usecase.GetPastApplicationsUseCase
 import com.careercompass.feature.profile.domain.usecase.UpdatePastApplicationItemCategoryUseCase
+import com.careercompass.feature.profile.domain.usecase.UploadPastApplicationTextUseCase
 import com.careercompass.feature.profile.presentation.home.ProfileSessionEnd
 import com.careercompass.feature.profile.presentation.reporting.ProfileFailureStage
 import com.careercompass.feature.profile.presentation.reporting.recordProfileFailure
@@ -43,7 +50,7 @@ public data class PastApplicationListUiState(
     val pendingDeletion: PastApplicationDeleteTarget? = null,
     val isDeleting: Boolean = false,
     val message: PastApplicationListMessage? = null,
-    val isAddRequested: Boolean = false,
+    val directInput: DirectInputState? = null,
     val sessionEnd: ProfileSessionEnd? = null,
 ) : UiState {
     val isInitialLoading: Boolean get() = applications.isEmpty() && loadFailure == null && isLoading
@@ -78,7 +85,10 @@ public sealed interface PastApplicationListIntent : MviIntent {
 
     public data object ConsumeMessage : PastApplicationListIntent
 
-    public data object ConsumeAddRequest : PastApplicationListIntent
+    /** 직접 작성 시트가 보내는 것. */
+    public data class DirectInput(
+        val event: DirectInputEvent,
+    ) : PastApplicationListIntent
 
     public data object ConsumeSessionEnded : PastApplicationListIntent
 }
@@ -121,15 +131,16 @@ public sealed interface PastApplicationListReducerEvent : ReducerEvent {
         val message: PastApplicationListMessage,
     ) : PastApplicationListReducerEvent
 
-    public data object AddRequested : PastApplicationListReducerEvent
+    /** null 이면 시트를 닫는다. */
+    public data class DirectInputChanged(
+        val input: DirectInputState?,
+    ) : PastApplicationListReducerEvent
 
     public data class SessionEnded(
         val cause: ProfileSessionEnd,
     ) : PastApplicationListReducerEvent
 
     public data object MessageConsumed : PastApplicationListReducerEvent
-
-    public data object AddRequestConsumed : PastApplicationListReducerEvent
 
     public data object SessionEndedConsumed : PastApplicationListReducerEvent
 }
@@ -158,6 +169,7 @@ public class PastApplicationListViewModel
         private val getPastApplications: GetPastApplicationsUseCase,
         private val updateItemCategory: UpdatePastApplicationItemCategoryUseCase,
         private val deletePastApplication: DeletePastApplicationUseCase,
+        private val uploadPastApplicationText: UploadPastApplicationTextUseCase,
         private val errorReporter: ErrorReporter,
     ) : MviViewModel<PastApplicationListIntent, PastApplicationListUiState, PastApplicationListReducerEvent>(
             PastApplicationListUiState(),
@@ -165,6 +177,7 @@ public class PastApplicationListViewModel
         private var loadJob: Job? = null
         private var categoryJob: Job? = null
         private var deleteJob: Job? = null
+        private var uploadJob: Job? = null
 
         init {
             load()
@@ -200,8 +213,8 @@ public class PastApplicationListViewModel
                     dispatch(PastApplicationListReducerEvent.MessageConsumed)
                 }
 
-                PastApplicationListIntent.ConsumeAddRequest -> {
-                    dispatch(PastApplicationListReducerEvent.AddRequestConsumed)
+                is PastApplicationListIntent.DirectInput -> {
+                    onDirectInputEvent(intent.event)
                 }
 
                 PastApplicationListIntent.ConsumeSessionEnded -> {
@@ -273,8 +286,8 @@ public class PastApplicationListViewModel
                     state.copy(message = event.message)
                 }
 
-                PastApplicationListReducerEvent.AddRequested -> {
-                    state.copy(isAddRequested = true)
+                is PastApplicationListReducerEvent.DirectInputChanged -> {
+                    state.copy(directInput = event.input)
                 }
 
                 is PastApplicationListReducerEvent.SessionEnded -> {
@@ -283,10 +296,6 @@ public class PastApplicationListViewModel
 
                 PastApplicationListReducerEvent.MessageConsumed -> {
                     state.copy(message = null)
-                }
-
-                PastApplicationListReducerEvent.AddRequestConsumed -> {
-                    state.copy(isAddRequested = false)
                 }
 
                 PastApplicationListReducerEvent.SessionEndedConsumed -> {
@@ -322,7 +331,7 @@ public class PastApplicationListViewModel
                     if (currentState.isLimitReached) {
                         dispatch(PastApplicationListReducerEvent.MessageRaised(PastApplicationListMessage.LimitReached))
                     } else {
-                        dispatch(PastApplicationListReducerEvent.AddRequested)
+                        dispatch(PastApplicationListReducerEvent.DirectInputChanged(DirectInputState()))
                     }
                 }
 
@@ -334,6 +343,85 @@ public class PastApplicationListViewModel
                 PastApplicationListEvent.BackClicked -> {
                     Unit
                 }
+            }
+        }
+
+        /**
+         * 직접 작성 — 라벨과 본문을 받아 TXT 지원서로 올린다(#181).
+         *
+         * 판단과 변환은 `core:model` 이 갖는다(`pastApplicationTextUpload`) — 온보딩 Step 4 의 같은 입력이
+         * 같은 함수를 지난다. 업로드가 실패하면 **시트를 닫지 않는다**: 쓰던 글을 버리면 다시 써야 한다.
+         */
+        private fun onDirectInputEvent(event: DirectInputEvent) {
+            val input = currentState.directInput ?: return
+            when (event) {
+                is DirectInputEvent.LabelChanged -> {
+                    dispatch(PastApplicationListReducerEvent.DirectInputChanged(input.copy(label = event.value, labelError = null)))
+                }
+
+                is DirectInputEvent.ContentChanged -> {
+                    dispatch(PastApplicationListReducerEvent.DirectInputChanged(input.copy(content = event.value, contentError = null)))
+                }
+
+                DirectInputEvent.Submitted -> {
+                    submitDirectInput(input)
+                }
+
+                DirectInputEvent.Dismissed -> {
+                    if (!input.isSubmitting) dispatch(PastApplicationListReducerEvent.DirectInputChanged(null))
+                }
+            }
+        }
+
+        private fun submitDirectInput(input: DirectInputState) {
+            if (uploadJob?.isActive == true) return
+            dispatch(PastApplicationListReducerEvent.DirectInputChanged(input.copy(isSubmitting = true)))
+            uploadJob =
+                viewModelScope.launch {
+                    uploadPastApplicationText(label = input.label, content = input.content)
+                        .onSuccess {
+                            dispatch(PastApplicationListReducerEvent.DirectInputChanged(null))
+                            dispatch(PastApplicationListReducerEvent.MessageRaised(PastApplicationListMessage.Uploaded))
+                            load()
+                        }.onFailure { cause -> onUploadFailure(input, cause) }
+                }
+        }
+
+        private fun onUploadFailure(
+            input: DirectInputState,
+            cause: Throwable,
+        ) {
+            val validationFailure = (cause as? PastApplicationTextUploadException)?.failure
+            if (validationFailure != null) {
+                // 라벨과 본문의 오류를 한 번에 보인다 — 하나씩 알리면 제출을 두 번 눌러야 두 칸이 다 빨개진다.
+                val next =
+                    when (validationFailure) {
+                        is PastApplicationTextUploadFailure.InvalidLabel,
+                        PastApplicationTextUploadFailure.EmptyContent,
+                        -> {
+                            input.copy(
+                                isSubmitting = false,
+                                labelError = PastApplicationLabelRules.validate(input.label),
+                                contentError = if (input.content.isBlank()) ProfileFieldViolation.Required else null,
+                            )
+                        }
+
+                        PastApplicationTextUploadFailure.TooLarge -> {
+                            dispatch(PastApplicationListReducerEvent.MessageRaised(PastApplicationListMessage.UploadTooLarge))
+                            input.copy(isSubmitting = false)
+                        }
+                    }
+                dispatch(PastApplicationListReducerEvent.DirectInputChanged(next))
+                return
+            }
+            errorReporter.recordProfileFailure(ProfileFailureStage.PastApplicationUpload, cause)
+            dispatch(PastApplicationListReducerEvent.DirectInputChanged(input.copy(isSubmitting = false)))
+            if (cause is CoreDataFailure.Unauthorized) {
+                dispatch(PastApplicationListReducerEvent.SessionEnded(ProfileSessionEnd.Expired))
+            } else if (cause is CoreDataFailure.LimitExceeded) {
+                dispatch(PastApplicationListReducerEvent.MessageRaised(PastApplicationListMessage.LimitReached))
+            } else {
+                dispatch(PastApplicationListReducerEvent.MessageRaised(PastApplicationListMessage.UploadFailed))
             }
         }
 
