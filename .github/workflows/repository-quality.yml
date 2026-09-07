@@ -145,6 +145,14 @@ jobs:
             printf '%s' "$pull_request" > "$pull_request_file"
           else
             jq '.pull_request' "$GITHUB_EVENT_PATH" > "$pull_request_file"
+            # 이벤트 페이로드의 라벨은 «트리거 시점» 값이라 그 뒤에 붙인 라벨이 없다. 면제 라벨
+            # (test-only-production-exempt · issue-assignee-exempt)은 게이트가 빨개진 **뒤에** 붙이는
+            # 것이라 언제나 그 뒤다 — 그대로 두면 라벨을 붙여도 재실행이 같은 페이로드를 다시 읽어
+            # 면제가 영영 듣지 않는다. 라벨만 라이브로 덮어쓴다(호출 하나).
+            labels_file="$RUNNER_TEMP/pull-request-labels.json"
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" > "$labels_file"
+            jq --slurpfile labels "$labels_file" '.labels = $labels[0]' "$pull_request_file" > "$pull_request_file.tmp"
+            mv "$pull_request_file.tmp" "$pull_request_file"
           fi
 
           if ! [[ "$CHANGED_FILES" =~ ^[0-9]+$ ]]; then
