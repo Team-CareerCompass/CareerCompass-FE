@@ -3,6 +3,7 @@ package com.careercompass.feature.editor.domain.testing
 import com.careercompass.feature.editor.domain.model.ApplicationDraft
 import com.careercompass.feature.editor.domain.model.ApplicationHistoryPage
 import com.careercompass.feature.editor.domain.model.ApplicationItem
+import com.careercompass.feature.editor.domain.model.ApplicationItemDraft
 import com.careercompass.feature.editor.domain.model.ApplicationResult
 import com.careercompass.feature.editor.domain.model.ApplicationStatus
 import com.careercompass.feature.editor.domain.model.ApplicationStreamEvent
@@ -19,7 +20,7 @@ import java.util.concurrent.CopyOnWriteArrayList
  * 남기고 [Result.success] 로 돌려준다. 호출 기록은 `xxxCalls` 로 검증한다.
  */
 public class FakeApplicationRepository(
-    public var onCreateDraft: (suspend (Long, ApplicationTone) -> Result<ApplicationDraft>)? = null,
+    public var onCreateDraft: (suspend (Long, ApplicationTone, List<ApplicationItemDraft>?) -> Result<ApplicationDraft>)? = null,
     public var onStreamEvents: ((Long) -> Flow<ApplicationStreamEvent>)? = null,
     public var onRegenerateItem: (suspend (Long, Long, ApplicationTone?, List<Long>) -> Result<ApplicationItem>)? = null,
     public var onUpdateItemAnswer: (suspend (Long, Long, String) -> Result<ApplicationItem>)? = null,
@@ -28,7 +29,7 @@ public class FakeApplicationRepository(
     public var onGetApplications: (suspend (ApplicationStatus?, String?, Int?) -> Result<ApplicationHistoryPage>)? = null,
     public var onDelete: (suspend (Long) -> Result<Unit>)? = null,
 ) : ApplicationRepository {
-    public val createDraftCalls: CopyOnWriteArrayList<Pair<Long, ApplicationTone>> = CopyOnWriteArrayList()
+    public val createDraftCalls: CopyOnWriteArrayList<CreateDraftCall> = CopyOnWriteArrayList()
     public val streamCalls: CopyOnWriteArrayList<Long> = CopyOnWriteArrayList()
     public val regenerateCalls: CopyOnWriteArrayList<RegenerateCall> = CopyOnWriteArrayList()
     public val updateAnswerCalls: CopyOnWriteArrayList<UpdateAnswerCall> = CopyOnWriteArrayList()
@@ -36,6 +37,12 @@ public class FakeApplicationRepository(
     public val updateResultCalls: CopyOnWriteArrayList<Pair<Long, ApplicationResult>> = CopyOnWriteArrayList()
     public val historyCalls: CopyOnWriteArrayList<HistoryCall> = CopyOnWriteArrayList()
     public val deleteCalls: CopyOnWriteArrayList<Long> = CopyOnWriteArrayList()
+
+    public data class CreateDraftCall(
+        val postingId: Long,
+        val tone: ApplicationTone,
+        val items: List<ApplicationItemDraft>?,
+    )
 
     public data class RegenerateCall(
         val applicationId: Long,
@@ -59,9 +66,10 @@ public class FakeApplicationRepository(
     override suspend fun createDraft(
         postingId: Long,
         tone: ApplicationTone,
+        items: List<ApplicationItemDraft>?,
     ): Result<ApplicationDraft> {
-        createDraftCalls += postingId to tone
-        return onCreateDraft?.invoke(postingId, tone) ?: error("onCreateDraft 훅이 필요합니다")
+        createDraftCalls += CreateDraftCall(postingId, tone, items)
+        return onCreateDraft?.invoke(postingId, tone, items) ?: error("onCreateDraft 훅이 필요합니다")
     }
 
     override fun streamEvents(applicationId: Long): Flow<ApplicationStreamEvent> {

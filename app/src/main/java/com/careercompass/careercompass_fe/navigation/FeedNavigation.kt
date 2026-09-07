@@ -25,6 +25,9 @@ internal fun rememberFeedExternalActions(
             /** 프로필 입력 안내 — 마이 탭(profile 모듈 진입점이 생기기 전까지 자리표시자). */
             override fun navigateToProfileTab() = appState.navigateToTab(CareerCompassBottomTab.My)
 
+            /** 지원서 초안 작성 — editor 모듈의 문항 확인 화면(#183). */
+            override fun navigateToApplicationSetup(postingId: Long) = appState.navigateToApplicationSetup(postingId)
+
             override fun onSessionEnded() = onSessionEndedState()
         }
     }

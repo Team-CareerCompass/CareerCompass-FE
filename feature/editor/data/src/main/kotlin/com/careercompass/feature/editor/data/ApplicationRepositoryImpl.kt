@@ -2,6 +2,7 @@ package com.careercompass.feature.editor.data
 
 import com.careercompass.core.common.result.runCatchingCancellable
 import com.careercompass.core.domain.error.CoreDataFailure
+import com.careercompass.core.network.dto.ApplicationItemRequestDto
 import com.careercompass.core.network.dto.CreateApplicationRequestDto
 import com.careercompass.core.network.dto.RegenerateItemRequestDto
 import com.careercompass.core.network.dto.UpdateApplicationResultRequestDto
@@ -20,6 +21,7 @@ import com.careercompass.feature.editor.domain.error.EditorFailure
 import com.careercompass.feature.editor.domain.model.ApplicationDraft
 import com.careercompass.feature.editor.domain.model.ApplicationHistoryPage
 import com.careercompass.feature.editor.domain.model.ApplicationItem
+import com.careercompass.feature.editor.domain.model.ApplicationItemDraft
 import com.careercompass.feature.editor.domain.model.ApplicationResult
 import com.careercompass.feature.editor.domain.model.ApplicationStatus
 import com.careercompass.feature.editor.domain.model.ApplicationStreamEvent
@@ -44,12 +46,21 @@ internal class ApplicationRepositoryImpl
         override suspend fun createDraft(
             postingId: Long,
             tone: ApplicationTone,
+            items: List<ApplicationItemDraft>?,
         ): Result<ApplicationDraft> =
             runCatchingCancellable {
                 ApplicationMapper.toDraft(
                     applicationApiService
-                        .createApplication(CreateApplicationRequestDto(postingId = postingId, tone = tone.wireValue))
-                        .requireData(),
+                        .createApplication(
+                            CreateApplicationRequestDto(
+                                postingId = postingId,
+                                tone = tone.wireValue,
+                                items =
+                                    items?.map {
+                                        ApplicationItemRequestDto(order = it.order, question = it.question, maxChars = it.maxChars)
+                                    },
+                            ),
+                        ).requireData(),
                 )
             }.mapDataFailure()
 

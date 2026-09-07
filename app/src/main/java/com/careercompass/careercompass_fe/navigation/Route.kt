@@ -62,6 +62,23 @@ public sealed interface Route : NavKey {
     @Serializable
     public data object PastApplicationUploadPlaceholder : Route
 
+    /**
+     * 지원서 작성 첫 화면 — editor 모듈의 문항 확인(#183). 공고 상세의 초안 버튼이 연다.
+     *
+     * 피드 그래프 **밖**에 쌓는다. 목적지가 다른 모듈이고, 초안 화면에서 뒤로 오면 그 공고 상세가 그대로
+     * 남아 있어야 하기 때문이다. 공고 id 를 키가 나른다 — 화면이 그 값으로 문항을 읽는다.
+     */
+    @Serializable
+    public data class ApplicationSetup(
+        val postingId: Long,
+    ) : Route
+
+    /** 지원서 초안 생성 진행 — editor 모듈(#184). 그 화면이 붙기 전까지 자리표시자다. */
+    @Serializable
+    public data class ApplicationProgressPlaceholder(
+        val applicationId: Long,
+    ) : Route
+
     /** 알림 설정 — notification 모듈(#196). */
     @Serializable
     public data object NotificationSettingsPlaceholder : Route

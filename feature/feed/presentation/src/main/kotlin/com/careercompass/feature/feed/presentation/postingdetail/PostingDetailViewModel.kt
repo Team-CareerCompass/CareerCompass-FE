@@ -69,13 +69,20 @@ public sealed interface PostingDetailDestination {
 
     /** 앱 셸이 마이 탭(프로필 입력)으로 보낸다. */
     public data object Profile : PostingDetailDestination
+
+    /**
+     * 지원서 초안 작성 — 앱 셸이 editor 모듈의 문항 확인 화면으로 보낸다(#183).
+     *
+     * 피드 그래프 안이 아니라 셸을 지나는 이유는 목적지가 다른 모듈이기 때문이다. 초안 화면에서 뒤로 오면
+     * 이 상세가 그대로 남아 있어야 하므로 상세를 걷어내지 않는다.
+     */
+    public data class ApplicationSetup(
+        val postingId: Long,
+    ) : PostingDetailDestination
 }
 
 public enum class PostingDetailMessage {
     BookmarkFailed,
-
-    /** editor 모듈이 아직 연결되지 않았다. */
-    DraftComingSoon,
 }
 
 /** 공유 시트에 실을 내용. Screen 이 `Intent.ACTION_SEND` 로 바꾼다. */
@@ -305,7 +312,7 @@ public class PostingDetailViewModel
                 }
 
                 PostingDetailEvent.CreateDraftClicked -> {
-                    dispatch(PostingDetailReducerEvent.MessageRaised(PostingDetailMessage.DraftComingSoon))
+                    navigate(PostingDetailDestination.ApplicationSetup(postingId))
                 }
 
                 PostingDetailEvent.CompleteProfileClicked -> {
