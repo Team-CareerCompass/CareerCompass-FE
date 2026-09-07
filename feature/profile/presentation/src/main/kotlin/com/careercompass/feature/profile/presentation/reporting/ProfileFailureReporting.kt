@@ -22,6 +22,9 @@ public enum class ProfileFailureStage(
     /** `PATCH /users/me` — 서버가 값을 거부한 경우(400)도 여기로 센다. */
     BasicInfoSave("basic_info_save"),
 
+    /** `PUT /users/me/job-interests` · `PUT /users/me/tags` — 전체 교체라 실패 처분이 기본 정보와 다르다. */
+    InterestsSave("interests_save"),
+
     BiometricToggle("biometric_toggle"),
     ThemeMode("theme_mode"),
     Logout("logout"),

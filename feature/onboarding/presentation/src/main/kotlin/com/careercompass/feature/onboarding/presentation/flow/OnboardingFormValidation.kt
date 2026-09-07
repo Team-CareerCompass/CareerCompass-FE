@@ -1,5 +1,6 @@
 package com.careercompass.feature.onboarding.presentation.flow
 
+import com.careercompass.core.model.user.InterestTagRules
 import com.careercompass.core.model.user.MAX_PROFILE_DEPARTMENT_LENGTH
 import com.careercompass.core.model.user.MAX_PROFILE_NAME_LENGTH
 import com.careercompass.core.model.user.ProfileBasicInfoRules
@@ -51,8 +52,8 @@ private fun ProfileFieldViolation?.toFieldError(): OnboardingFieldError? =
         ProfileFieldViolation.OutOfRange -> OnboardingFieldError.OutOfRange
     }
 
-/** Step 2 태그 정규화 — 앞의 `#` 과 양끝 공백을 걷어낸다. */
-internal fun normalizeInterestTag(raw: String): String = raw.trim().trimStart('#').trim()
+/** Step 2 태그 정규화 — 규칙은 `core:model` 이 갖는다(마이 탭의 관심 편집이 같은 것을 쓴다, #177). */
+internal fun normalizeInterestTag(raw: String): String = InterestTagRules.normalize(raw)
 
 /**
  * 지원서 라벨 규칙 — 기능 스펙 F1-4 「각 지원서에 사용자가 직접 라벨 부여」.

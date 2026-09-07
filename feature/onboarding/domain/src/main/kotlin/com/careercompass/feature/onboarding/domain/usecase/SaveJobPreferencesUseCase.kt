@@ -2,9 +2,9 @@ package com.careercompass.feature.onboarding.domain.usecase
 
 import com.careercompass.core.domain.repository.UserProfileRepository
 import com.careercompass.core.model.user.JobInterest
+import com.careercompass.core.model.user.JobOptionCatalog
 import com.careercompass.core.model.user.MAX_JOB_INTERESTS
 import com.careercompass.core.model.user.MAX_PROFILE_TAGS
-import com.careercompass.feature.onboarding.domain.model.JobOptionCatalog
 import com.careercompass.feature.onboarding.domain.model.OnboardingStep
 import com.careercompass.feature.onboarding.domain.repository.OnboardingProgressRepository
 import javax.inject.Inject

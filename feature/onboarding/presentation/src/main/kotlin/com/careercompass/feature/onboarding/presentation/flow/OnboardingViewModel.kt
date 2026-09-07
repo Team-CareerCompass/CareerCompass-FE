@@ -21,6 +21,7 @@ import com.careercompass.core.model.experience.MAX_EXPERIENCE_TECH_TAGS
 import com.careercompass.core.model.experience.MAX_EXPERIENCE_TECH_TAG_LENGTH
 import com.careercompass.core.model.experience.isAllowedExperienceLink
 import com.careercompass.core.model.user.GraduationDateRules
+import com.careercompass.core.model.user.JobOptionCatalog
 import com.careercompass.core.model.user.MAX_JOB_INTERESTS
 import com.careercompass.core.model.user.MAX_PROFILE_TAGS
 import com.careercompass.core.model.user.ProfileBasicInfoRules
@@ -34,7 +35,6 @@ import com.careercompass.core.ui.component.SchoolPickerEvent
 import com.careercompass.core.ui.component.SchoolPickerState
 import com.careercompass.core.ui.failure.FailureSurface
 import com.careercompass.core.ui.mvi.MviViewModel
-import com.careercompass.feature.onboarding.domain.model.JobOptionCatalog
 import com.careercompass.feature.onboarding.domain.model.OnboardingProgress
 import com.careercompass.feature.onboarding.domain.model.OnboardingStep
 import com.careercompass.feature.onboarding.domain.usecase.AddExperienceUseCase

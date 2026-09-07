@@ -10,6 +10,8 @@ import com.careercompass.core.ui.component.GraduationDatePickerEvent
 import com.careercompass.core.ui.component.SchoolPickerEvent
 import com.careercompass.feature.profile.domain.usecase.ObserveProfileUseCase
 import com.careercompass.feature.profile.domain.usecase.RefreshProfileUseCase
+import com.careercompass.feature.profile.domain.usecase.SaveJobInterestsUseCase
+import com.careercompass.feature.profile.domain.usecase.SaveProfileTagsUseCase
 import com.careercompass.feature.profile.domain.usecase.UpdateProfileBasicInfoUseCase
 import com.careercompass.feature.profile.presentation.home.ProfileSessionEnd
 import kotlinx.coroutines.CompletableDeferred
@@ -62,6 +64,8 @@ class ProfileEditViewModelTest {
             observeProfile = ObserveProfileUseCase(userProfileRepository),
             refreshProfile = RefreshProfileUseCase(userProfileRepository),
             updateProfileBasicInfo = UpdateProfileBasicInfoUseCase(userProfileRepository),
+            saveJobInterests = SaveJobInterestsUseCase(userProfileRepository),
+            saveProfileTags = SaveProfileTagsUseCase(userProfileRepository),
             errorReporter = reporter,
             clock = clock,
         )
@@ -284,6 +288,118 @@ class ProfileEditViewModelTest {
         viewModel.onEvent(ProfileEditEvent.SaveClicked)
 
         assertEquals(2028, userProfileRepository.updates.single().gradYear)
+    }
+
+    // ── 희망 직무·관심 태그 (#177) ─────────────────────────────────────────────
+
+    @Test
+    fun `서버 값으로 직무와 태그를 채우되 우선순위 순으로 세운다`() {
+        userProfileRepository.profileState.value =
+            profile().copy(
+                jobInterests = listOf(JobInterest("backend", 2), JobInterest("android", 1)),
+                tags = listOf("모바일", "AI"),
+            )
+
+        val state = viewModel().state.value
+
+        assertEquals(listOf("android", "backend"), state.selectedJobCodes)
+        assertEquals(listOf("모바일", "AI"), state.interestTags)
+    }
+
+    @Test
+    fun `직무는 세 개까지 고르고 상한에 닿으면 이유를 말한다`() {
+        val viewModel = viewModel()
+        listOf("backend", "frontend", "mobile").forEach { viewModel.onEvent(ProfileEditEvent.JobToggled(it)) }
+
+        viewModel.onEvent(ProfileEditEvent.JobToggled("devops"))
+
+        assertEquals(
+            listOf("android", "backend", "frontend"),
+            viewModel.state.value.selectedJobCodes
+                .take(3),
+        )
+        assertEquals(ProfileEditMessage.JobLimitReached, viewModel.state.value.message)
+    }
+
+    @Test
+    fun `이미 고른 직무는 상한에 닿아도 뺄 수 있다`() {
+        val viewModel = viewModel()
+        viewModel.onEvent(ProfileEditEvent.JobToggled("backend"))
+        viewModel.onEvent(ProfileEditEvent.JobToggled("frontend"))
+        assertTrue(viewModel.state.value.isJobLimitReached)
+
+        viewModel.onEvent(ProfileEditEvent.JobToggled("backend"))
+
+        assertEquals(listOf("android", "frontend"), viewModel.state.value.selectedJobCodes)
+    }
+
+    @Test
+    fun `태그는 다듬어 담고 중복은 흘린다`() {
+        val viewModel = viewModel()
+        viewModel.onEvent(ProfileEditEvent.InterestInputChanged(" #AI "))
+        viewModel.onEvent(ProfileEditEvent.InterestTagAdded)
+
+        viewModel.onEvent(ProfileEditEvent.InterestInputChanged("AI"))
+        viewModel.onEvent(ProfileEditEvent.InterestTagAdded)
+
+        assertEquals(listOf("모바일", "AI"), viewModel.state.value.interestTags)
+        assertEquals("", viewModel.state.value.interestInput)
+    }
+
+    @Test
+    fun `태그 상한에 닿으면 이유를 말한다`() {
+        val viewModel = viewModel()
+        listOf("A", "B", "C", "D").forEach {
+            viewModel.onEvent(ProfileEditEvent.InterestInputChanged(it))
+            viewModel.onEvent(ProfileEditEvent.InterestTagAdded)
+        }
+        assertTrue(viewModel.state.value.isTagLimitReached)
+
+        viewModel.onEvent(ProfileEditEvent.InterestInputChanged("E"))
+        viewModel.onEvent(ProfileEditEvent.InterestTagAdded)
+
+        assertEquals(5, viewModel.state.value.interestTags.size)
+        assertEquals(ProfileEditMessage.TagLimitReached, viewModel.state.value.message)
+    }
+
+    @Test
+    fun `바뀐 목록만 전체 교체로 보낸다`() {
+        val viewModel = viewModel()
+        viewModel.onEvent(ProfileEditEvent.JobToggled("backend"))
+
+        viewModel.onEvent(ProfileEditEvent.SaveClicked)
+
+        assertEquals(listOf("android", "backend"), userProfileRepository.replacedJobInterests.single().map { it.code })
+        assertEquals(listOf(1, 2), userProfileRepository.replacedJobInterests.single().map { it.priority })
+        // 태그는 바뀌지 않았으므로 왕복하지 않는다.
+        assertTrue(userProfileRepository.replacedTags.isEmpty())
+    }
+
+    /** 전체 교체는 부분 성공이 없다 — 화면만 새 값으로 남으면 사용자는 저장된 줄 안다. */
+    @Test
+    fun `직무 저장이 실패하면 화면 값을 서버 값으로 되돌린다`() {
+        userProfileRepository.onReplaceJobInterests = { Result.failure(IOException("offline")) }
+        val viewModel = viewModel()
+        viewModel.onEvent(ProfileEditEvent.JobToggled("backend"))
+
+        viewModel.onEvent(ProfileEditEvent.SaveClicked)
+
+        assertEquals(listOf("android"), viewModel.state.value.selectedJobCodes)
+        assertEquals(ProfileEditMessage.InterestsReverted, viewModel.state.value.message)
+        assertFalse(viewModel.state.value.isSaved)
+        assertEquals("interests_save", reporter.recorded.single()["profile_stage"])
+    }
+
+    @Test
+    fun `직무나 태그가 비면 저장을 잠그고 요청도 보내지 않는다`() {
+        val viewModel = viewModel()
+        viewModel.onEvent(ProfileEditEvent.JobToggled("android"))
+        assertFalse(viewModel.state.value.isSaveEnabled)
+
+        viewModel.onEvent(ProfileEditEvent.SaveClicked)
+
+        assertTrue(userProfileRepository.replacedJobInterests.isEmpty())
+        assertFalse(viewModel.state.value.isSaved)
     }
 
     private companion object {
