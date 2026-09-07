@@ -1,9 +1,9 @@
 package com.careercompass.feature.onboarding.presentation.flow
 
 import androidx.lifecycle.SavedStateHandle
+import com.careercompass.core.model.user.JobOptionCatalog
 import com.careercompass.core.model.user.MAX_JOB_INTERESTS
 import com.careercompass.core.model.user.MAX_PROFILE_TAGS
-import com.careercompass.feature.onboarding.domain.model.JobOptionCatalog
 import com.careercompass.feature.onboarding.presentation.pastapplication.DirectInputState
 
 /**

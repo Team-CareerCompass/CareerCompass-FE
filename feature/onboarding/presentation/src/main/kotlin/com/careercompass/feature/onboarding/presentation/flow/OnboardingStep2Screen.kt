@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.careercompass.feature.onboarding.domain.model.JobOptionCatalog
+import com.careercompass.core.model.user.JobOptionCatalog
 import com.careercompass.feature.onboarding.presentation.OnboardingJobOption
 import com.careercompass.feature.onboarding.presentation.OnboardingStep2Content
 import com.careercompass.feature.onboarding.presentation.OnboardingStep2Event

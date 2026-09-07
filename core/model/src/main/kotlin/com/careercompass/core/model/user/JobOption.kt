@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.domain.model
+package com.careercompass.core.model.user
 
 /**
  * 희망 직무 선택지 하나.

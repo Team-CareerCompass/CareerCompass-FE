@@ -36,8 +36,34 @@ class ProfileEditContentTest {
         composeRule.onNodeWithText("이준혁").assertIsDisplayed()
         composeRule.onNodeWithText("건국대학교").assertIsDisplayed()
         composeRule.onNodeWithText("컴퓨터공학부").assertIsDisplayed()
-        composeRule.onNodeWithText("3.9").assertIsDisplayed()
+        composeRule.onNodeWithText("3.9").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("2027").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `희망 직무와 관심 태그를 그린다`() {
+        composeRule.setContent(loadedState().copy(selectedJobCodes = listOf("backend"), interestTags = listOf("AI")))
+
+        composeRule.onNodeWithText("희망 직무 (1/3)").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("#AI").performScrollTo().assertIsDisplayed()
+    }
+
+    /** 상한에 닿았을 때 무엇이 일어나는지 화면에 보인다 — 조용히 무시하지 않는다(#177). */
+    @Test
+    fun `상한에 닿으면 라벨이 현재와 상한을 함께 보인다`() {
+        composeRule.setContent(loadedState().copy(interestTags = listOf("A", "B", "C", "D", "E")))
+
+        composeRule.onNodeWithText("관심 분야 (5/5)").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `직무를 누르면 올려 보낸다`() {
+        val events = mutableListOf<ProfileEditEvent>()
+        composeRule.setContent(loadedState(), onEvent = { events += it })
+
+        composeRule.onNodeWithText("백엔드 개발").performScrollTo().performClick()
+
+        composeRule.runOnIdle { assertEquals(listOf(ProfileEditEvent.JobToggled("backend")), events) }
     }
 
     @Test
@@ -114,6 +140,8 @@ class ProfileEditContentTest {
             department = "컴퓨터공학부",
             gradePointAverage = "3.9",
             graduationDate = "2027",
+            selectedJobCodes = listOf("android"),
+            interestTags = listOf("모바일"),
         )
     }
 

@@ -25,6 +25,15 @@ public enum class ProfileEditField(
 
 /** 스낵바 한 줄로 끝나는 알림. */
 public enum class ProfileEditMessage {
+    /** 희망 직무·관심 태그 저장이 실패해 화면 값을 서버 값으로 되돌렸다(#177). */
+    InterestsReverted,
+
+    /** 관심 태그 상한에 닿아 더 담지 않았다. 조용히 무시하지 않는다. */
+    TagLimitReached,
+
+    /** 희망 직무 상한에 닿아 더 고르지 않았다. */
+    JobLimitReached,
+
     /** 저장이 실패했다. 입력은 그대로 남는다 — 다시 누르면 된다. */
     SaveFailed,
 
@@ -44,6 +53,20 @@ public sealed interface ProfileEditEvent {
 
     public data class GradePointAverageChanged(
         val value: String,
+    ) : ProfileEditEvent
+
+    public data class JobToggled(
+        val code: String,
+    ) : ProfileEditEvent
+
+    public data class InterestInputChanged(
+        val value: String,
+    ) : ProfileEditEvent
+
+    public data object InterestTagAdded : ProfileEditEvent
+
+    public data class InterestTagRemoved(
+        val tag: String,
     ) : ProfileEditEvent
 
     public data object SchoolPickerClicked : ProfileEditEvent

@@ -1,5 +1,6 @@
 package com.careercompass.feature.profile.presentation.basicinfo
 
+import android.content.res.Resources
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -16,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.careercompass.core.model.user.MAX_JOB_INTERESTS
+import com.careercompass.core.model.user.MAX_PROFILE_TAGS
 import com.careercompass.core.ui.component.GraduationDatePickerEvent
 import com.careercompass.core.ui.component.GraduationDatePickerSheet
 import com.careercompass.core.ui.component.SchoolPickerEvent
@@ -68,7 +71,7 @@ public fun ProfileEditScreen(
         consumed = ProfileEditIntent.ConsumeMessage,
         onIntent = viewModel::onIntent,
     ) { message ->
-        snackbarScope.launch { snackbarHostState.showSnackbar(resources.getString(message.messageRes())) }
+        snackbarScope.launch { snackbarHostState.showSnackbar(message.text(resources)) }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -101,8 +104,12 @@ public fun ProfileEditScreen(
     }
 }
 
-private fun ProfileEditMessage.messageRes(): Int =
+/** 상한 문구는 숫자를 문장에 박지 않고 `core:model` 의 상수를 실어 나른다 — 상한이 바뀌면 문구도 함께 바뀐다. */
+private fun ProfileEditMessage.text(resources: Resources): String =
     when (this) {
-        ProfileEditMessage.SaveFailed -> R.string.profile_edit_save_failed
-        ProfileEditMessage.SaveRejected -> R.string.profile_edit_save_rejected
+        ProfileEditMessage.InterestsReverted -> resources.getString(R.string.profile_edit_interests_reverted)
+        ProfileEditMessage.TagLimitReached -> resources.getString(R.string.profile_edit_tag_limit, MAX_PROFILE_TAGS)
+        ProfileEditMessage.JobLimitReached -> resources.getString(R.string.profile_edit_job_limit, MAX_JOB_INTERESTS)
+        ProfileEditMessage.SaveFailed -> resources.getString(R.string.profile_edit_save_failed)
+        ProfileEditMessage.SaveRejected -> resources.getString(R.string.profile_edit_save_rejected)
     }
