@@ -34,6 +34,7 @@
 | 경험 카드 유형 개수 — 명세서는 「6가지」라 쓰고 다섯을 나열 | F1-3 ↔ API_SPEC §3 | **5종이 맞다.** 「6가지」는 오기 — 같은 문장이 다섯을 열거하고, 「유형별 입력 필드」 표도 다섯 행이며, API_SPEC §3 의 `type` 도 다섯 값(`project`·`award`·`intern`·`activity`·`cert`)이고 Figma 05 도 5타입이다. 넷 중 셋이 5를 말하고 6은 자기 문장 안에서 반박된다 | [#199](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/199) |
 | 적합도 필터 옵션(60·70·80)과 레이블 경계(60·80) | F2-3 ↔ F3-2 | 필터에서 고른 값과 카드 레이블이 같은 경계를 쓰게 맞춘다 — 판정과 근거는 이슈와 그 PR 에 | [#200](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/200) |
 | 지원서 버전 보관·재생성 규칙이 API 에 없음 | F4-3 ↔ API_SPEC §6 | 다섯 가지를 정했다 — 아래 「지원서 규칙」 | [#201](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/201) |
+| For You 추천의 `reason` 타입 — 톱 픽은 배열, 강점·보완은 문자열 | API_SPEC §7 안에서 | **스키마를 그대로 받고 도메인에서 하나로 모은다**(`ForYouRecommendation.reasons`). DTO 를 한 타입으로 합치면 둘 중 한쪽 응답이 통째로 파싱 실패로 떨어지고, 화면이 두 모양을 각각 알면 카드 한 장을 그리는 코드가 자리마다 갈라진다. **서버 쪽에 배열로 통일해 달라고 알릴 것** — 이유가 하나뿐인 추천은 원소 하나짜리 배열이면 된다 | [#190](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/190) |
 | 알림 유형 개수 — 명세서는 셋(신규 공고·마감 임박·수집 오류), API_SPEC 설정은 넷(`weeklyReport` 추가) | F2-4 ↔ API_SPEC §8 | **넷이다.** 설정 스키마에 키가 있으면 서버가 그 알림을 보낸다는 뜻이고, 명세서 표는 「발송 조건」만 적어 조건이 정해지지 않은 주간 리포트가 빠진 것으로 본다. 주간 리포트의 발송 조건은 미정 | [#202](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/202) |
 | 알림 목록·설정 화면 시안이 Figma 에 없음 | API_SPEC §8 ↔ Figma | 화면 명세를 글로 먼저 확정하고([`notification-screens.md`](notification-screens.md)) 그대로 옮겨 [13 Notification](https://www.figma.com/design/osiio5ZAcJreMsKUqjY2QW/?node-id=164-3) 페이지에 7장을 그렸다(2026-09-05). 03·05 의 옛 알림 화면은 폐기다 | [#202](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/202) |
 
@@ -69,6 +70,7 @@
 | 지원서를 텍스트로 받는 엔드포인트 | 앱 안에서 직접 써서 등록(F1-4 「등록 방식」 표의 둘 중 하나) | [#181](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/181) |
 | 지원 이력 응답의 공고 제목·기관 | 지원 이력 목록(F4-4)이 「어느 공고에 낸 것인가」를 못 쓴다. §6 의 지원서 스키마는 `id`·`status`·`items` 뿐이고, `postingId` 로 공고를 한 건씩 다시 읽는 우회는 목록 한 페이지에 20번의 왕복을 만든다 | [#188](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/188) |
 | 지원서 단건 조회(`GET /applications/{id}`) | 스트림이 끊긴 뒤 지금 상태를 다시 읽는 길. 지금은 `POST /applications` 가 「진행 중이면 기존 것을 돌려준다」는 규칙에 기대 복구한다 — 그 규칙이 서버에 들어가지 않으면 재시도가 초안을 하나 더 만든다 | [#182](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/182) |
+| For You 추천 응답의 공고 요약 | 추천 카드가 `postingId` 만 받아 제목·기관·마감을 못 그린다. 건마다 §5 의 공고 상세를 다시 읽는 우회는 한 화면(최대 11건)에 11번의 왕복을 만든다 | [#191](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/191) |
 | `GET /notifications` 의 응답 스키마 | 알림 목록 화면 | [#195](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/195) |
 
 ## 지원서 스트림의 계약 (§6 의 빈 곳, #182 판정)
