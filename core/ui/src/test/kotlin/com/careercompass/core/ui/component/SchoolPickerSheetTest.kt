@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.presentation.basicinfo
+package com.careercompass.core.ui.component
 
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -16,8 +16,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
+import com.careercompass.core.model.user.ProfileFieldViolation
 import com.careercompass.core.ui.theme.CareerCompassTheme
-import com.careercompass.feature.onboarding.presentation.shared.model.OnboardingFieldError
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -138,7 +138,7 @@ public class SchoolPickerSheetTest {
             SchoolPickerState(
                 query = "서울예술",
                 results = emptyList(),
-                directInput = SchoolDirectInputState(value = "가".repeat(51), error = OnboardingFieldError.TooLong(50)),
+                directInput = SchoolDirectInputState(value = "가".repeat(51), error = ProfileFieldViolation.TooLong(50)),
             ),
         )
 

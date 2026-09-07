@@ -20,17 +20,23 @@ import com.careercompass.core.model.experience.MAX_EXPERIENCE_LINK_LENGTH
 import com.careercompass.core.model.experience.MAX_EXPERIENCE_TECH_TAGS
 import com.careercompass.core.model.experience.MAX_EXPERIENCE_TECH_TAG_LENGTH
 import com.careercompass.core.model.experience.isAllowedExperienceLink
+import com.careercompass.core.model.user.GraduationDateRules
 import com.careercompass.core.model.user.MAX_JOB_INTERESTS
 import com.careercompass.core.model.user.MAX_PROFILE_TAGS
-import com.careercompass.core.model.user.MIN_GRADUATION_YEAR
+import com.careercompass.core.model.user.ProfileBasicInfoRules
+import com.careercompass.core.model.user.SchoolCatalog
+import com.careercompass.core.model.user.SchoolNameRules
 import com.careercompass.core.model.user.UserProfile
+import com.careercompass.core.ui.component.GraduationDatePickerEvent
+import com.careercompass.core.ui.component.GraduationPickerState
+import com.careercompass.core.ui.component.SchoolDirectInputState
+import com.careercompass.core.ui.component.SchoolPickerEvent
+import com.careercompass.core.ui.component.SchoolPickerState
 import com.careercompass.core.ui.failure.FailureSurface
 import com.careercompass.core.ui.mvi.MviViewModel
 import com.careercompass.feature.onboarding.domain.model.JobOptionCatalog
 import com.careercompass.feature.onboarding.domain.model.OnboardingProgress
 import com.careercompass.feature.onboarding.domain.model.OnboardingStep
-import com.careercompass.feature.onboarding.domain.model.SchoolCatalog
-import com.careercompass.feature.onboarding.domain.model.SchoolNameRules
 import com.careercompass.feature.onboarding.domain.usecase.AddExperienceUseCase
 import com.careercompass.feature.onboarding.domain.usecase.CompleteOnboardingUseCase
 import com.careercompass.feature.onboarding.domain.usecase.DeleteExperienceUseCase
@@ -48,11 +54,6 @@ import com.careercompass.feature.onboarding.presentation.OnboardingStep1Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep2Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep3Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep4Event
-import com.careercompass.feature.onboarding.presentation.basicinfo.GraduationDatePickerEvent
-import com.careercompass.feature.onboarding.presentation.basicinfo.GraduationPickerState
-import com.careercompass.feature.onboarding.presentation.basicinfo.SchoolDirectInputState
-import com.careercompass.feature.onboarding.presentation.basicinfo.SchoolPickerEvent
-import com.careercompass.feature.onboarding.presentation.basicinfo.SchoolPickerState
 import com.careercompass.feature.onboarding.presentation.complete.OnboardingCompleteEvent
 import com.careercompass.feature.onboarding.presentation.experience.ExperienceDeleteEvent
 import com.careercompass.feature.onboarding.presentation.experience.ExperienceDeleteState
@@ -378,7 +379,7 @@ public class OnboardingViewModel
                             directInput =
                                 SchoolDirectInputState(
                                     value = event.value,
-                                    error = OnboardingStep1Rules.validateSchool(event.value, requireValue = false),
+                                    error = ProfileBasicInfoRules.validateSchool(event.value, requireValue = false),
                                 ),
                         )
                     }
@@ -407,7 +408,7 @@ public class OnboardingViewModel
         private fun confirmSchoolDirectInput() {
             val picker = currentState.schoolPicker ?: return
             val input = picker.directInput ?: return
-            val error = OnboardingStep1Rules.validateSchool(input.value, requireValue = true)
+            val error = ProfileBasicInfoRules.validateSchool(input.value, requireValue = true)
             if (error != null) {
                 dispatch(OnboardingReducerEvent.SchoolPickerUpdated(picker.copy(directInput = input.copy(error = error))))
             } else {
@@ -444,7 +445,7 @@ public class OnboardingViewModel
                     dispatch(
                         OnboardingReducerEvent.GraduationChosen(
                             currentState.step1.copy(
-                                graduationDate = formatGraduationDate(picker.selectedYear, picker.selectedMonth),
+                                graduationDate = GraduationDateRules.format(picker.selectedYear, picker.selectedMonth),
                                 graduationDateError = null,
                             ),
                         ),
@@ -465,10 +466,10 @@ public class OnboardingViewModel
         private fun openGraduationPicker() {
             if (!currentState.isInputEnabled) return
             val currentYear = Year.now().value
-            val years = (MIN_GRADUATION_YEAR..currentYear + GRADUATION_YEARS_AHEAD).toList()
+            val years = GraduationDateRules.yearsFrom(currentYear)
             val typedYear = OnboardingStep1Rules.parseGraduationYear(currentState.step1.graduationDate)
             val selectedYear = typedYear?.takeIf { it in years } ?: currentYear
-            val selectedMonth = parseGraduationMonth(currentState.step1.graduationDate) ?: DEFAULT_GRADUATION_MONTH
+            val selectedMonth = GraduationDateRules.parseMonth(currentState.step1.graduationDate) ?: GraduationDateRules.DEFAULT_MONTH
             dispatch(
                 OnboardingReducerEvent.GraduationPickerUpdated(
                     GraduationPickerState(years = years, selectedYear = selectedYear, selectedMonth = selectedMonth),
@@ -1202,13 +1203,6 @@ public class OnboardingViewModel
                 copy(status = OnboardingUploadStatus.Completed(status.items.map { if (it.id == item.id) item else it }))
             }
         }
-
-        private companion object {
-            const val GRADUATION_YEARS_AHEAD = 6
-
-            /** 국내 대학 졸업은 대개 2월이라 피커의 기본 월로 둔다. */
-            const val DEFAULT_GRADUATION_MONTH = 2
-        }
     }
 
 private fun OnboardingStep1FormState.prefill(profile: UserProfile?): OnboardingStep1FormState {
@@ -1364,17 +1358,6 @@ private fun toRemoteDocument(application: PastApplication): OnboardingUploadDocu
         status = OnboardingUploadStatus.Completed(application.items),
         file = null,
     )
-
-internal fun formatGraduationDate(
-    year: Int,
-    month: Int,
-): String = "%04d.%02d".format(year, month)
-
-private fun parseGraduationMonth(value: String): Int? =
-    value.trim().substringAfter('.', missingDelimiterValue = "").toIntOrNull()?.takeIf {
-        it in
-            1..12
-    }
 
 private val ExperienceEditorState.hasErrors: Boolean
     get() =

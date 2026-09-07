@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="core_ui_graduation_picker_title">졸업 예정</string>
+    <string name="core_ui_graduation_picker_year_label">연도</string>
+    <string name="core_ui_graduation_picker_month_label">월</string>
+    <string name="core_ui_graduation_picker_year">%1$d년</string>
+    <string name="core_ui_graduation_picker_month">%1$d월</string>
+    <string name="core_ui_graduation_picker_selected_state">선택됨</string>
+    <string name="core_ui_graduation_picker_unselected_state">선택 안 됨</string>
+    <string name="core_ui_graduation_picker_confirm">선택 완료</string>
+</resources>

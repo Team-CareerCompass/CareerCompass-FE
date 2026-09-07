@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="core_ui_field_required">필수 입력이에요</string>
+    <string name="core_ui_field_too_long">%1$d자 이내로 입력해 주세요</string>
+    <string name="core_ui_field_invalid_format">형식이 올바르지 않아요</string>
+    <string name="core_ui_field_out_of_range">허용 범위를 벗어났어요</string>
+</resources>

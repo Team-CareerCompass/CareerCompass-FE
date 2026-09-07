@@ -8,7 +8,6 @@
     <string name="placeholder_description">곧 이용할 수 있어요</string>
 
     <!-- 마이 홈 메뉴가 가리키는 화면들 — 각 담당 이슈가 실제 화면을 붙이면 그 줄과 라우트를 함께 지운다. -->
-    <string name="placeholder_profile_edit_title">프로필 편집</string>
     <string name="placeholder_experience_cards_title">경험 카드</string>
     <string name="placeholder_past_applications_title">과거 지원서</string>
     <string name="placeholder_notification_settings_title">알림 설정</string>

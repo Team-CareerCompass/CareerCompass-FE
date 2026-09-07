@@ -30,6 +30,7 @@ import com.careercompass.feature.feed.presentation.navigation.FeedEntryRequest
 import com.careercompass.feature.feed.presentation.navigation.FeedNavHost
 import com.careercompass.feature.onboarding.presentation.navigation.OnboardingNavHost
 import com.careercompass.feature.onboarding.presentation.navigation.OnboardingRoute
+import com.careercompass.feature.profile.presentation.basicinfo.ProfileEditScreen
 import com.careercompass.feature.profile.presentation.home.ProfileHomeScreen
 import com.careercompass.feature.profile.presentation.home.ProfileSessionEnd
 
@@ -181,14 +182,7 @@ public fun AppNavigation(
                                 onNavigate = appState::navigateToProfileMenu,
                                 // 마이 홈은 세션이 끝난 두 갈래를 스스로 안다 — 로그아웃은 사용자가 한 일이라
                                 // 안내하지 않고, 401 만 로그인 화면에 만료를 알린다(#128).
-                                onSessionEnded = { cause ->
-                                    onSessionEnded(
-                                        when (cause) {
-                                            ProfileSessionEnd.LoggedOut -> SessionEndCause.LoggedOut
-                                            ProfileSessionEnd.Expired -> SessionEndCause.Expired
-                                        },
-                                    )
-                                },
+                                onSessionEnded = { cause -> onSessionEnded(cause.toSessionEndCause()) },
                                 biometricEnrollPrompt = AppBiometricEnrollPrompt,
                             )
                         }
@@ -198,10 +192,12 @@ public fun AppNavigation(
                                 onBackClick = { appState.popBack() },
                             )
                         }
-                        entry<Route.ProfileEditPlaceholder> {
-                            PlaceholderScreen(
-                                title = stringResource(R.string.placeholder_profile_edit_title),
+                        entry<Route.ProfileEdit> {
+                            ProfileEditScreen(
                                 onBackClick = { appState.popBack() },
+                                // 저장한 값은 마이 홈이 캐시로 이미 보고 있다 — 되돌아가면 새 값이 그려져 있다.
+                                onSaved = { appState.popBack() },
+                                onSessionEnded = { cause -> onSessionEnded(cause.toSessionEndCause()) },
                             )
                         }
                         entry<Route.ExperienceCardsPlaceholder> {

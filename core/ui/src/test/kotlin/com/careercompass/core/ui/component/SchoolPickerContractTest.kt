@@ -1,6 +1,6 @@
-package com.careercompass.feature.onboarding.presentation.basicinfo
+package com.careercompass.core.ui.component
 
-import com.careercompass.feature.onboarding.presentation.shared.model.OnboardingFieldError
+import com.careercompass.core.model.user.ProfileFieldViolation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -47,7 +47,7 @@ public class SchoolPickerContractTest {
     public fun confirm_requiresNonBlankValueWithoutError() {
         assertFalse(SchoolDirectInputState().isConfirmEnabled)
         assertFalse(SchoolDirectInputState(value = "   ").isConfirmEnabled)
-        assertFalse(SchoolDirectInputState(value = "서울예술대학교", error = OnboardingFieldError.TooLong(50)).isConfirmEnabled)
+        assertFalse(SchoolDirectInputState(value = "서울예술대학교", error = ProfileFieldViolation.TooLong(50)).isConfirmEnabled)
         assertTrue(SchoolDirectInputState(value = "서울예술대학교").isConfirmEnabled)
     }
 }

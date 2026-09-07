@@ -1,12 +1,14 @@
 package com.careercompass.careercompass_fe.navigation
 
 import androidx.compose.runtime.Composable
+import com.careercompass.careercompass_fe.session.SessionEndCause
 import com.careercompass.core.ui.navigation.pushSingleTop
 import com.careercompass.feature.onboarding.presentation.biometric.BiometricEnrollPromptResult
 import com.careercompass.feature.onboarding.presentation.biometric.rememberBiometricEnrollPrompt
 import com.careercompass.feature.profile.presentation.home.ProfileBiometricEnrollPrompt
 import com.careercompass.feature.profile.presentation.home.ProfileBiometricEnrollResult
 import com.careercompass.feature.profile.presentation.home.ProfileHomeMenu
+import com.careercompass.feature.profile.presentation.home.ProfileSessionEnd
 
 /**
  * 마이 홈의 지문 등록 프롬프트 — **셸이 두 피처를 잇는 자리다.**
@@ -38,10 +40,22 @@ internal object AppBiometricEnrollPrompt : ProfileBiometricEnrollPrompt {
 internal fun AppState.navigateToProfileMenu(menu: ProfileHomeMenu) {
     val key =
         when (menu) {
-            ProfileHomeMenu.ProfileEdit -> Route.ProfileEditPlaceholder
+            ProfileHomeMenu.ProfileEdit -> Route.ProfileEdit
             ProfileHomeMenu.ExperienceCards -> Route.ExperienceCardsPlaceholder
             ProfileHomeMenu.PastApplications -> Route.PastApplicationsPlaceholder
             ProfileHomeMenu.NotificationSettings -> Route.NotificationSettingsPlaceholder
         }
     backStack.pushSingleTop(key)
 }
+
+/**
+ * profile 화면이 올린 세션 종료 사유를 셸의 사유로 옮긴다.
+ *
+ * 로그아웃은 사용자가 한 일이라 안내하지 않고, 401 만 로그인 화면에 만료를 알린다(#128). 화면이 둘 다
+ * 낼 수 있으므로 갈래를 아는 쪽이 말해 주고 셸은 옮기기만 한다.
+ */
+internal fun ProfileSessionEnd.toSessionEndCause(): SessionEndCause =
+    when (this) {
+        ProfileSessionEnd.LoggedOut -> SessionEndCause.LoggedOut
+        ProfileSessionEnd.Expired -> SessionEndCause.Expired
+    }

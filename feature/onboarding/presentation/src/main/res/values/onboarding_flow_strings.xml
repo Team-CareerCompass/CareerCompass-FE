@@ -11,10 +11,6 @@
     <string name="onboarding_upload_failed_server">서버 오류</string>
     <string name="onboarding_upload_failed_maintenance">서버 점검</string>
     <string name="onboarding_upload_failed_unknown">처리 실패</string>
-    <string name="onboarding_field_required">필수 입력이에요</string>
-    <string name="onboarding_field_too_long">%1$d자 이내로 입력해 주세요</string>
-    <string name="onboarding_field_invalid_format">형식이 올바르지 않아요</string>
-    <string name="onboarding_field_out_of_range">허용 범위를 벗어났어요</string>
     <string name="onboarding_step1_gpa_invalid">숫자로 입력해 주세요</string>
     <string name="onboarding_step1_gpa_out_of_range">0.0 ~ 4.5 사이로 입력해 주세요</string>
     <string name="onboarding_step1_graduation_invalid">YYYY.MM 형식으로 입력해 주세요</string>

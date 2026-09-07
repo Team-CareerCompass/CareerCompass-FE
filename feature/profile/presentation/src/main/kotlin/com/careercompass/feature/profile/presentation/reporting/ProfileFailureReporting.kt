@@ -16,6 +16,12 @@ public enum class ProfileFailureStage(
     /** 캐시로 그린 채 새로고침만 실패한 경우. 화면을 흔들지 않는 조용한 실패라 [HomeLoad] 와 갈라 센다. */
     HomeRefresh("home_refresh"),
 
+    /** 프로필 편집의 프리필 조회 — 실패하면 편집할 대상 자체가 없다. */
+    BasicInfoLoad("basic_info_load"),
+
+    /** `PATCH /users/me` — 서버가 값을 거부한 경우(400)도 여기로 센다. */
+    BasicInfoSave("basic_info_save"),
+
     BiometricToggle("biometric_toggle"),
     ThemeMode("theme_mode"),
     Logout("logout"),

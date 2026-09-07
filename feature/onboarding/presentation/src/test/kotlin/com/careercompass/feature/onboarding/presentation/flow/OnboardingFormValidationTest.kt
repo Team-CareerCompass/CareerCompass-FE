@@ -1,5 +1,6 @@
 package com.careercompass.feature.onboarding.presentation.flow
 
+import com.careercompass.core.model.user.GraduationDateRules
 import com.careercompass.feature.onboarding.presentation.shared.model.OnboardingFieldError
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -46,7 +47,7 @@ class OnboardingFormValidationTest {
         assertEquals(OnboardingFieldError.InvalidFormat, OnboardingStep1Rules.validateGraduationDate("27.02"))
         assertEquals(OnboardingFieldError.OutOfRange, OnboardingStep1Rules.validateGraduationDate("1999.02"))
         assertEquals(2027, OnboardingStep1Rules.parseGraduationYear("2027.02"))
-        assertEquals("2027.02", formatGraduationDate(2027, 2))
+        assertEquals("2027.02", GraduationDateRules.format(2027, 2))
     }
 
     @Test
