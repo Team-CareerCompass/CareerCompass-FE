@@ -1,8 +1,6 @@
 package com.careercompass.core.data.repoimpl.auth
 
 import com.careercompass.core.common.result.runCatchingCancellable
-import com.careercompass.core.data.failure.mapAuthFailure
-import com.careercompass.core.data.failure.mapDataFailure
 import com.careercompass.core.data.mapper.AuthMapper
 import com.careercompass.core.datastore.DeviceDataSource
 import com.careercompass.core.datastore.LocalStoreRegistry
@@ -18,6 +16,8 @@ import com.careercompass.core.network.dto.BiometricRegisterRequestDto
 import com.careercompass.core.network.dto.LogoutRequestDto
 import com.careercompass.core.network.dto.RefreshRequestDto
 import com.careercompass.core.network.dto.SocialLoginRequestDto
+import com.careercompass.core.network.failure.mapAuthFailure
+import com.careercompass.core.network.failure.mapDataFailure
 import com.careercompass.core.network.model.requireData
 import com.careercompass.core.network.model.requireOk
 import com.careercompass.core.network.service.AuthApiService

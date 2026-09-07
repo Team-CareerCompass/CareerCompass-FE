@@ -1,4 +1,4 @@
-package com.careercompass.core.data.failure
+package com.careercompass.core.network.failure
 
 import com.careercompass.core.domain.error.CoreAuthFailure
 import com.careercompass.core.domain.error.CoreDataFailure
@@ -18,8 +18,14 @@ import java.io.IOException
  * 오래 걸리는 서버 작업을 기다리는 화면은 그 원본에서 타임아웃 하나만 더 갈라 본다
  * (`CoreDataFailure.NetworkUnavailable.isTimeout`). 여기서 사유를 새로 만들지 않은 것은 의도다 — 사유를 늘리면
  * 갈라 볼 이유가 없는 나머지 화면까지 `is NetworkUnavailable` 이 빗나가 일반 오류로 내려앉는다.
+ *
+ * **`core:data` 가 아니라 여기 사는 이유** — 옮기기 전에는 `core:data` 의 `internal` 이었고, 그래서 §6 을
+ * 받는 `feature:editor:data` 처럼 **`core:data` 밖에 있는 data 모듈**은 이 번역을 부를 수 없었다. 부를 수
+ * 없으면 같은 §9 표를 한 벌 더 쓰게 되고, 두 벌이 되는 순간 새 에러 코드가 한쪽에만 들어간다. 번역의 입력은
+ * 네트워크 계층의 타입(`ApiException`·`IOException`)이고 출력은 `core:domain` 의 사유이므로, 계약(§9)이
+ * 선언된 자리인 이 모듈이 한 벌을 두기에 맞다.
  */
-internal fun <T> Result<T>.mapDataFailure(): Result<T> =
+public fun <T> Result<T>.mapDataFailure(): Result<T> =
     when (val exception = exceptionOrNull()) {
         is ApiException -> Result.failure(exception.toDataFailure())
         is IOException -> Result.failure(CoreDataFailure.NetworkUnavailable(exception))
@@ -27,7 +33,7 @@ internal fun <T> Result<T>.mapDataFailure(): Result<T> =
     }
 
 /** 인증 API 전용 — 소셜 로그인 거절과 전송 실패만 인증 사유로 갈고, 나머지는 데이터 사유와 같다. */
-internal fun <T> Result<T>.mapAuthFailure(): Result<T> =
+public fun <T> Result<T>.mapAuthFailure(): Result<T> =
     when (val exception = exceptionOrNull()) {
         is ApiException -> {
             when (exception.code) {
@@ -45,7 +51,7 @@ internal fun <T> Result<T>.mapAuthFailure(): Result<T> =
         }
     }
 
-internal fun ApiException.toDataFailure(): Throwable =
+public fun ApiException.toDataFailure(): Throwable =
     when (code) {
         CODE_INVALID_INPUT -> {
             CoreDataFailure.InvalidInput(code, field, this)

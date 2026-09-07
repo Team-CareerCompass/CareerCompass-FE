@@ -4,15 +4,21 @@ import com.careercompass.core.network.dto.BiometricRegisterRequestDto
 import com.careercompass.core.network.dto.BoardDetectRequestDto
 import com.careercompass.core.network.dto.BoardRegisterRequestDto
 import com.careercompass.core.network.dto.BoardUpdateRequestDto
+import com.careercompass.core.network.dto.CreateApplicationRequestDto
 import com.careercompass.core.network.dto.ExperienceRequestDto
 import com.careercompass.core.network.dto.JobInterestDto
 import com.careercompass.core.network.dto.JobInterestsRequestDto
 import com.careercompass.core.network.dto.LogoutRequestDto
 import com.careercompass.core.network.dto.RefreshRequestDto
+import com.careercompass.core.network.dto.RegenerateItemRequestDto
 import com.careercompass.core.network.dto.SocialLoginRequestDto
 import com.careercompass.core.network.dto.TagsRequestDto
+import com.careercompass.core.network.dto.UpdateApplicationResultRequestDto
+import com.careercompass.core.network.dto.UpdateItemAnswerRequestDto
 import com.careercompass.core.network.dto.UpdateItemCategoryRequestDto
 import com.careercompass.core.network.dto.UpdateProfileRequestDto
+import com.careercompass.core.network.sse.asServerSentEvents
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -63,6 +69,8 @@ class ApiWireContractSmokeTest {
     private lateinit var postingService: PostingApiService
     private lateinit var boardService: BoardApiService
     private lateinit var boardDetectService: BoardDetectApiService
+    private lateinit var applicationService: ApplicationApiService
+    private lateinit var applicationStreamService: ApplicationStreamApiService
 
     @Before
     fun setUp() {
@@ -97,6 +105,8 @@ class ApiWireContractSmokeTest {
         postingService = publicRetrofit.create(PostingApiService::class.java)
         boardService = publicRetrofit.create(BoardApiService::class.java)
         boardDetectService = publicRetrofit.create(BoardDetectApiService::class.java)
+        applicationService = publicRetrofit.create(ApplicationApiService::class.java)
+        applicationStreamService = publicRetrofit.create(ApplicationStreamApiService::class.java)
     }
 
     @Test
@@ -527,6 +537,144 @@ class ApiWireContractSmokeTest {
         assertEquals(3600L, data.expiresIn)
         assertExactlyOneRecordedRequest("POST", expectedPath)
     }
+
+    // ── §6 지원서 작성 ──
+
+    @Test
+    fun `application draft creation preserves route, strict request JSON, and response schema`() =
+        runTest {
+            installExpectation(
+                method = "POST",
+                path = "/api/v1/applications",
+                requestBody = wireJson.parseToJsonElement("""{"postingId":101,"tone":"formal"}""").jsonObject,
+                responseBody =
+                    """
+                    {"ok":true,"data":{"id":42,"status":"generating","postingId":101,"items":[
+                     {"id":1,"order":1,"question":"지원 동기...","maxChars":500,"status":"done","answer":"..."},
+                     {"id":2,"order":2,"question":"강점과 약점...","maxChars":400,"status":"loading","answer":null}]}}
+                    """.trimIndent(),
+            )
+
+            val draft = requireNotNull(applicationService.createApplication(CreateApplicationRequestDto(101L, "formal")).data)
+
+            assertEquals(42L, draft.id)
+            assertEquals("generating", draft.status)
+            assertEquals(listOf("done", "loading"), draft.items.map { it.status })
+            assertEquals(listOf(500, 400), draft.items.map { it.maxChars })
+            assertExactlyOneRecordedRequest("POST", "/api/v1/applications")
+        }
+
+    /**
+     * SSE 는 본문을 **모으지 않고** 잘라 읽는다. `@Streaming` 선언이 빠지면 Retrofit 이 스트림이 닫힐 때까지
+     * 기다렸다 통째로 넘기므로, 소켓을 실제로 지나는 이 검증이 그 선언의 유일한 회귀 가드다.
+     */
+    @Test
+    fun `application progress stream preserves route and server-sent event framing`() =
+        runTest {
+            installExpectation(
+                method = "GET",
+                path = "/api/v1/applications/42/stream",
+                responseBody =
+                    ": keep-alive\n\n" +
+                        "event: item_done\ndata: {\"itemId\": 2, \"answer\": \"...\"}\n\n" +
+                        "event: status\ndata: {\"status\": \"ready\"}\n\n",
+            )
+
+            val events = applicationStreamService.stream(42L).asServerSentEvents().toList()
+
+            assertEquals(listOf("item_done", "status"), events.map { it.event })
+            assertEquals("""{"itemId": 2, "answer": "..."}""", events.first().data)
+            assertExactlyOneRecordedRequest("GET", "/api/v1/applications/42/stream")
+        }
+
+    @Test
+    fun `application item regenerate and edit preserve routes and strict request JSON`() =
+        runTest {
+            installExpectation(
+                method = "POST",
+                path = "/api/v1/applications/42/items/2/regenerate",
+                requestBody = wireJson.parseToJsonElement("""{"tone":"casual","emphasizeCardIds":[5,12]}""").jsonObject,
+                responseBody =
+                    """{"ok":true,"data":{"id":2,"order":2,"question":"강점과 약점...","maxChars":400,"status":"done","answer":"다시 쓴 답"}}""",
+            )
+            installExpectation(
+                method = "PATCH",
+                path = "/api/v1/applications/42/items/2",
+                requestBody = wireJson.parseToJsonElement("""{"answer":"손으로 고친 답"}""").jsonObject,
+                responseBody =
+                    """{"ok":true,"data":{"id":2,"order":2,"question":"강점과 약점...","maxChars":400,"status":"done","answer":"손으로 고친 답"}}""",
+            )
+
+            val regenerated =
+                requireNotNull(
+                    applicationService
+                        .regenerateItem(42L, 2L, RegenerateItemRequestDto(tone = "casual", emphasizeCardIds = listOf(5L, 12L)))
+                        .data,
+                )
+            val edited =
+                requireNotNull(applicationService.updateItemAnswer(42L, 2L, UpdateItemAnswerRequestDto("손으로 고친 답")).data)
+
+            assertEquals("다시 쓴 답", regenerated.answer)
+            assertEquals("손으로 고친 답", edited.answer)
+            assertExactlyOneRecordedRequest("POST", "/api/v1/applications/42/items/2/regenerate")
+            assertExactlyOneRecordedRequest("PATCH", "/api/v1/applications/42/items/2")
+        }
+
+    /** 옵션 필드를 안 보내는 것과 `null` 을 보내는 것은 서버에 다른 뜻이다 — 안 보낸 쪽을 고정한다. */
+    @Test
+    fun `application item regenerate omits absent options from the request body`() =
+        runTest {
+            installExpectation(
+                method = "POST",
+                path = "/api/v1/applications/42/items/2/regenerate",
+                requestBody = wireJson.parseToJsonElement("{}").jsonObject,
+                responseBody =
+                    """{"ok":true,"data":{"id":2,"order":2,"question":"강점과 약점...","maxChars":400,"status":"done","answer":"..."}}""",
+            )
+
+            assertEquals(true, applicationService.regenerateItem(42L, 2L, RegenerateItemRequestDto()).ok)
+
+            assertExactlyOneRecordedRequest("POST", "/api/v1/applications/42/items/2/regenerate")
+        }
+
+    @Test
+    fun `application save, result, history, and delete preserve routes and query parameters`() =
+        runTest {
+            val saved =
+                """{"id":42,"status":"saved","postingId":101,"result":"pending","items":[
+                   {"id":1,"order":1,"question":"지원 동기...","maxChars":500,"status":"done","answer":"..."}]}"""
+            installExpectation(method = "POST", path = "/api/v1/applications/42/save", responseBody = """{"ok":true,"data":$saved}""")
+            installExpectation(
+                method = "PATCH",
+                path = "/api/v1/applications/42/result",
+                requestBody = wireJson.parseToJsonElement("""{"result":"pass"}""").jsonObject,
+                responseBody = """{"ok":true,"data":$saved}""",
+            )
+            installExpectation(
+                method = "GET",
+                path = "/api/v1/applications",
+                requestQueryParameters = mapOf("status" to "saved", "limit" to "20"),
+                responseBody = """{"ok":true,"data":{"applications":[$saved],"nextCursor":"eyJ"}}""",
+            )
+            installExpectation(method = "DELETE", path = "/api/v1/applications/42", responseBody = """{"ok":true}""")
+
+            assertEquals("saved", requireNotNull(applicationService.save(42L).data).status)
+            assertEquals(
+                "pending",
+                requireNotNull(applicationService.updateResult(42L, UpdateApplicationResultRequestDto("pass")).data).result,
+            )
+            val history = requireNotNull(applicationService.getApplications(status = "saved", cursor = null, limit = 20).data)
+            assertEquals(true, applicationService.delete(42L).ok)
+
+            assertEquals("eyJ", history.nextCursor)
+            assertEquals(1, history.applications.size)
+            assertExactlyOneRecordedRequest("POST", "/api/v1/applications/42/save")
+            assertExactlyOneRecordedRequest("PATCH", "/api/v1/applications/42/result")
+            assertExactlyOneRecordedRequest("DELETE", "/api/v1/applications/42")
+            // cursor 는 안 보냈다 — Retrofit 이 null @Query 를 빼는 것을 소켓에서 확인한다.
+            val recorded = recordedRequests("GET", "/api/v1/applications").single().jsonObject
+            assertTrue("cursor must be absent: $recorded", !recorded.toString().contains("cursor"))
+        }
 
     private fun installExpectation(
         method: String,

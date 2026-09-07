@@ -96,6 +96,7 @@ class NetworkModuleTest {
         when (operation) {
             LongRunningOperation.Upload -> NetworkModule.provideUploadOkHttpClient(this)
             LongRunningOperation.BoardDetect -> NetworkModule.provideBoardDetectOkHttpClient(this)
+            LongRunningOperation.ApplicationStream -> NetworkModule.provideApplicationStreamOkHttpClient(this)
         }
 
     private companion object {

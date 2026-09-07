@@ -1,5 +1,7 @@
 package com.careercompass.core.network.di
 
+import com.careercompass.core.network.service.ApplicationApiService
+import com.careercompass.core.network.service.ApplicationStreamApiService
 import com.careercompass.core.network.service.AuthApiService
 import com.careercompass.core.network.service.BoardApiService
 import com.careercompass.core.network.service.BoardDetectApiService
@@ -62,6 +64,19 @@ public object ServiceModule {
     public fun provideBoardApiService(
         @Named(NetworkQualifiers.MAIN_RETROFIT) retrofit: Retrofit,
     ): BoardApiService = retrofit.create()
+
+    @Provides
+    @Singleton
+    public fun provideApplicationApiService(
+        @Named(NetworkQualifiers.MAIN_RETROFIT) retrofit: Retrofit,
+    ): ApplicationApiService = retrofit.create()
+
+    /** 스트림만 [LongRunningOperation.ApplicationStream] 로 도는 Retrofit 에서 만든다. */
+    @Provides
+    @Singleton
+    public fun provideApplicationStreamApiService(
+        @Named(NetworkQualifiers.APPLICATION_STREAM_RETROFIT) retrofit: Retrofit,
+    ): ApplicationStreamApiService = retrofit.create()
 
     /** 구조 감지만 [LongRunningOperation.BoardDetect] 로 도는 Retrofit 에서 만든다. */
     @Provides
