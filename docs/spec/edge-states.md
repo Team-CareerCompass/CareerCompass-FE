@@ -59,10 +59,13 @@ Figma 09 Edge Cases 는 상태 화면을 **다섯 장**만 그려 두었다 — 
 | 내 게시판(목록) | `CareerCompassNetworkErrorState` | `FeedLoadingContent` | `BoardListEmpty`(손으로 그림) | 없음 | `FeedMaintenanceState` | 셸에 알림 → 로그인 |
 | 게시판 등록 | 스낵바 / 타임아웃 상자 | 인라인 진행 줄 × 2 | 감지 실패 상자 4종 | 없음 | 감지 = `FeedMaintenanceNotice` 상자 · 제출 = 점검 스낵바 | 셸에 알림 → 로그인 |
 | 게시판 수정 시트 | 스낵바 | 저장 중 표시 | — | 없음 | 스낵바 일반 문구 | 셸에 알림 → 로그인 |
-| 마이 탭 | 없음 | 없음 | `CareerCompassEmptyState`(자리표시자) | 없음 | 없음 | 로그아웃만(`SessionEndCause.LoggedOut`) |
+| 마이 홈(마이 탭) | 캐시 있으면 스낵바 `profile_home_refresh_failed` · 없으면 `CareerCompassFailureState`(실패 표 #204) | 첫 조회만 화면 가운데 진행 표시 | 없음 — 프로필은 언제나 하나, 개수 0 은 배지를 뗀다 | 없음 | 오프라인과 같은 길(실패 표가 점검 문구를 준다) | 로그아웃(`LoggedOut`) · 401(`Expired`) 둘 다 셸에 알린다 |
 | 분석·지원서·알림 탭 | 미구현 | 미구현 | `CareerCompassEmptyState`(자리표시자) | 미구현 | 미구현 | 미구현 |
 
-`feature/editor` · `feature/profile` · `feature/foryou` · `feature/notification` 은 **Kotlin 파일이 하나도 없다** — 빌드 스크립트만 있는 자리표시자다. 앱 셸이 `PlaceholderTabScreen` 으로 대신 그린다.
+`feature/editor` · `feature/foryou` · `feature/notification` 은 **Kotlin 파일이 하나도 없다** — 빌드 스크립트만 있는 자리표시자다. 앱 셸이 `PlaceholderTabScreen` 으로 대신 그린다.
+`feature/profile` 은 마이 홈 한 장이 서 있고(#175), 그 메뉴가 가리키는 네 화면(프로필 편집·경험 카드·과거 지원서·알림 설정)은 셸의 `PlaceholderScreen` 이다.
+
+마이 홈의 실패 처분은 **캐시가 있느냐**로 갈린다. 캐시가 있으면 이름·소속·완성도가 여전히 참이므로 화면을 덮지 않고 스낵바 한 줄로만 알리고, 캐시가 없을 때만 실패 화면이 화면 한 장을 차지한다 — 앱 시작이 캐시로 목적지를 정하는 규칙과 같은 방향이다(§5 「오프라인 시작」). 문구는 새로 짓지 않고 실패 표(#204)의 행을 그대로 그린다.
 
 표에 열이 없는 상태가 하나 더 있다 — **사유를 특정하지 못한 실패**다. 위 다섯 사유 중 어느 것도 아닌 실패가 전부 여기로 접히므로 실제로는 가장 자주 뜨는 실패 화면이다. §2.7 에 따로 적었다.
 

@@ -10,12 +10,16 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -109,11 +113,11 @@ class AppNavigationAndroidTest {
         composeRule.onNodeWithText("안녕하세요, 정일혁님", substring = true, useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("피드").assertIsDisplayed()
         composeRule.onNodeWithText("마이").performClick()
-        composeRule.onNodeWithText("마이 탭을 준비하고 있어요").assertIsDisplayed()
+        composeRule.onNodeWithText("프로필 완성도").assertIsDisplayed()
     }
 
     /**
-     * 마이 탭 자리표시자의 로그아웃 — 확인 다이얼로그를 거쳐 세션이 끝나고 셸이 로그인 화면으로 되돌린다.
+     * 마이 홈의 로그아웃 — 확인 다이얼로그를 거쳐 세션이 끝나고 셸이 로그인 화면으로 되돌린다.
      *
      * 사용자가 방금 누른 결과라 만료 안내는 붙지 않는다(#128).
      */
@@ -126,6 +130,7 @@ class AppNavigationAndroidTest {
 
         composeRule.onNodeWithText("마이").performClick()
         composeRule.onNodeWithText("정일혁").assertIsDisplayed()
+        scrollMyHomeTo(hasText("로그아웃"))
         composeRule.onNodeWithText("로그아웃").performClick()
         composeRule.onNodeWithText("네, 로그아웃").performClick()
 
@@ -189,6 +194,7 @@ class AppNavigationAndroidTest {
         scenario = ActivityScenario.launch(MainActivity::class.java)
 
         composeRule.onNodeWithText("마이").performClick()
+        scrollMyHomeTo(hasText("지문 로그인"))
         composeRule.onNodeWithText("지문 로그인").assertIsDisplayed()
         composeRule.onNodeWithTag(BIOMETRIC_SWITCH_TAG, useUnmergedTree = true).assertIsOff().assertIsNotEnabled()
         composeRule.onNodeWithText(BIOMETRIC_UNAVAILABLE_TEXT).assertIsDisplayed()
@@ -206,6 +212,7 @@ class AppNavigationAndroidTest {
         scenario = ActivityScenario.launch(MainActivity::class.java)
 
         composeRule.onNodeWithText("마이").performClick()
+        scrollMyHomeTo(hasTestTag(BIOMETRIC_SWITCH_TAG))
         // 등록 상태를 마이 탭에 들어온 뒤에 켠다 — 처음부터 켜져 있으면 시작 목적지가 지문 화면이라 여기 못 온다.
         fakeAuthRepository.biometricEnabledState.value = true
         composeRule.waitUntil(timeoutMillis = BIOMETRIC_TIMEOUT_MILLIS) {
@@ -239,6 +246,7 @@ class AppNavigationAndroidTest {
         scenario = ActivityScenario.launch(MainActivity::class.java)
 
         composeRule.onNodeWithText("마이").performClick()
+        scrollMyHomeTo(hasTestTag(THEME_ROW_TAG))
         composeRule.onNodeWithText("화면 테마").assertIsDisplayed()
         composeRule.onNodeWithTag(THEME_ROW_TAG, useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("어둡게").performClick()
@@ -382,6 +390,14 @@ class AppNavigationAndroidTest {
             isBookmarked = false,
         )
 
+    /**
+     * 마이 홈은 목록이라 계정 설정(지문·테마·로그아웃)이 화면 밖에 있다 — LazyColumn 은 화면 밖 줄을 아직
+     * 만들지 않으므로 먼저 그 자리로 굴린다.
+     */
+    private fun scrollMyHomeTo(matcher: SemanticsMatcher) {
+        composeRule.onNode(hasScrollAction()).performScrollToNode(matcher)
+    }
+
     private fun profile(onboardingDone: Boolean) =
         UserProfile(
             id = 1,
@@ -415,11 +431,11 @@ class AppNavigationAndroidTest {
         /** `OnboardingErrorCard` 의 닫기 버튼 — 라벨이 아니라 접근성 이름으로 찾는다. */
         const val DISMISS_NOTICE_DESCRIPTION = "오류 안내 닫기"
 
-        /** `MyTabPlaceholderContent` 의 `MY_TAB_BIOMETRIC_SWITCH_TAG` — 라벨은 스위치의 토글 상태를 병합하지 않는다. */
-        const val BIOMETRIC_SWITCH_TAG = "my_tab_biometric_switch"
+        /** `ProfileAccountSection` 의 `PROFILE_BIOMETRIC_SWITCH_TAG` — 라벨은 스위치의 토글 상태를 병합하지 않는다. */
+        const val BIOMETRIC_SWITCH_TAG = "profile_biometric_switch"
         const val BIOMETRIC_UNAVAILABLE_TEXT = "이 기기에서는 지문 로그인을 켤 수 없어요"
 
-        /** `MyTabPlaceholderContent` 의 `MY_TAB_THEME_ROW_TAG` — 라벨과 현재 값이 한 줄에 병합돼 문구만으로는 집기 어렵다. */
-        const val THEME_ROW_TAG = "my_tab_theme_row"
+        /** `ProfileAccountSection` 의 `PROFILE_THEME_ROW_TAG` — 라벨과 현재 값이 한 줄에 병합돼 문구만으로는 집기 어렵다. */
+        const val THEME_ROW_TAG = "profile_theme_row"
     }
 }

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_home_title">마이</string>
+    <string name="profile_home_loading">프로필을 불러오는 중이에요</string>
+    <string name="profile_home_refresh_failed">프로필을 새로고침하지 못했어요</string>
+
+    <string name="profile_home_name_unknown">이름을 아직 몰라요</string>
+    <string name="profile_home_affiliation_unknown">학교·학과 정보가 없어요</string>
+    <string name="profile_home_grad_year">%1$d년 졸업 예정</string>
+    <string name="profile_home_stat_experience_cards">경험 카드</string>
+    <string name="profile_home_stat_past_applications">과거 자소서</string>
+    <string name="profile_home_stat_unknown" translatable="false">—</string>
+
+    <string name="profile_home_completion_title">프로필 완성도</string>
+    <string name="profile_home_completion_percent">%1$d%%</string>
+    <string name="profile_home_completion_done">필요한 항목을 모두 채웠어요</string>
+    <string name="profile_home_completion_hint">%1$s 정보를 채우면 적합도 분석이 더 정확해져요</string>
+    <string name="profile_home_completion_hint_separator" translatable="false">·</string>
+    <string name="profile_home_gap_name">이름</string>
+    <string name="profile_home_gap_school">학교</string>
+    <string name="profile_home_gap_department">학과</string>
+    <string name="profile_home_gap_gpa">학점</string>
+    <string name="profile_home_gap_grad_year">졸업 연도</string>
+    <string name="profile_home_gap_job_interests">희망 직무</string>
+    <string name="profile_home_gap_tags">관심 분야</string>
+    <string name="profile_home_gap_experience_cards">경험 카드</string>
+
+    <string name="profile_home_menu_profile_edit">프로필 편집</string>
+    <string name="profile_home_menu_profile_edit_description">이름, 학교, 학점 등</string>
+    <string name="profile_home_menu_experience_cards">경험 카드</string>
+    <string name="profile_home_menu_experience_cards_description">수상, 인턴, 프로젝트 등</string>
+    <string name="profile_home_menu_past_applications">과거 지원서</string>
+    <string name="profile_home_menu_past_applications_description">AI 학습 데이터</string>
+    <string name="profile_home_menu_notification_settings">알림 설정</string>
+    <string name="profile_home_menu_notification_settings_description">공고 알림·마감 임박</string>
+
+    <string name="profile_home_section_account">계정</string>
+    <string name="profile_home_biometric_label">지문 로그인</string>
+    <string name="profile_home_biometric_unavailable">이 기기에서는 지문 로그인을 켤 수 없어요</string>
+    <string name="profile_home_theme_label">화면 테마</string>
+    <string name="profile_home_theme_dialog_title">화면 테마</string>
+    <string name="profile_home_theme_system">시스템 설정 따르기</string>
+    <string name="profile_home_theme_light">밝게</string>
+    <string name="profile_home_theme_dark">어둡게</string>
+    <string name="profile_home_theme_dialog_close">닫기</string>
+    <string name="profile_home_logout">로그아웃</string>
+    <string name="profile_home_logout_dialog_title">로그아웃할까요?</string>
+    <string name="profile_home_logout_dialog_message">다시 이용하려면 소셜 로그인을 다시 해야 해요</string>
+    <string name="profile_home_logout_dialog_confirm">네, 로그아웃</string>
+    <string name="profile_home_logout_dialog_cancel">취소</string>
+</resources>
