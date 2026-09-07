@@ -9,7 +9,11 @@ import com.careercompass.core.model.application.PastApplication
 import com.careercompass.core.model.application.PastApplicationCategory
 import com.careercompass.core.model.application.PastApplicationFileFormat
 import com.careercompass.core.model.application.PastApplicationItem
+import com.careercompass.core.model.application.PastApplicationLabelRules
+import com.careercompass.core.model.application.PastApplicationTextUploadException
+import com.careercompass.core.model.application.PastApplicationTextUploadFailure
 import com.careercompass.core.model.application.UploadFile
+import com.careercompass.core.model.application.pastApplicationTextUpload
 import com.careercompass.core.model.experience.Experience
 import com.careercompass.core.model.experience.ExperienceDetails
 import com.careercompass.core.model.experience.ExperienceDraft
@@ -29,6 +33,8 @@ import com.careercompass.core.model.user.ProfileFieldViolation
 import com.careercompass.core.model.user.SchoolCatalog
 import com.careercompass.core.model.user.SchoolNameRules
 import com.careercompass.core.model.user.UserProfile
+import com.careercompass.core.ui.component.DirectInputEvent
+import com.careercompass.core.ui.component.DirectInputState
 import com.careercompass.core.ui.component.ExperienceDeleteEvent
 import com.careercompass.core.ui.component.ExperienceDeleteState
 import com.careercompass.core.ui.component.ExperienceEditorRules
@@ -69,8 +75,6 @@ import com.careercompass.feature.onboarding.presentation.OnboardingStep2Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep3Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep4Event
 import com.careercompass.feature.onboarding.presentation.complete.OnboardingCompleteEvent
-import com.careercompass.feature.onboarding.presentation.pastapplication.DirectInputEvent
-import com.careercompass.feature.onboarding.presentation.pastapplication.DirectInputState
 import com.careercompass.feature.onboarding.presentation.pastapplication.UploadLabelEvent
 import com.careercompass.feature.onboarding.presentation.pastapplication.UploadLabelState
 import com.careercompass.feature.onboarding.presentation.reporting.OnboardingFailureStage
@@ -799,7 +803,7 @@ public class OnboardingViewModel
 
         private fun submitUploadLabel() {
             val sheet = currentState.uploadLabel ?: return
-            val labelError = PastApplicationLabelRules.validate(sheet.label)
+            val labelError = PastApplicationLabelRules.validate(sheet.label)?.toFieldError()
             if (labelError != null) {
                 dispatch(OnboardingReducerEvent.UploadLabelUpdated(sheet.copy(labelError = labelError)))
                 return
@@ -993,31 +997,41 @@ public class OnboardingViewModel
             }
         }
 
+        /**
+         * 직접 쓴 지원서를 TXT 로 만들어 파일 업로드와 같은 길로 보낸다.
+         *
+         * 그 판단(새 엔드포인트를 요구하지 않는다)과 변환은 `core:model` 의 [pastApplicationTextUpload] 가
+         * 갖는다 — 마이 탭의 같은 입력(#181)이 같은 함수를 지난다.
+         */
         private fun submitDirectInput() {
             val input = currentState.directInput ?: return
-            val label = PastApplicationLabelRules.normalize(input.label)
-            val validated =
-                input.copy(
-                    labelError = PastApplicationLabelRules.validate(input.label),
-                    contentError = if (input.content.isBlank()) OnboardingFieldError.Required else null,
-                )
-            if (validated.labelError != null || validated.contentError != null) {
-                dispatch(OnboardingReducerEvent.DirectInputUpdated(validated))
-                return
-            }
-            val bytes = input.content.toByteArray(Charsets.UTF_8)
-            if (bytes.size > MAX_PAST_APPLICATION_FILE_BYTES) {
-                dispatch(OnboardingReducerEvent.Failed(OnboardingFailureReason.FileTooLarge))
-                return
-            }
-            val file =
-                UploadFile(
-                    fileName = "${label.replace('/', ' ')}.${PastApplicationFileFormat.Txt.extension}",
-                    sizeBytes = bytes.size.toLong(),
-                ) { ByteArrayInputStream(bytes) }
-            draft.clearDirectInput()
-            dispatch(OnboardingReducerEvent.DirectInputUpdated(null))
-            enqueueUpload(label = label, file = file)
+            pastApplicationTextUpload(label = input.label, content = input.content)
+                .onSuccess { (file, label) ->
+                    draft.clearDirectInput()
+                    dispatch(OnboardingReducerEvent.DirectInputUpdated(null))
+                    enqueueUpload(label = label, file = file)
+                }.onFailure { cause ->
+                    when (val failure = (cause as? PastApplicationTextUploadException)?.failure) {
+                        // 라벨과 본문의 오류를 한 번에 보인다 — 하나씩 알리면 사용자가 제출을 두 번 눌러야
+                        // 두 칸이 다 빨개진다.
+                        is PastApplicationTextUploadFailure.InvalidLabel,
+                        PastApplicationTextUploadFailure.EmptyContent,
+                        -> {
+                            dispatch(
+                                OnboardingReducerEvent.DirectInputUpdated(
+                                    input.copy(
+                                        labelError = PastApplicationLabelRules.validate(input.label),
+                                        contentError = if (input.content.isBlank()) ProfileFieldViolation.Required else null,
+                                    ),
+                                ),
+                            )
+                        }
+
+                        PastApplicationTextUploadFailure.TooLarge, null -> {
+                            dispatch(OnboardingReducerEvent.Failed(OnboardingFailureReason.FileTooLarge))
+                        }
+                    }
+                }
         }
 
         private fun finishOnboarding() {

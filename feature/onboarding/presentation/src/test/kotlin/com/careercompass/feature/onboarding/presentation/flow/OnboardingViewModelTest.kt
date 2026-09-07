@@ -25,6 +25,7 @@ import com.careercompass.core.model.user.SchoolCatalog
 import com.careercompass.core.model.user.SchoolNameRules
 import com.careercompass.core.model.user.UserProfile
 import com.careercompass.core.model.user.UserProfileUpdate
+import com.careercompass.core.ui.component.DirectInputEvent
 import com.careercompass.core.ui.component.ExperienceDeleteEvent
 import com.careercompass.core.ui.component.ExperienceEditorRules
 import com.careercompass.core.ui.component.ExperienceQuickAddEvent
@@ -55,7 +56,6 @@ import com.careercompass.feature.onboarding.presentation.OnboardingStep2Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep3Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep4Event
 import com.careercompass.feature.onboarding.presentation.complete.OnboardingCompleteEvent
-import com.careercompass.feature.onboarding.presentation.pastapplication.DirectInputEvent
 import com.careercompass.feature.onboarding.presentation.pastapplication.UploadLabelEvent
 import com.careercompass.feature.onboarding.presentation.reporting.RecordingErrorReporter
 import com.careercompass.feature.onboarding.presentation.shared.model.OnboardingFieldError
@@ -1362,12 +1362,12 @@ class OnboardingViewModelTest {
 
         viewModel.onDirectInputEvent(DirectInputEvent.Submitted)
         assertEquals(
-            OnboardingFieldError.Required,
+            ProfileFieldViolation.Required,
             viewModel.uiState.value.directInput
                 ?.labelError,
         )
         assertEquals(
-            OnboardingFieldError.Required,
+            ProfileFieldViolation.Required,
             viewModel.uiState.value.directInput
                 ?.contentError,
         )

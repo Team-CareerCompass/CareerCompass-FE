@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.presentation.pastapplication
+package com.careercompass.core.ui.component
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
@@ -10,8 +10,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
+import com.careercompass.core.model.user.ProfileFieldViolation
 import com.careercompass.core.ui.theme.CareerCompassTheme
-import com.careercompass.feature.onboarding.presentation.shared.model.OnboardingFieldError
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -43,7 +43,7 @@ public class DirectInputSheetTest {
 
     @Test
     public fun fieldErrors_areRendered() {
-        setSheet(DirectInputState(labelError = OnboardingFieldError.TooLong(50), contentError = OnboardingFieldError.Required))
+        setSheet(DirectInputState(labelError = ProfileFieldViolation.TooLong(50), contentError = ProfileFieldViolation.Required))
 
         composeRule.onNodeWithText("50자 이내로 입력해 주세요").assertIsDisplayed()
         composeRule.onNodeWithText("필수 입력이에요").assertIsDisplayed()

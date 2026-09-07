@@ -66,8 +66,21 @@
 | 직무·학교 목록 엔드포인트 | 온보딩의 두 피커가 로컬 상수로 돈다 | — |
 | 과거 지원서 응답의 파일 이름·형식 | 목록의 형식 배지(F1-4). `PastApplication` 은 id · label · items · createdAt 뿐이라 화면이 만들어 낼 수 없다 — 라벨에서 확장자를 읽는 우회는 「2024 카카오.pdf 지원서」 같은 값에서 엉뚱한 형식을 읽는다([#121](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/121) 이 이미 밟은 함정이다) | [#180](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/180) |
 | 과거 지원서 라벨 수정 엔드포인트 | 목록에서 라벨 고치기(F1-4). §4 는 업로드 요청 필드로만 라벨을 받는다 | [#180](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/180) |
-| 지원서를 텍스트로 받는 엔드포인트 | 앱 안에서 직접 써서 등록(F1-4 「등록 방식」 표의 둘 중 하나) | [#181](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/181) |
 | `GET /notifications` 의 응답 스키마 | 알림 목록 화면 | [#195](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/195) |
+
+## 지원서 텍스트 등록의 계약 (F1-4 의 빈 곳, #181 판정)
+
+F1-4 는 과거 지원서를 「파일 업로드」와 「직접 입력」 둘로 받게 정했는데, API_SPEC v0.1 §4 에는
+`POST /past-applications/upload`(multipart) 만 있고 텍스트 본문을 받는 자리가 없다.
+
+| 물음 | 판정 | 근거 |
+| --- | --- | --- |
+| 텍스트용 엔드포인트를 새로 요구할 것인가 | **아니다. 텍스트를 TXT 파일로 만들어 같은 엔드포인트로 보낸다** (`pastApplicationTextUpload`) | 서버가 업로드 뒤에 하는 일(텍스트 추출 → AI 항목 분류 → 저장)이 두 경로에서 완전히 같고, `txt` 는 §4 가 이미 받는 형식이라 추출 단계마저 같다. 입구를 둘로 만들면 서버는 같은 파이프라인을 두 번 열어야 하고, 두 입구는 언젠가 갈린다 — 한쪽만 상한이 바뀌거나 한쪽만 분류기가 업데이트되는 식이다. **서버 저장소에 요구할 것이 없다는 것이 이 선택의 값이다** |
+| 파일명은 무엇으로 하는가 | 라벨에서 만들고 경로 구분자만 걷어 낸다 | 서버는 이름을 저장 키로 쓰지 않지만, multipart 의 `filename` 이 경로처럼 보이면 중간 프록시가 다르게 다룰 수 있다 |
+| 여러 항목이 한 본문에 섞이면 | 그대로 보낸다 | 항목을 나누는 것은 서버의 일이다(F1-4 「하나의 지원서 파일에 여러 항목이 혼재할 수 있으므로 항목을 분리하여 저장」). 파일 업로드도 같은 길을 지난다 |
+
+이 판정은 온보딩 Step 4 가 이미 쓰던 것을 명시적 계약으로 끌어올린 것이고, 온보딩과 마이 탭의 두 화면이
+이제 같은 함수 하나를 지난다.
 
 ## 새 불일치를 발견하면
 

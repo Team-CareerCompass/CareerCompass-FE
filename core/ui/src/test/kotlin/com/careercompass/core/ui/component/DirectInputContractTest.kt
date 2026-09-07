@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.presentation.pastapplication
+package com.careercompass.core.ui.component
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

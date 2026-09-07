@@ -8,6 +8,7 @@ import com.careercompass.core.domain.testing.FakeUserProfileRepository
 import com.careercompass.core.model.application.UploadFile
 import com.careercompass.core.model.user.JobInterest
 import com.careercompass.core.model.user.UserProfile
+import com.careercompass.core.ui.component.DirectInputEvent
 import com.careercompass.core.ui.component.GraduationDatePickerEvent
 import com.careercompass.core.ui.component.SchoolPickerEvent
 import com.careercompass.feature.onboarding.domain.testing.FakeOnboardingProgressRepository
@@ -27,7 +28,6 @@ import com.careercompass.feature.onboarding.domain.usecase.UploadPastApplication
 import com.careercompass.feature.onboarding.presentation.OnboardingStep1Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep2Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep4Event
-import com.careercompass.feature.onboarding.presentation.pastapplication.DirectInputEvent
 import com.careercompass.feature.onboarding.presentation.pastapplication.UploadLabelEvent
 import com.careercompass.feature.onboarding.presentation.reporting.RecordingErrorReporter
 import kotlinx.coroutines.Dispatchers
