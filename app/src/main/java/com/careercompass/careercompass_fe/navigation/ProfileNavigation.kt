@@ -41,7 +41,7 @@ internal fun AppState.navigateToProfileMenu(menu: ProfileHomeMenu) {
     val key =
         when (menu) {
             ProfileHomeMenu.ProfileEdit -> Route.ProfileEdit
-            ProfileHomeMenu.ExperienceCards -> Route.ExperienceCardsPlaceholder
+            ProfileHomeMenu.ExperienceCards -> Route.ExperienceCards
             ProfileHomeMenu.PastApplications -> Route.PastApplicationsPlaceholder
             ProfileHomeMenu.NotificationSettings -> Route.NotificationSettingsPlaceholder
         }

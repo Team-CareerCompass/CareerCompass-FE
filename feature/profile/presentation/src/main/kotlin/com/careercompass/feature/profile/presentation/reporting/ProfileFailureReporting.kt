@@ -25,6 +25,9 @@ public enum class ProfileFailureStage(
     /** `PUT /users/me/job-interests` · `PUT /users/me/tags` — 전체 교체라 실패 처분이 기본 정보와 다르다. */
     InterestsSave("interests_save"),
 
+    /** `GET /experiences` — 목록 조회와 이어 읽기. */
+    ExperienceList("experience_list"),
+
     BiometricToggle("biometric_toggle"),
     ThemeMode("theme_mode"),
     Logout("logout"),
