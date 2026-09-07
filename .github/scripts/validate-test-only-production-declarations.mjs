@@ -171,7 +171,11 @@ async function main(argv) {
         if (!pullRequestPath || !filesPath) {
             throw new Error("usage: validate-test-only-production-declarations.mjs <pull-request.json> <files.json> | --local <base> [head]");
         }
-        pullRequest = JSON.parse(await readFile(pullRequestPath, "utf8"));
+        // 워크플로가 넘기는 파일은 `{pull_request: {...}}` 봉투다(repository-quality 의 policy payload).
+        // 봉투를 벗기지 않으면 `labels` 를 못 찾아 **면제 라벨이 영영 듣지 않는다** — 게이트 문서가
+        // 가리키는 탈출구가 조용히 막힌 채로 남는다. 봉투 없이 PR 객체를 그대로 주는 호출도 받는다.
+        const payload = JSON.parse(await readFile(pullRequestPath, "utf8"));
+        pullRequest = payload?.pull_request ?? payload;
         files = flattenPaginatedFiles(JSON.parse(await readFile(filesPath, "utf8")));
     }
 

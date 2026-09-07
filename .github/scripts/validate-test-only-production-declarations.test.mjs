@@ -162,6 +162,13 @@ test("PR 모드는 files API 페이지를 읽고, 면제 라벨이 있으면 경
     const exempted = spawnSync("node", [scriptPath, prPath, filesPath], { cwd: repo, encoding: "utf8", env: { ...process.env, GITHUB_WORKSPACE: repo } });
     assert.equal(exempted.status, 0, exempted.stdout + exempted.stderr);
     assert.match(exempted.stdout, /::warning file=/);
+    // repository-quality 가 실제로 넘기는 모양은 `{pull_request: {...}}` 봉투다. 봉투를 벗기지 않으면
+    // 라벨을 못 찾아 면제가 영영 듣지 않는다 — 게이트 문서가 가리키는 탈출구가 조용히 막힌다.
+    writeFileSync(prPath, JSON.stringify({ pull_request: { labels: [{ name: EXEMPT_LABEL }] } }));
+    const wrapped = spawnSync("node", [scriptPath, prPath, filesPath], { cwd: repo, encoding: "utf8", env: { ...process.env, GITHUB_WORKSPACE: repo } });
+    assert.equal(wrapped.status, 0, wrapped.stdout + wrapped.stderr);
+    assert.match(wrapped.stdout, /::warning file=/);
+
     assert.equal(hasExemptLabel({ labels: [{ name: EXEMPT_LABEL }] }), true);
     assert.equal(hasExemptLabel({ labels: ["issue-assignee-exempt"] }), false);
 });
