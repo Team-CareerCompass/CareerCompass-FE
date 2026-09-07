@@ -24,6 +24,7 @@ import com.careercompass.careercompass_fe.session.AppStartDestination
 import com.careercompass.careercompass_fe.session.SessionEndCause
 import com.careercompass.core.ui.component.CareerCompassBottomBar
 import com.careercompass.core.ui.component.CareerCompassBottomTab
+import com.careercompass.core.ui.navigation.pushSingleTop
 import com.careercompass.core.ui.navigation.rememberStandardNavEntryDecorators
 import com.careercompass.core.ui.theme.CareerCompassTheme
 import com.careercompass.feature.feed.presentation.navigation.FeedEntryRequest
@@ -31,6 +32,7 @@ import com.careercompass.feature.feed.presentation.navigation.FeedNavHost
 import com.careercompass.feature.onboarding.presentation.navigation.OnboardingNavHost
 import com.careercompass.feature.onboarding.presentation.navigation.OnboardingRoute
 import com.careercompass.feature.profile.presentation.basicinfo.ProfileEditScreen
+import com.careercompass.feature.profile.presentation.experience.ExperienceListScreen
 import com.careercompass.feature.profile.presentation.home.ProfileHomeScreen
 import com.careercompass.feature.profile.presentation.home.ProfileSessionEnd
 
@@ -200,9 +202,19 @@ public fun AppNavigation(
                                 onSessionEnded = { cause -> onSessionEnded(cause.toSessionEndCause()) },
                             )
                         }
-                        entry<Route.ExperienceCardsPlaceholder> {
+                        entry<Route.ExperienceCards> {
+                            ExperienceListScreen(
+                                onBackClick = { appState.popBack() },
+                                // 편집 화면(#179)이 붙기 전까지는 자리표시자로 보낸다 — 눌러도 아무 일 없는
+                                // 버튼을 두지 않는다.
+                                onCardClick = { appState.backStack.pushSingleTop(Route.ExperienceCardEditorPlaceholder) },
+                                onAddClick = { appState.backStack.pushSingleTop(Route.ExperienceCardEditorPlaceholder) },
+                                onSessionEnded = { cause -> onSessionEnded(cause.toSessionEndCause()) },
+                            )
+                        }
+                        entry<Route.ExperienceCardEditorPlaceholder> {
                             PlaceholderScreen(
-                                title = stringResource(R.string.placeholder_experience_cards_title),
+                                title = stringResource(R.string.placeholder_experience_editor_title),
                                 onBackClick = { appState.popBack() },
                             )
                         }

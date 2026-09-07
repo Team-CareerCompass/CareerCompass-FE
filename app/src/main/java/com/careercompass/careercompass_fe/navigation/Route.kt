@@ -50,9 +50,13 @@ public sealed interface Route : NavKey {
     @Serializable
     public data object ProfileEdit : Route
 
-    /** 경험 카드 목록·편집 — profile 모듈(#178 · #179). */
+    /** 경험 카드 목록 — profile 모듈(#178). */
     @Serializable
-    public data object ExperienceCardsPlaceholder : Route
+    public data object ExperienceCards : Route
+
+    /** 경험 카드 등록·수정 — profile 모듈(#179). 그 화면이 붙기 전까지 자리표시자다. */
+    @Serializable
+    public data object ExperienceCardEditorPlaceholder : Route
 
     /** 과거 지원서 관리 — profile 모듈(#180 · #181). */
     @Serializable

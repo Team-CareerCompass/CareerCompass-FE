@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_experience_title">경험 카드</string>
+    <string name="profile_experience_loading">경험 카드를 불러오는 중이에요</string>
+    <string name="profile_experience_count">%1$d / %2$d장</string>
+    <string name="profile_experience_add">카드 추가</string>
+    <string name="profile_experience_limit_reached">경험 카드는 최대 %1$d장까지 등록할 수 있어요. 지우고 다시 추가해 주세요</string>
+    <string name="profile_experience_load_more_failed">더 불러오지 못했어요</string>
+    <string name="profile_experience_load_more">더 보기</string>
+
+    <string name="profile_experience_filter_all">전체</string>
+    <string name="profile_experience_filter_project">프로젝트</string>
+    <string name="profile_experience_filter_award">수상</string>
+    <string name="profile_experience_filter_intern">인턴</string>
+    <string name="profile_experience_filter_activity">대외활동</string>
+    <string name="profile_experience_filter_cert">자격증</string>
+
+    <string name="profile_experience_empty_title">아직 등록한 경험이 없어요</string>
+    <string name="profile_experience_empty_description">경험 카드가 있어야 적합도의 우대 조건을 채점할 수 있어요</string>
+    <string name="profile_experience_empty_action">첫 카드 만들기</string>
+    <string name="profile_experience_filtered_empty_title">이 유형의 카드가 없어요</string>
+    <string name="profile_experience_filtered_empty_description">다른 유형을 고르거나 전체로 돌아가 보세요</string>
+    <string name="profile_experience_filtered_empty_action">전체 보기</string>
+
+    <string name="profile_experience_period_open">%1$s ~ 진행 중</string>
+    <string name="profile_experience_period_range">%1$s ~ %2$s</string>
+    <string name="profile_experience_period_unknown">기간 미입력</string>
+</resources>
