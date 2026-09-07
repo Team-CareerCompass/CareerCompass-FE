@@ -30,6 +30,8 @@ import com.careercompass.feature.feed.presentation.navigation.FeedEntryRequest
 import com.careercompass.feature.feed.presentation.navigation.FeedNavHost
 import com.careercompass.feature.onboarding.presentation.navigation.OnboardingNavHost
 import com.careercompass.feature.onboarding.presentation.navigation.OnboardingRoute
+import com.careercompass.feature.profile.presentation.home.ProfileHomeScreen
+import com.careercompass.feature.profile.presentation.home.ProfileSessionEnd
 
 /** 계측 smoke(`ApiBoundarySmokeAndroidTest`)가 앱 시작 화면을 찾는 시맨틱 태그. */
 internal const val APP_START_SEMANTICS_TAG = "careercompass_app_start"
@@ -44,13 +46,13 @@ internal const val APP_START_SEMANTICS_TAG = "careercompass_app_start"
  * 시작 목적지가 인증 계열(로그인·지문·온보딩)이면 온보딩 host 에서, 메인이면 피드 host 에서 시작한다.
  * 하단 탭은 피드 홈과 자리표시자 탭에서만 보이고 상세·원문·게시판 화면에서는 숨긴다 — 피드의 루트 키는
  * 하나뿐이라 깊이는 피드 host 가 [FeatureStackBoundary.onAtRootChanged] 로 올려 준다.
- * 다른 담당 모듈(foryou·editor·profile·notification)의 화면은 진입점이 생길 때까지 자리표시자다 — 마이 탭만
- * 예외적으로 세션 카드와 지문 로그인 스위치·로그아웃을 그린다([MyTabPlaceholderScreen]). 그 둘 말고는 세션을 끝낼
- * 방법도, 기기에 남은 지문 등록을 되돌릴 방법도 없어서다.
+ 다른 담당 모듈(foryou·editor)의 탭은 진입점이 생길 때까지 자리표시자다. 마이 탭은 profile 모듈의 마이 홈이
+ * 그리고(#175), 그 메뉴가 가리키는 네 화면은 실제 화면이 붙을 때까지 루트 스택 위 자리표시자로 남는다
+ * ([navigateToProfileMenu]).
  *
- * 세션이 왜 끝났는지는 화면이 아니라 여기서 [SessionEndCause] 로 갈라 셸에 넘긴다 — 401 을 만난 피드·온보딩 계열은
- * 만료, 마이 탭은 로그아웃이다. 안내를 보일지는 셸이 정하고, 로그인 화면은 [isSessionExpiryNoticeVisible] 이라는
- * 입력만 받는다(#128).
+ * 세션이 왜 끝났는지는 [SessionEndCause] 로 갈라 셸에 넘긴다 — 401 을 만난 피드·온보딩 계열은 만료다. 마이 홈은
+ * 로그아웃과 401 을 둘 다 낼 수 있어 화면이 사유를 함께 올려 준다. 안내를 보일지는 셸이 정하고, 로그인 화면은
+ * [isSessionExpiryNoticeVisible] 이라는 입력만 받는다(#128).
  *
  * @param isSessionExpiryNoticeVisible 로그인 화면에 「로그인이 만료됐다」를 알릴지. 셸이 켠다.
  * @param onSessionExpiryNoticeDismissed 그 안내를 닫았거나 다시 로그인을 시도했다 — 셸이 끈다.
@@ -173,13 +175,50 @@ public fun AppNavigation(
                         // ── 다른 담당 모듈의 자리표시자 — 진입점이 생기면 그 모듈의 host 로 바뀐다.
                         entry<Route.AnalysisTab> { PlaceholderTabScreen(tab = CareerCompassBottomTab.Analysis) }
                         entry<Route.ApplicationsTab> { PlaceholderTabScreen(tab = CareerCompassBottomTab.Applications) }
+                        // ── 마이 탭 — profile 모듈의 마이 홈(#175)
                         entry<Route.MyTab> {
-                            // 마이 탭에서 세션이 끝나는 길은 로그아웃 버튼뿐이다 — 사용자가 한 일이라 안내하지 않는다.
-                            MyTabPlaceholderScreen(onSessionEnded = { onSessionEnded(SessionEndCause.LoggedOut) })
+                            ProfileHomeScreen(
+                                onNavigate = appState::navigateToProfileMenu,
+                                // 마이 홈은 세션이 끝난 두 갈래를 스스로 안다 — 로그아웃은 사용자가 한 일이라
+                                // 안내하지 않고, 401 만 로그인 화면에 만료를 알린다(#128).
+                                onSessionEnded = { cause ->
+                                    onSessionEnded(
+                                        when (cause) {
+                                            ProfileSessionEnd.LoggedOut -> SessionEndCause.LoggedOut
+                                            ProfileSessionEnd.Expired -> SessionEndCause.Expired
+                                        },
+                                    )
+                                },
+                                biometricEnrollPrompt = AppBiometricEnrollPrompt,
+                            )
                         }
                         entry<Route.NotificationsPlaceholder> {
                             PlaceholderScreen(
                                 title = stringResource(R.string.placeholder_notifications_title),
+                                onBackClick = { appState.popBack() },
+                            )
+                        }
+                        entry<Route.ProfileEditPlaceholder> {
+                            PlaceholderScreen(
+                                title = stringResource(R.string.placeholder_profile_edit_title),
+                                onBackClick = { appState.popBack() },
+                            )
+                        }
+                        entry<Route.ExperienceCardsPlaceholder> {
+                            PlaceholderScreen(
+                                title = stringResource(R.string.placeholder_experience_cards_title),
+                                onBackClick = { appState.popBack() },
+                            )
+                        }
+                        entry<Route.PastApplicationsPlaceholder> {
+                            PlaceholderScreen(
+                                title = stringResource(R.string.placeholder_past_applications_title),
+                                onBackClick = { appState.popBack() },
+                            )
+                        }
+                        entry<Route.NotificationSettingsPlaceholder> {
+                            PlaceholderScreen(
+                                title = stringResource(R.string.placeholder_notification_settings_title),
                                 onBackClick = { appState.popBack() },
                             )
                         }

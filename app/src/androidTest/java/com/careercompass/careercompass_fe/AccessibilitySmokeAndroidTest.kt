@@ -11,6 +11,8 @@ import androidx.compose.ui.test.tryPerformAccessibilityChecks
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
 import com.careercompass.careercompass_fe.test.FailureArtifactRule
+import com.careercompass.core.model.user.JobInterest
+import com.careercompass.core.model.user.UserProfile
 import com.careercompass.core.ui.theme.CareerCompassTheme
 import com.careercompass.feature.feed.presentation.FeedContent
 import com.careercompass.feature.feed.presentation.FeedContentState
@@ -36,6 +38,8 @@ import com.careercompass.feature.onboarding.presentation.OnboardingStep4Content
 import com.careercompass.feature.onboarding.presentation.OnboardingStep4UiState
 import com.careercompass.feature.onboarding.presentation.login.LoginContent
 import com.careercompass.feature.onboarding.presentation.login.LoginUiState
+import com.careercompass.feature.profile.presentation.home.ProfileHomeContent
+import com.careercompass.feature.profile.presentation.home.ProfileHomeUiState
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -109,6 +113,14 @@ class AccessibilitySmokeAndroidTest {
         }
     }
 
+    /** 마이 홈(#175) — 어두운 요약 카드·완성도 게이지·메뉴 배지가 한 화면에 몰려 대비와 터치 크기가 함께 걸린다. */
+    @Test
+    fun profileHome_hasNoAutomatedAccessibilityErrors() {
+        renderAndCheck {
+            ProfileHomeContent(state = profileHomeState, onEvent = {})
+        }
+    }
+
     private fun renderAndCheck(content: @Composable () -> Unit) {
         composeRule.setContent {
             CareerCompassTheme {
@@ -119,6 +131,25 @@ class AccessibilitySmokeAndroidTest {
     }
 
     private companion object {
+        val profileHomeState =
+            ProfileHomeUiState(
+                profile =
+                    UserProfile(
+                        id = 1L,
+                        name = "정일혁",
+                        school = "건국대학교",
+                        department = "컴퓨터공학부",
+                        gpa = 3.87,
+                        gradYear = 2027,
+                        jobInterests = listOf(JobInterest(code = "backend", priority = 1)),
+                        tags = listOf("AI"),
+                        onboardingDone = true,
+                        completion = 78,
+                    ),
+                experienceCardCount = 12,
+                pastApplicationCount = 5,
+            )
+
         val onboardingStep1State =
             OnboardingStep1UiState(
                 name = "정일혁",
