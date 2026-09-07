@@ -15,11 +15,6 @@
     <string name="onboarding_step1_gpa_out_of_range">0.0 ~ 4.5 사이로 입력해 주세요</string>
     <string name="onboarding_step1_graduation_invalid">YYYY.MM 형식으로 입력해 주세요</string>
     <string name="onboarding_step1_graduation_out_of_range">2000년 이후로 선택해 주세요</string>
-    <string name="onboarding_experience_type_project">프로젝트</string>
-    <string name="onboarding_experience_type_award">수상</string>
-    <string name="onboarding_experience_type_intern">인턴</string>
-    <string name="onboarding_experience_type_activity">대외활동</string>
-    <string name="onboarding_experience_type_certificate">자격증</string>
     <string name="onboarding_experience_period_range">%1$s – %2$s</string>
     <string name="onboarding_experience_period_ongoing">진행 중</string>
     <string name="onboarding_experience_period_unknown">기간 미입력</string>

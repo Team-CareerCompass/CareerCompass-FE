@@ -9,13 +9,13 @@ import com.careercompass.core.model.experience.ExperienceType
 import com.careercompass.core.model.user.JobOptionCatalog
 import com.careercompass.core.model.user.MAX_JOB_INTERESTS
 import com.careercompass.core.model.user.MAX_PROFILE_TAGS
+import com.careercompass.core.ui.component.ExperienceDeleteState
+import com.careercompass.core.ui.component.ExperienceEditorState
 import com.careercompass.core.ui.component.GraduationPickerState
 import com.careercompass.core.ui.component.SchoolPickerState
 import com.careercompass.core.ui.failure.FailureSurface
 import com.careercompass.core.ui.mvi.UiState
 import com.careercompass.feature.onboarding.domain.model.OnboardingStep
-import com.careercompass.feature.onboarding.presentation.experience.ExperienceDeleteState
-import com.careercompass.feature.onboarding.presentation.experience.ExperienceEditorState
 import com.careercompass.feature.onboarding.presentation.pastapplication.DirectInputState
 import com.careercompass.feature.onboarding.presentation.pastapplication.PastApplicationItemCategoryState
 import com.careercompass.feature.onboarding.presentation.pastapplication.UploadLabelState

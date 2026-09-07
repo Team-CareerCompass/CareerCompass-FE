@@ -103,6 +103,16 @@ class ExperienceListContentTest {
     }
 
     @Test
+    fun `카드의 삭제 버튼을 누르면 그 카드를 올려 보낸다`() {
+        val events = mutableListOf<ExperienceListEvent>()
+        composeRule.setContent(ExperienceListUiState(cards = listOf(project(9L))), onEvent = { events += it })
+
+        composeRule.onNode(hasText("삭제") and hasClickAction()).performClick()
+
+        composeRule.runOnIdle { assertEquals(listOf(ExperienceListEvent.DeleteClicked(9L)), events) }
+    }
+
+    @Test
     fun `유형 필터를 누르면 올려 보낸다`() {
         val events = mutableListOf<ExperienceListEvent>()
         composeRule.setContent(ExperienceListUiState(cards = listOf(project(1L))), onEvent = { events += it })

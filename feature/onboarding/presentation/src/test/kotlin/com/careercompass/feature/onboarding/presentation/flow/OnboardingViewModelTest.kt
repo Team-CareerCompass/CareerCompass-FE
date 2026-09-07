@@ -25,8 +25,13 @@ import com.careercompass.core.model.user.SchoolCatalog
 import com.careercompass.core.model.user.SchoolNameRules
 import com.careercompass.core.model.user.UserProfile
 import com.careercompass.core.model.user.UserProfileUpdate
+import com.careercompass.core.ui.component.ExperienceDeleteEvent
+import com.careercompass.core.ui.component.ExperienceEditorRules
+import com.careercompass.core.ui.component.ExperienceQuickAddEvent
 import com.careercompass.core.ui.component.GraduationDatePickerEvent
 import com.careercompass.core.ui.component.SchoolPickerEvent
+import com.careercompass.core.ui.component.toDraft
+import com.careercompass.core.ui.component.toEditorState
 import com.careercompass.core.ui.failure.FailureSurface
 import com.careercompass.feature.onboarding.domain.model.OnboardingProgress
 import com.careercompass.feature.onboarding.domain.model.OnboardingStep
@@ -49,9 +54,6 @@ import com.careercompass.feature.onboarding.presentation.OnboardingStep2Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep3Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep4Event
 import com.careercompass.feature.onboarding.presentation.complete.OnboardingCompleteEvent
-import com.careercompass.feature.onboarding.presentation.experience.ExperienceDeleteEvent
-import com.careercompass.feature.onboarding.presentation.experience.ExperienceEditorRules
-import com.careercompass.feature.onboarding.presentation.experience.ExperienceQuickAddEvent
 import com.careercompass.feature.onboarding.presentation.pastapplication.DirectInputEvent
 import com.careercompass.feature.onboarding.presentation.pastapplication.PastApplicationItemCategoryEvent
 import com.careercompass.feature.onboarding.presentation.pastapplication.UploadLabelEvent
@@ -499,15 +501,15 @@ class OnboardingViewModelTest {
 
         val editor = viewModel.uiState.value.experienceEditor
         assertNotNull(editor)
-        assertEquals(OnboardingFieldError.Required, editor!!.startDateError)
-        assertEquals(OnboardingFieldError.Required, editor.primaryError)
-        assertEquals(OnboardingFieldError.Required, editor.secondaryError)
+        assertEquals(ProfileFieldViolation.Required, editor!!.startDateError)
+        assertEquals(ProfileFieldViolation.Required, editor.primaryError)
+        assertEquals(ProfileFieldViolation.Required, editor.secondaryError)
         assertTrue(experienceRepository.createdDrafts.isEmpty())
 
         viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.StartDateChanged("2025.13"))
         viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.Submitted)
         assertEquals(
-            OnboardingFieldError.InvalidFormat,
+            ProfileFieldViolation.InvalidFormat,
             viewModel.uiState.value.experienceEditor
                 ?.startDateError,
         )
@@ -811,7 +813,7 @@ class OnboardingViewModelTest {
         viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.Submitted)
 
         assertEquals(
-            OnboardingFieldError.InvalidFormat,
+            ProfileFieldViolation.InvalidFormat,
             viewModel.uiState.value.experienceEditor
                 ?.startDateError,
         )
@@ -904,7 +906,7 @@ class OnboardingViewModelTest {
         val overflowed = viewModel.uiState.value.experienceEditor
         assertNotNull(overflowed)
         assertEquals(MAX_EXPERIENCE_TECH_TAGS, overflowed!!.techs.size)
-        assertEquals(OnboardingFieldError.OutOfRange, overflowed.techInputError)
+        assertEquals(ProfileFieldViolation.OutOfRange, overflowed.techInputError)
         // 상한에 걸린 글자는 입력칸에 남는다 — 하나 지우고 다시 완료를 누르면 그대로 들어간다.
         assertEquals("overflow", overflowed.techInput)
 
@@ -922,7 +924,7 @@ class OnboardingViewModelTest {
         )
         viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.TechTagSubmitted)
         assertEquals(
-            OnboardingFieldError.TooLong(MAX_EXPERIENCE_TECH_TAG_LENGTH),
+            ProfileFieldViolation.TooLong(MAX_EXPERIENCE_TECH_TAG_LENGTH),
             viewModel.uiState.value.experienceEditor
                 ?.techInputError,
         )
@@ -939,7 +941,7 @@ class OnboardingViewModelTest {
         viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.Submitted)
 
         assertEquals(
-            OnboardingFieldError.InvalidFormat,
+            ProfileFieldViolation.InvalidFormat,
             viewModel.uiState.value.experienceEditor
                 ?.linkError,
         )
@@ -950,7 +952,7 @@ class OnboardingViewModelTest {
         )
         viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.Submitted)
         assertEquals(
-            OnboardingFieldError.TooLong(MAX_EXPERIENCE_LINK_LENGTH),
+            ProfileFieldViolation.TooLong(MAX_EXPERIENCE_LINK_LENGTH),
             viewModel.uiState.value.experienceEditor
                 ?.linkError,
         )
@@ -982,7 +984,7 @@ class OnboardingViewModelTest {
 
         val editor = viewModel.uiState.value.experienceEditor
         assertNotNull(editor)
-        assertEquals(OnboardingFieldError.InvalidFormat, editor!!.linkError)
+        assertEquals(ProfileFieldViolation.InvalidFormat, editor!!.linkError)
         // 접힌 채로 막히면 사용자에게는 「버튼이 안 먹는다」로만 보인다.
         assertTrue(editor.isDetailExpanded)
         assertTrue(experienceRepository.createdDrafts.isEmpty())

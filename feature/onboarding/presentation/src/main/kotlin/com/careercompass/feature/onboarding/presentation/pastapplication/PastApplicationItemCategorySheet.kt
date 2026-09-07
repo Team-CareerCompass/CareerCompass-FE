@@ -80,7 +80,7 @@ public fun PastApplicationItemCategorySheet(
             }
         }
         CareerCompassButton(
-            text = stringResource(R.string.onboarding_sheet_cancel),
+            text = stringResource(com.careercompass.core.ui.R.string.core_ui_sheet_cancel),
             onClick = { onEvent(PastApplicationItemCategoryEvent.Dismissed) },
             modifier = Modifier.fillMaxWidth().padding(top = spacing.small),
             variant = CareerCompassButtonVariant.Secondary,

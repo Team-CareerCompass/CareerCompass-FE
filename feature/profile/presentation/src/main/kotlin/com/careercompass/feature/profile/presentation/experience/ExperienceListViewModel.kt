@@ -5,13 +5,25 @@ import com.careercompass.core.common.reporting.ErrorReporter
 import com.careercompass.core.domain.error.CoreDataFailure
 import com.careercompass.core.model.experience.Experience
 import com.careercompass.core.model.experience.MAX_EXPERIENCE_CARDS
+import com.careercompass.core.ui.component.ExperienceDeleteState
+import com.careercompass.core.ui.component.ExperienceEditorState
+import com.careercompass.core.ui.component.ExperienceQuickAddEvent
+import com.careercompass.core.ui.component.applying
+import com.careercompass.core.ui.component.hasErrors
+import com.careercompass.core.ui.component.toDraft
+import com.careercompass.core.ui.component.toEditorState
+import com.careercompass.core.ui.component.validateExperienceEditor
+import com.careercompass.core.ui.component.withTechTagCommitted
 import com.careercompass.core.ui.failure.FailureKind
 import com.careercompass.core.ui.failure.toFailureKind
 import com.careercompass.core.ui.mvi.MviIntent
 import com.careercompass.core.ui.mvi.MviViewModel
 import com.careercompass.core.ui.mvi.ReducerEvent
 import com.careercompass.core.ui.mvi.UiState
+import com.careercompass.feature.profile.domain.usecase.CreateExperienceUseCase
+import com.careercompass.feature.profile.domain.usecase.DeleteExperienceUseCase
 import com.careercompass.feature.profile.domain.usecase.GetExperiencesUseCase
+import com.careercompass.feature.profile.domain.usecase.UpdateExperienceUseCase
 import com.careercompass.feature.profile.presentation.home.ProfileSessionEnd
 import com.careercompass.feature.profile.presentation.reporting.ProfileFailureStage
 import com.careercompass.feature.profile.presentation.reporting.recordProfileFailure
@@ -37,8 +49,10 @@ public data class ExperienceListUiState(
     val isLoadingMore: Boolean = false,
     val loadFailure: FailureKind? = null,
     val message: ExperienceListMessage? = null,
-    val pendingCardId: Long? = null,
-    val isAddRequested: Boolean = false,
+    val editor: ExperienceEditorState? = null,
+    val isSavingCard: Boolean = false,
+    val pendingDeletion: ExperienceDeleteState? = null,
+    val isDeleting: Boolean = false,
     val sessionEnd: ProfileSessionEnd? = null,
 ) : UiState {
     /** 첫 조회 중이라 그릴 것이 아무것도 없다. */
@@ -80,9 +94,14 @@ public sealed interface ExperienceListIntent : MviIntent {
 
     public data object ConsumeMessage : ExperienceListIntent
 
-    public data object ConsumeCardNavigation : ExperienceListIntent
+    /** 편집 시트가 보내는 것. 입력은 순수 전이라 `core:ui` 의 전이 함수를 그대로 쓴다. */
+    public data class Editor(
+        val event: ExperienceQuickAddEvent,
+    ) : ExperienceListIntent
 
-    public data object ConsumeAddRequest : ExperienceListIntent
+    public data object ConfirmDelete : ExperienceListIntent
+
+    public data object DismissDelete : ExperienceListIntent
 
     public data object ConsumeSessionEnded : ExperienceListIntent
 }
@@ -114,21 +133,29 @@ public sealed interface ExperienceListReducerEvent : ReducerEvent {
         val message: ExperienceListMessage,
     ) : ExperienceListReducerEvent
 
-    public data class CardRequested(
-        val id: Long,
+    /** null 이면 시트를 닫는다. */
+    public data class EditorChanged(
+        val editor: ExperienceEditorState?,
     ) : ExperienceListReducerEvent
 
-    public data object AddRequested : ExperienceListReducerEvent
+    public data object SaveStarted : ExperienceListReducerEvent
+
+    public data object SaveFinished : ExperienceListReducerEvent
+
+    /** null 이면 확인 다이얼로그를 닫는다. */
+    public data class DeletionRequested(
+        val target: ExperienceDeleteState?,
+    ) : ExperienceListReducerEvent
+
+    public data object DeleteStarted : ExperienceListReducerEvent
+
+    public data object DeleteFinished : ExperienceListReducerEvent
 
     public data class SessionEnded(
         val cause: ProfileSessionEnd,
     ) : ExperienceListReducerEvent
 
     public data object MessageConsumed : ExperienceListReducerEvent
-
-    public data object CardNavigationConsumed : ExperienceListReducerEvent
-
-    public data object AddRequestConsumed : ExperienceListReducerEvent
 
     public data object SessionEndedConsumed : ExperienceListReducerEvent
 }
@@ -150,10 +177,15 @@ public class ExperienceListViewModel
     @Inject
     constructor(
         private val getExperiences: GetExperiencesUseCase,
+        private val createExperience: CreateExperienceUseCase,
+        private val updateExperience: UpdateExperienceUseCase,
+        private val deleteExperience: DeleteExperienceUseCase,
         private val errorReporter: ErrorReporter,
     ) : MviViewModel<ExperienceListIntent, ExperienceListUiState, ExperienceListReducerEvent>(ExperienceListUiState()) {
         private var loadJob: Job? = null
         private var loadMoreJob: Job? = null
+        private var saveJob: Job? = null
+        private var deleteJob: Job? = null
 
         init {
             load(ExperienceTypeFilter(null))
@@ -164,8 +196,9 @@ public class ExperienceListViewModel
                 is ExperienceListIntent.Screen -> onEvent(intent.event)
                 ExperienceListIntent.Refresh -> load(currentState.filter)
                 ExperienceListIntent.ConsumeMessage -> dispatch(ExperienceListReducerEvent.MessageConsumed)
-                ExperienceListIntent.ConsumeCardNavigation -> dispatch(ExperienceListReducerEvent.CardNavigationConsumed)
-                ExperienceListIntent.ConsumeAddRequest -> dispatch(ExperienceListReducerEvent.AddRequestConsumed)
+                is ExperienceListIntent.Editor -> onEditorEvent(intent.event)
+                ExperienceListIntent.ConfirmDelete -> confirmDelete()
+                ExperienceListIntent.DismissDelete -> dispatch(ExperienceListReducerEvent.DeletionRequested(null))
                 ExperienceListIntent.ConsumeSessionEnded -> dispatch(ExperienceListReducerEvent.SessionEndedConsumed)
             }
         }
@@ -211,12 +244,28 @@ public class ExperienceListViewModel
                     state.copy(isLoadingMore = false, message = event.message)
                 }
 
-                is ExperienceListReducerEvent.CardRequested -> {
-                    state.copy(pendingCardId = event.id)
+                is ExperienceListReducerEvent.EditorChanged -> {
+                    state.copy(editor = event.editor)
                 }
 
-                ExperienceListReducerEvent.AddRequested -> {
-                    state.copy(isAddRequested = true)
+                ExperienceListReducerEvent.SaveStarted -> {
+                    state.copy(isSavingCard = true)
+                }
+
+                ExperienceListReducerEvent.SaveFinished -> {
+                    state.copy(isSavingCard = false)
+                }
+
+                is ExperienceListReducerEvent.DeletionRequested -> {
+                    state.copy(pendingDeletion = event.target)
+                }
+
+                ExperienceListReducerEvent.DeleteStarted -> {
+                    state.copy(isDeleting = true)
+                }
+
+                ExperienceListReducerEvent.DeleteFinished -> {
+                    state.copy(isDeleting = false, pendingDeletion = null, editor = null)
                 }
 
                 is ExperienceListReducerEvent.SessionEnded -> {
@@ -225,14 +274,6 @@ public class ExperienceListViewModel
 
                 ExperienceListReducerEvent.MessageConsumed -> {
                     state.copy(message = null)
-                }
-
-                ExperienceListReducerEvent.CardNavigationConsumed -> {
-                    state.copy(pendingCardId = null)
-                }
-
-                ExperienceListReducerEvent.AddRequestConsumed -> {
-                    state.copy(isAddRequested = false)
                 }
 
                 ExperienceListReducerEvent.SessionEndedConsumed -> {
@@ -247,14 +288,26 @@ public class ExperienceListViewModel
                 }
 
                 is ExperienceListEvent.CardClicked -> {
-                    dispatch(ExperienceListReducerEvent.CardRequested(event.id))
+                    val card = currentState.cards.firstOrNull { it.id == event.id }
+                    if (card != null) dispatch(ExperienceListReducerEvent.EditorChanged(card.toEditorState()))
                 }
 
                 ExperienceListEvent.AddClicked -> {
                     if (currentState.isLimitReached) {
                         dispatch(ExperienceListReducerEvent.MessageRaised(ExperienceListMessage.LimitReached))
                     } else {
-                        dispatch(ExperienceListReducerEvent.AddRequested)
+                        dispatch(ExperienceListReducerEvent.EditorChanged(ExperienceEditorState()))
+                    }
+                }
+
+                is ExperienceListEvent.DeleteClicked -> {
+                    val card = currentState.cards.firstOrNull { it.id == event.id }
+                    if (card != null) {
+                        dispatch(
+                            ExperienceListReducerEvent.DeletionRequested(
+                                ExperienceDeleteState(experienceId = card.id, title = card.title),
+                            ),
+                        )
                     }
                 }
 
@@ -271,6 +324,96 @@ public class ExperienceListViewModel
                     Unit
                 }
             }
+        }
+
+        private fun onEditorEvent(event: ExperienceQuickAddEvent) {
+            val editor = currentState.editor ?: return
+            when (event) {
+                ExperienceQuickAddEvent.Submitted -> {
+                    saveCard()
+                }
+
+                ExperienceQuickAddEvent.Dismissed -> {
+                    // 저장 중에는 닫지 않는다 — 응답이 시트 없는 화면에 떨어지지 않게.
+                    if (!currentState.isSavingCard) dispatch(ExperienceListReducerEvent.EditorChanged(null))
+                }
+
+                // 나머지는 순수 전이다 — 온보딩 Step 3 와 같은 함수를 쓴다(#179 의 완료 조건).
+                else -> {
+                    if (!currentState.isSavingCard) dispatch(ExperienceListReducerEvent.EditorChanged(editor.applying(event)))
+                }
+            }
+        }
+
+        /**
+         * 저장 — 시트를 한 번 더 검증하고, 통과하면 등록 또는 수정을 보낸다.
+         *
+         * 검증·초안 변환은 `core:ui` 의 전이가 한다. 온보딩 Step 3 와 같은 함수라 유형별 필수 규칙과
+         * 날짜 정밀도 규칙(#166 · #171)이 두 벌이 되지 않는다 — 그것이 이 이슈의 완료 조건이다.
+         */
+        private fun saveCard() {
+            if (saveJob?.isActive == true) return
+            val editor = currentState.editor ?: return
+            val validated = validateExperienceEditor(editor.withTechTagCommitted())
+            if (validated.hasErrors) {
+                dispatch(ExperienceListReducerEvent.EditorChanged(validated))
+                return
+            }
+            val draft = validated.toDraft()
+            val id = validated.experienceId
+            dispatch(ExperienceListReducerEvent.SaveStarted)
+            saveJob =
+                viewModelScope.launch {
+                    val result = if (id == null) createExperience(draft) else updateExperience(id, draft)
+                    dispatch(ExperienceListReducerEvent.SaveFinished)
+                    result
+                        .onSuccess {
+                            dispatch(ExperienceListReducerEvent.EditorChanged(null))
+                            dispatch(ExperienceListReducerEvent.MessageRaised(ExperienceListMessage.Saved))
+                            load(currentState.filter)
+                        }.onFailure(::onSaveFailure)
+                }
+        }
+
+        /** 저장 실패는 시트를 닫지 않는다 — 친 값을 버리면 다시 쳐야 한다. */
+        private fun onSaveFailure(cause: Throwable) {
+            errorReporter.recordProfileFailure(ProfileFailureStage.ExperienceSave, cause)
+            when (cause) {
+                is CoreDataFailure.Unauthorized -> {
+                    dispatch(ExperienceListReducerEvent.SessionEnded(ProfileSessionEnd.Expired))
+                }
+
+                is CoreDataFailure.LimitExceeded -> {
+                    dispatch(ExperienceListReducerEvent.MessageRaised(ExperienceListMessage.SaveLimitExceeded))
+                }
+
+                else -> {
+                    dispatch(ExperienceListReducerEvent.MessageRaised(ExperienceListMessage.SaveFailed))
+                }
+            }
+        }
+
+        private fun confirmDelete() {
+            if (deleteJob?.isActive == true) return
+            val id = currentState.pendingDeletion?.experienceId ?: return
+            dispatch(ExperienceListReducerEvent.DeleteStarted)
+            deleteJob =
+                viewModelScope.launch {
+                    deleteExperience(id)
+                        .onSuccess {
+                            dispatch(ExperienceListReducerEvent.DeleteFinished)
+                            dispatch(ExperienceListReducerEvent.MessageRaised(ExperienceListMessage.Deleted))
+                            load(currentState.filter)
+                        }.onFailure { cause ->
+                            dispatch(ExperienceListReducerEvent.DeleteFinished)
+                            errorReporter.recordProfileFailure(ProfileFailureStage.ExperienceDelete, cause)
+                            if (cause is CoreDataFailure.Unauthorized) {
+                                dispatch(ExperienceListReducerEvent.SessionEnded(ProfileSessionEnd.Expired))
+                            } else {
+                                dispatch(ExperienceListReducerEvent.MessageRaised(ExperienceListMessage.DeleteFailed))
+                            }
+                        }
+                }
         }
 
         private fun load(filter: ExperienceTypeFilter) {

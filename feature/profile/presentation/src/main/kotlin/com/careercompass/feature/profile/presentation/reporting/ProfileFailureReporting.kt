@@ -28,6 +28,12 @@ public enum class ProfileFailureStage(
     /** `GET /experiences` — 목록 조회와 이어 읽기. */
     ExperienceList("experience_list"),
 
+    /** `POST` · `PATCH /experiences` — 등록과 수정. */
+    ExperienceSave("experience_save"),
+
+    /** `DELETE /experiences/{id}`. */
+    ExperienceDelete("experience_delete"),
+
     BiometricToggle("biometric_toggle"),
     ThemeMode("theme_mode"),
     Logout("logout"),

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -18,6 +19,9 @@ import com.careercompass.core.model.experience.ExperiencePoint
 import com.careercompass.core.model.experience.ExperienceType
 import com.careercompass.core.ui.component.CareerCompassBadge
 import com.careercompass.core.ui.component.CareerCompassBadgeTone
+import com.careercompass.core.ui.component.CareerCompassButton
+import com.careercompass.core.ui.component.CareerCompassButtonSize
+import com.careercompass.core.ui.component.CareerCompassButtonVariant
 import com.careercompass.core.ui.component.CareerCompassCard
 import com.careercompass.core.ui.theme.CareerCompassTheme
 import com.careercompass.feature.profile.presentation.R
@@ -35,6 +39,7 @@ import com.careercompass.feature.profile.presentation.R
 internal fun ExperienceCardRow(
     card: Experience,
     onClick: () -> Unit,
+    onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = CareerCompassTheme.colors
@@ -43,9 +48,18 @@ internal fun ExperienceCardRow(
     CareerCompassCard(modifier = modifier.fillMaxWidth(), onClick = onClick) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.small),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             CareerCompassBadge(label = stringResource(card.type.labelRes()), tone = CareerCompassBadgeTone.Brand)
+            // 삭제는 카드 열기와 다른 일이라 카드 안에서도 제 버튼을 갖는다 — 열어야만 지울 수 있으면
+            // 잘못 담은 카드를 치우는 데 화면 하나를 더 지난다.
+            CareerCompassButton(
+                text = stringResource(R.string.profile_experience_delete),
+                onClick = onDeleteClick,
+                variant = CareerCompassButtonVariant.Ghost,
+                size = CareerCompassButtonSize.Small,
+            )
         }
         Spacer(modifier = Modifier.height(spacing.xxSmall))
         Text(

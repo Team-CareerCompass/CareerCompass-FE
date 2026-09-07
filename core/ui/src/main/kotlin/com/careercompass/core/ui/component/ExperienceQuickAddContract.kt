@@ -1,10 +1,10 @@
-package com.careercompass.feature.onboarding.presentation.experience
+package com.careercompass.core.ui.component
 
 import androidx.compose.runtime.Immutable
 import com.careercompass.core.model.experience.EXPERIENCE_YEAR_RANGE
 import com.careercompass.core.model.experience.ExperiencePoint
 import com.careercompass.core.model.experience.ExperienceType
-import com.careercompass.feature.onboarding.presentation.shared.model.OnboardingFieldError
+import com.careercompass.core.model.user.ProfileFieldViolation
 
 /**
  * Step 3 「경험 추가·수정」 시트 상태 — 공통 5개 필드 + 유형별 상세(F1-3) 입력.
@@ -44,14 +44,14 @@ public data class ExperienceEditorState(
     public val link: String = "",
     public val detail: String = "",
     public val isDetailExpanded: Boolean = false,
-    public val titleError: OnboardingFieldError? = null,
-    public val startDateError: OnboardingFieldError? = null,
-    public val endDateError: OnboardingFieldError? = null,
-    public val primaryError: OnboardingFieldError? = null,
-    public val secondaryError: OnboardingFieldError? = null,
-    public val techInputError: OnboardingFieldError? = null,
-    public val linkError: OnboardingFieldError? = null,
-    public val detailError: OnboardingFieldError? = null,
+    public val titleError: ProfileFieldViolation? = null,
+    public val startDateError: ProfileFieldViolation? = null,
+    public val endDateError: ProfileFieldViolation? = null,
+    public val primaryError: ProfileFieldViolation? = null,
+    public val secondaryError: ProfileFieldViolation? = null,
+    public val techInputError: ProfileFieldViolation? = null,
+    public val linkError: ProfileFieldViolation? = null,
+    public val detailError: ProfileFieldViolation? = null,
     public val isSubmitting: Boolean = false,
 ) {
     public val isInputEnabled: Boolean

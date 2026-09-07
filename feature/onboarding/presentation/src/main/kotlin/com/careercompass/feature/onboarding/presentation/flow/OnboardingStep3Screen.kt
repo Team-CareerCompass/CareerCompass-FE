@@ -9,16 +9,16 @@ import com.careercompass.core.model.experience.Experience
 import com.careercompass.core.model.experience.ExperienceDetails
 import com.careercompass.core.model.experience.ExperiencePoint
 import com.careercompass.core.model.experience.ExperienceType
+import com.careercompass.core.ui.component.ExperienceDeleteDialog
+import com.careercompass.core.ui.component.ExperienceQuickAddEvent
+import com.careercompass.core.ui.component.ExperienceQuickAddSheet
+import com.careercompass.core.ui.component.labelResId
 import com.careercompass.feature.onboarding.presentation.OnboardingExperience
 import com.careercompass.feature.onboarding.presentation.OnboardingExperienceType
 import com.careercompass.feature.onboarding.presentation.OnboardingStep3Content
 import com.careercompass.feature.onboarding.presentation.OnboardingStep3Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep3UiState
 import com.careercompass.feature.onboarding.presentation.R
-import com.careercompass.feature.onboarding.presentation.experience.ExperienceDeleteDialog
-import com.careercompass.feature.onboarding.presentation.experience.ExperienceQuickAddEvent
-import com.careercompass.feature.onboarding.presentation.experience.ExperienceQuickAddSheet
-import com.careercompass.feature.onboarding.presentation.experience.labelResId
 import com.careercompass.feature.onboarding.presentation.flow.component.OnboardingFlowFailureHost
 import com.careercompass.feature.onboarding.presentation.shared.component.OnboardingSheetHost
 

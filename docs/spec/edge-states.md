@@ -61,11 +61,14 @@ Figma 09 Edge Cases 는 상태 화면을 **다섯 장**만 그려 두었다 — 
 | 게시판 수정 시트 | 스낵바 | 저장 중 표시 | — | 없음 | 스낵바 일반 문구 | 셸에 알림 → 로그인 |
 | 마이 홈(마이 탭) | 캐시 있으면 스낵바 `profile_home_refresh_failed` · 없으면 `CareerCompassFailureState`(실패 표 #204) | 첫 조회만 화면 가운데 진행 표시 | 없음 — 프로필은 언제나 하나, 개수 0 은 배지를 뗀다 | 없음 | 오프라인과 같은 길(실패 표가 점검 문구를 준다) | 로그아웃(`LoggedOut`) · 401(`Expired`) 둘 다 셸에 알린다 |
 | 프로필 편집 | 프리필할 값이 없을 때만 `CareerCompassFailureState`(실패 표 #204) · 기본 정보 저장 실패는 스낵바 `profile_edit_save_failed` · **전체 교체(직무·태그) 실패는 서버 값으로 되돌리고** `profile_edit_interests_reverted` | 첫 조회만 화면 가운데 진행 표시 | 없음 | 없음 | 오프라인과 같은 길 | 셸에 알림 → 로그인 |
+| 경험 카드 편집 시트 | 저장 실패는 시트를 열어 둔 채 스낵바 `profile_experience_save_failed` (상한 거부는 `profile_experience_limit_reached`) | 저장 중 시트 잠금(닫기 무시) | — | 없음 | 오프라인과 같은 길 | 셸에 알림 → 로그인 |
 | 경험 카드 목록 | 읽은 카드가 없을 때만 `CareerCompassFailureState`(실패 표 #204 · `FailureSurface.ExperienceCard`) · 이어 읽기 실패는 스낵바 `profile_experience_load_more_failed` | 첫 조회만 화면 가운데 진행 표시 | `CareerCompassEmptyState` × 2사유(미등록 → 「첫 카드 만들기」 · 필터 → 「전체 보기」) | 없음 | 오프라인과 같은 길 | 셸에 알림 → 로그인 |
 | 분석·지원서·알림 탭 | 미구현 | 미구현 | `CareerCompassEmptyState`(자리표시자) | 미구현 | 미구현 | 미구현 |
 
 `feature/editor` · `feature/foryou` · `feature/notification` 은 **Kotlin 파일이 하나도 없다** — 빌드 스크립트만 있는 자리표시자다. 앱 셸이 `PlaceholderTabScreen` 으로 대신 그린다.
-`feature/profile` 은 마이 홈(#175) · 프로필 편집(#176 · #177) · 경험 카드 목록(#178) 세 장이 서 있고, 나머지 두 진입점(과거 지원서·알림 설정)과 경험 카드 편집(#179)은 셸의 `PlaceholderScreen` 이다.
+`feature/profile` 은 마이 홈(#175) · 프로필 편집(#176 · #177) · 경험 카드 목록과 편집 시트(#178 · #179)가 서 있고, 나머지 두 진입점(과거 지원서·알림 설정)은 셸의 `PlaceholderScreen` 이다.
+
+경험 카드 편집은 **저장 실패에 시트를 닫지 않는다.** 친 값을 버리면 다시 쳐야 하고, 전체 교체가 아니라 다시 누르면 되는 요청이다. 시트는 저장 중에만 잠긴다 — 숨긴 뒤 닫기를 무시하면 빈 창만 남는다.
 
 경험 카드 목록의 **빈 결과는 사유가 둘이다.** 필터 때문에 비었으면 되돌릴 조작(「전체 보기」)이 그 화면에 있고, 정말 없으면 만들러 가는 길을 연다 — 같은 문장을 쓰면 필터를 걸어 둔 사용자는 자기 카드가 사라진 줄 안다. 상한(30장)은 서버가 422 를 줄 때까지 기다리지 않고 목록 머리에 `현재 / 상한` 으로 늘 보인다.
 

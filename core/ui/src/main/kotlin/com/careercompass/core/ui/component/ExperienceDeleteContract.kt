@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.presentation.experience
+package com.careercompass.core.ui.component
 
 import androidx.compose.runtime.Immutable
 

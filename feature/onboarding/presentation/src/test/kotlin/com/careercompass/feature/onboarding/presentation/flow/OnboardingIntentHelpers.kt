@@ -1,6 +1,8 @@
 package com.careercompass.feature.onboarding.presentation.flow
 
 import com.careercompass.core.model.application.UploadFile
+import com.careercompass.core.ui.component.ExperienceDeleteEvent
+import com.careercompass.core.ui.component.ExperienceQuickAddEvent
 import com.careercompass.core.ui.component.GraduationDatePickerEvent
 import com.careercompass.core.ui.component.SchoolPickerEvent
 import com.careercompass.feature.onboarding.presentation.OnboardingStep1Event
@@ -8,8 +10,6 @@ import com.careercompass.feature.onboarding.presentation.OnboardingStep2Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep3Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep4Event
 import com.careercompass.feature.onboarding.presentation.complete.OnboardingCompleteEvent
-import com.careercompass.feature.onboarding.presentation.experience.ExperienceDeleteEvent
-import com.careercompass.feature.onboarding.presentation.experience.ExperienceQuickAddEvent
 import com.careercompass.feature.onboarding.presentation.pastapplication.DirectInputEvent
 import com.careercompass.feature.onboarding.presentation.pastapplication.PastApplicationItemCategoryEvent
 import com.careercompass.feature.onboarding.presentation.pastapplication.UploadLabelEvent

@@ -73,7 +73,7 @@ public fun UploadLabelSheet(
             horizontalArrangement = Arrangement.spacedBy(spacing.small),
         ) {
             CareerCompassButton(
-                text = stringResource(R.string.onboarding_sheet_cancel),
+                text = stringResource(com.careercompass.core.ui.R.string.core_ui_sheet_cancel),
                 onClick = { onEvent(UploadLabelEvent.Dismissed) },
                 modifier = Modifier.weight(1f),
                 variant = CareerCompassButtonVariant.Secondary,
