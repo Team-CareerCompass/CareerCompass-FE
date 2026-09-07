@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.presentation.experience
+package com.careercompass.core.ui.component
 
 import com.careercompass.core.model.experience.ExperiencePoint
 import com.careercompass.core.model.experience.ExperienceType

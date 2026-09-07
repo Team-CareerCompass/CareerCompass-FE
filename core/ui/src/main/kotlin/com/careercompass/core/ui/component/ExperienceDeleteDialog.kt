@@ -1,15 +1,12 @@
-package com.careercompass.feature.onboarding.presentation.experience
+package com.careercompass.core.ui.component
 
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import com.careercompass.core.ui.component.CareerCompassButton
-import com.careercompass.core.ui.component.CareerCompassButtonSize
-import com.careercompass.core.ui.component.CareerCompassButtonVariant
+import com.careercompass.core.ui.R
 import com.careercompass.core.ui.theme.CareerCompassTheme
-import com.careercompass.feature.onboarding.presentation.R
 
 /**
  * Step 3 카드 삭제 확인 다이얼로그 — 삭제는 서버 카드까지 지워 되돌릴 수 없다(F1-3).
@@ -26,7 +23,7 @@ public fun ExperienceDeleteDialog(
         onDismissRequest = { onEvent(ExperienceDeleteEvent.Dismissed) },
         confirmButton = {
             CareerCompassButton(
-                text = stringResource(R.string.onboarding_experience_delete_confirm),
+                text = stringResource(R.string.core_ui_experience_delete_confirm),
                 onClick = { onEvent(ExperienceDeleteEvent.Confirmed) },
                 variant = CareerCompassButtonVariant.Danger,
                 size = CareerCompassButtonSize.Small,
@@ -35,14 +32,14 @@ public fun ExperienceDeleteDialog(
         modifier = modifier,
         dismissButton = {
             CareerCompassButton(
-                text = stringResource(R.string.onboarding_sheet_cancel),
+                text = stringResource(R.string.core_ui_sheet_cancel),
                 onClick = { onEvent(ExperienceDeleteEvent.Dismissed) },
                 variant = CareerCompassButtonVariant.Ghost,
                 size = CareerCompassButtonSize.Small,
             )
         },
-        title = { Text(text = stringResource(R.string.onboarding_experience_delete_title)) },
-        text = { Text(text = stringResource(R.string.onboarding_experience_delete_message, state.title)) },
+        title = { Text(text = stringResource(R.string.core_ui_experience_delete_title)) },
+        text = { Text(text = stringResource(R.string.core_ui_experience_delete_message, state.title)) },
         containerColor = CareerCompassTheme.colors.surface,
         titleContentColor = CareerCompassTheme.colors.onSurface,
         textContentColor = CareerCompassTheme.colors.onSurfaceVariant,

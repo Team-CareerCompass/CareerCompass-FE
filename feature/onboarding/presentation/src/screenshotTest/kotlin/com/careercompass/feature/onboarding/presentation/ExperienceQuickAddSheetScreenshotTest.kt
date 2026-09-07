@@ -5,10 +5,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import com.careercompass.core.model.experience.ExperienceType
+import com.careercompass.core.model.user.ProfileFieldViolation
+import com.careercompass.core.ui.component.ExperienceEditorState
+import com.careercompass.core.ui.component.ExperienceQuickAddSheet
 import com.careercompass.core.ui.theme.CareerCompassTheme
-import com.careercompass.feature.onboarding.presentation.experience.ExperienceEditorState
-import com.careercompass.feature.onboarding.presentation.experience.ExperienceQuickAddSheet
-import com.careercompass.feature.onboarding.presentation.shared.model.OnboardingFieldError
 
 @PreviewTest
 @Preview(name = "Experience quick add project", widthDp = 360, heightDp = 800)
@@ -56,9 +56,9 @@ public fun ExperienceQuickAddInternErrorPreview() {
             ExperienceEditorState(
                 type = ExperienceType.Intern,
                 title = "카카오 인턴",
-                startDateError = OnboardingFieldError.Required,
-                primaryError = OnboardingFieldError.Required,
-                secondaryError = OnboardingFieldError.Required,
+                startDateError = ProfileFieldViolation.Required,
+                primaryError = ProfileFieldViolation.Required,
+                secondaryError = ProfileFieldViolation.Required,
             ),
     )
 }

@@ -95,7 +95,11 @@ public fun ExperienceListContent(
                     verticalArrangement = Arrangement.spacedBy(spacing.medium),
                 ) {
                     items(items = state.cards, key = { it.id }) { card ->
-                        ExperienceCardRow(card = card, onClick = { onEvent(ExperienceListEvent.CardClicked(card.id)) })
+                        ExperienceCardRow(
+                            card = card,
+                            onClick = { onEvent(ExperienceListEvent.CardClicked(card.id)) },
+                            onDeleteClick = { onEvent(ExperienceListEvent.DeleteClicked(card.id)) },
+                        )
                     }
                     if (state.nextCursor != null) {
                         item(key = "load_more") {

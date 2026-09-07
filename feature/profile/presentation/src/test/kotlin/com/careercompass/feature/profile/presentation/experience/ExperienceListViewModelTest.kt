@@ -8,8 +8,13 @@ import com.careercompass.core.model.experience.ExperienceDetails
 import com.careercompass.core.model.experience.ExperiencePoint
 import com.careercompass.core.model.experience.ExperienceType
 import com.careercompass.core.model.paging.CursorPage
+import com.careercompass.core.model.user.ProfileFieldViolation
+import com.careercompass.core.ui.component.ExperienceQuickAddEvent
 import com.careercompass.core.ui.failure.FailureKind
+import com.careercompass.feature.profile.domain.usecase.CreateExperienceUseCase
+import com.careercompass.feature.profile.domain.usecase.DeleteExperienceUseCase
 import com.careercompass.feature.profile.domain.usecase.GetExperiencesUseCase
+import com.careercompass.feature.profile.domain.usecase.UpdateExperienceUseCase
 import com.careercompass.feature.profile.presentation.home.ProfileSessionEnd
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -51,7 +56,14 @@ class ExperienceListViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = ExperienceListViewModel(GetExperiencesUseCase(experienceRepository), reporter)
+    private fun viewModel() =
+        ExperienceListViewModel(
+            getExperiences = GetExperiencesUseCase(experienceRepository),
+            createExperience = CreateExperienceUseCase(experienceRepository),
+            updateExperience = UpdateExperienceUseCase(experienceRepository),
+            deleteExperience = DeleteExperienceUseCase(experienceRepository),
+            errorReporter = reporter,
+        )
 
     @Test
     fun `첫 조회로 목록과 전체 개수를 받는다`() {
@@ -77,17 +89,25 @@ class ExperienceListViewModelTest {
         viewModel.onEvent(ExperienceListEvent.AddClicked)
 
         assertEquals(ExperienceListMessage.LimitReached, viewModel.state.value.message)
-        assertFalse(viewModel.state.value.isAddRequested)
+        assertNull(viewModel.state.value.editor)
     }
 
     @Test
-    fun `상한 아래면 추가 요청을 올린다`() {
+    fun `상한 아래면 빈 시트를 연다`() {
         experienceRepository.experiences += card(1L)
         val viewModel = viewModel()
 
         viewModel.onEvent(ExperienceListEvent.AddClicked)
 
-        assertTrue(viewModel.state.value.isAddRequested)
+        assertEquals(
+            "",
+            viewModel.state.value.editor
+                ?.title,
+        )
+        assertNull(
+            viewModel.state.value.editor
+                ?.experienceId,
+        )
     }
 
     @Test
@@ -190,6 +210,123 @@ class ExperienceListViewModelTest {
         assertEquals(ExperienceEmptyReason.FilteredOut, viewModel.state.value.emptyReason)
     }
 
+    // ── 등록·수정·삭제 (#179) ──────────────────────────────────────────────────
+
+    @Test
+    fun `카드를 누르면 그 값으로 시트를 연다`() {
+        experienceRepository.experiences += card(7L)
+        val viewModel = viewModel()
+
+        viewModel.onEvent(ExperienceListEvent.CardClicked(7L))
+
+        assertEquals(
+            7L,
+            viewModel.state.value.editor
+                ?.experienceId,
+        )
+        assertEquals(
+            "카드 7",
+            viewModel.state.value.editor
+                ?.title,
+        )
+    }
+
+    @Test
+    fun `필수 값이 비면 저장하지 않고 시트에 오류를 돌려준다`() {
+        val viewModel = viewModel()
+        viewModel.onEvent(ExperienceListEvent.AddClicked)
+
+        viewModel.onEditor(ExperienceQuickAddEvent.Submitted)
+
+        assertTrue(experienceRepository.createdDrafts.isEmpty())
+        assertEquals(
+            ProfileFieldViolation.Required,
+            viewModel.state.value.editor
+                ?.titleError,
+        )
+    }
+
+    @Test
+    fun `신규 카드를 등록하고 목록을 다시 읽는다`() {
+        val viewModel = viewModel()
+        viewModel.onEvent(ExperienceListEvent.AddClicked)
+        viewModel.onEditor(ExperienceQuickAddEvent.TitleChanged("졸업 프로젝트"))
+        viewModel.onEditor(ExperienceQuickAddEvent.StartDateChanged("2025.03"))
+
+        viewModel.onEditor(ExperienceQuickAddEvent.Submitted)
+
+        assertEquals("졸업 프로젝트", experienceRepository.createdDrafts.single().title)
+        assertNull(viewModel.state.value.editor)
+        assertEquals(ExperienceListMessage.Saved, viewModel.state.value.message)
+        assertEquals(1, viewModel.state.value.cards.size)
+    }
+
+    /** 저장 실패는 시트를 닫지 않는다 — 친 값을 버리면 다시 쳐야 한다. */
+    @Test
+    fun `저장이 실패해도 시트는 열린 채 남는다`() {
+        experienceRepository.onCreateExperience = { Result.failure(IOException("offline")) }
+        val viewModel = viewModel()
+        viewModel.onEvent(ExperienceListEvent.AddClicked)
+        viewModel.onEditor(ExperienceQuickAddEvent.TitleChanged("졸업 프로젝트"))
+        viewModel.onEditor(ExperienceQuickAddEvent.StartDateChanged("2025.03"))
+
+        viewModel.onEditor(ExperienceQuickAddEvent.Submitted)
+
+        assertEquals(
+            "졸업 프로젝트",
+            viewModel.state.value.editor
+                ?.title,
+        )
+        assertEquals(ExperienceListMessage.SaveFailed, viewModel.state.value.message)
+        assertEquals("experience_save", reporter.recorded.single()["profile_stage"])
+    }
+
+    @Test
+    fun `서버가 상한으로 거부하면 상한 문구로 알린다`() {
+        experienceRepository.onCreateExperience = {
+            Result.failure(CoreDataFailure.LimitExceeded(code = "LIMIT_EXCEEDED", cause = IllegalStateException()))
+        }
+        val viewModel = viewModel()
+        viewModel.onEvent(ExperienceListEvent.AddClicked)
+        viewModel.onEditor(ExperienceQuickAddEvent.TitleChanged("졸업 프로젝트"))
+        viewModel.onEditor(ExperienceQuickAddEvent.StartDateChanged("2025.03"))
+
+        viewModel.onEditor(ExperienceQuickAddEvent.Submitted)
+
+        assertEquals(ExperienceListMessage.SaveLimitExceeded, viewModel.state.value.message)
+    }
+
+    @Test
+    fun `삭제는 확인을 받고 지운 뒤 목록을 다시 읽는다`() {
+        experienceRepository.experiences += card(3L)
+        val viewModel = viewModel()
+
+        viewModel.onEvent(ExperienceListEvent.DeleteClicked(3L))
+        assertEquals(
+            "카드 3",
+            viewModel.state.value.pendingDeletion
+                ?.title,
+        )
+
+        viewModel.onIntent(ExperienceListIntent.ConfirmDelete)
+
+        assertTrue(experienceRepository.experiences.none { it.id == 3L })
+        assertNull(viewModel.state.value.pendingDeletion)
+        assertEquals(ExperienceListMessage.Deleted, viewModel.state.value.message)
+    }
+
+    @Test
+    fun `삭제를 취소하면 아무것도 지우지 않는다`() {
+        experienceRepository.experiences += card(3L)
+        val viewModel = viewModel()
+
+        viewModel.onEvent(ExperienceListEvent.DeleteClicked(3L))
+        viewModel.onIntent(ExperienceListIntent.DismissDelete)
+
+        assertEquals(1, experienceRepository.experiences.size)
+        assertNull(viewModel.state.value.pendingDeletion)
+    }
+
     private companion object {
         fun card(id: Long) =
             Experience(
@@ -204,5 +341,7 @@ class ExperienceListViewModelTest {
 }
 
 private fun ExperienceListViewModel.onEvent(event: ExperienceListEvent) = onIntent(ExperienceListIntent.Screen(event))
+
+private fun ExperienceListViewModel.onEditor(event: ExperienceQuickAddEvent) = onIntent(ExperienceListIntent.Editor(event))
 
 private val ExperienceListViewModel.state get() = uiState

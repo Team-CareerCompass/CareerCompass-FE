@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.presentation.experience
+package com.careercompass.core.ui.component
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -16,8 +16,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import com.careercompass.core.model.experience.ExperienceType
+import com.careercompass.core.model.user.ProfileFieldViolation
 import com.careercompass.core.ui.theme.CareerCompassTheme
-import com.careercompass.feature.onboarding.presentation.shared.model.OnboardingFieldError
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -152,8 +152,8 @@ public class ExperienceQuickAddSheetTest {
         setSheet(
             ExperienceEditorState(
                 isDetailExpanded = true,
-                techInputError = OnboardingFieldError.OutOfRange,
-                linkError = OnboardingFieldError.InvalidFormat,
+                techInputError = ProfileFieldViolation.OutOfRange,
+                linkError = ProfileFieldViolation.InvalidFormat,
             ),
         )
 
@@ -167,8 +167,8 @@ public class ExperienceQuickAddSheetTest {
             ExperienceEditorState(
                 type = ExperienceType.Intern,
                 title = "카카오 인턴",
-                startDateError = OnboardingFieldError.Required,
-                primaryError = OnboardingFieldError.TooLong(100),
+                startDateError = ProfileFieldViolation.Required,
+                primaryError = ProfileFieldViolation.TooLong(100),
             ),
         )
 

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="core_ui_experience_add_title">경험 추가</string>
+    <string name="core_ui_experience_edit_title">경험 수정</string>
+    <string name="core_ui_experience_type_section">유형</string>
+    <string name="core_ui_experience_type_selected_state">선택됨</string>
+    <string name="core_ui_experience_type_unselected_state">선택 안 됨</string>
+    <string name="core_ui_experience_title_label">제목 *</string>
+    <string name="core_ui_experience_title_placeholder">예: CareerCompass 졸업 프로젝트</string>
+    <string name="core_ui_experience_start_label">시작 (YYYY.MM)</string>
+    <string name="core_ui_experience_start_label_required">시작 (YYYY.MM) *</string>
+    <string name="core_ui_experience_award_year_label">수상 연도 (YYYY)</string>
+    <string name="core_ui_experience_acquired_label">취득 연월 (YYYY.MM)</string>
+    <string name="core_ui_experience_end_label">종료 (YYYY.MM)</string>
+    <string name="core_ui_experience_date_placeholder" translatable="false">2025.09</string>
+    <string name="core_ui_experience_year_placeholder" translatable="false">2025</string>
+    <string name="core_ui_experience_project_role_label">역할</string>
+    <string name="core_ui_experience_project_summary_label">요약</string>
+    <string name="core_ui_experience_award_rank_label">수상 등급 *</string>
+    <string name="core_ui_experience_award_organizer_label">주관 기관</string>
+    <string name="core_ui_experience_intern_company_label">회사명 *</string>
+    <string name="core_ui_experience_intern_role_label">직무 *</string>
+    <string name="core_ui_experience_activity_organization_label">기관명 *</string>
+    <string name="core_ui_experience_activity_summary_label">성과 요약</string>
+    <string name="core_ui_experience_certificate_issuer_label">발급 기관</string>
+    <string name="core_ui_experience_detail_expand">자세히 입력하기 (선택)</string>
+    <string name="core_ui_experience_detail_collapse">자세히 접기</string>
+    <string name="core_ui_experience_detail_expanded_state">펼침</string>
+    <string name="core_ui_experience_detail_collapsed_state">접힘</string>
+    <string name="core_ui_experience_detail_filled">입력됨</string>
+    <string name="core_ui_experience_detail_hint">추천 정확도를 높이는 데 쓰여요. 비워 둬도 저장할 수 있어요</string>
+    <string name="core_ui_experience_tech_label">사용 기술</string>
+    <string name="core_ui_experience_tech_placeholder"># 기술을 입력하고 완료를 눌러 주세요</string>
+    <string name="core_ui_experience_tech_support">최대 %1$d개 · 한 개당 %2$d자까지</string>
+    <string name="core_ui_experience_tech_limit">기술 태그는 최대 %1$d개까지 추가할 수 있어요</string>
+    <string name="core_ui_experience_tech_chip" translatable="false">#%1$s ×</string>
+    <string name="core_ui_experience_tech_remove">%1$s 태그 삭제</string>
+    <string name="core_ui_experience_link_label">성과·결과물 링크</string>
+    <string name="core_ui_experience_link_placeholder" translatable="false">https://github.com/…</string>
+    <string name="core_ui_experience_link_invalid">http:// 또는 https:// 로 시작하는 주소를 입력해 주세요</string>
+    <string name="core_ui_experience_intern_summary_label">주요 업무 요약</string>
+    <string name="core_ui_experience_activity_role_label">역할</string>
+    <string name="core_ui_experience_submit">추가하기</string>
+    <string name="core_ui_experience_submitting">추가하는 중</string>
+    <string name="core_ui_experience_save">저장하기</string>
+    <string name="core_ui_experience_saving">저장하는 중</string>
+    <string name="core_ui_experience_type_locked">유형은 바꿀 수 없어요. 바꾸려면 삭제하고 다시 추가해 주세요</string>
+    <string name="core_ui_experience_delete_title">경험을 삭제할까요?</string>
+    <string name="core_ui_experience_delete_message">「%1$s」을(를) 삭제하면 되돌릴 수 없어요.</string>
+    <string name="core_ui_experience_delete_confirm">삭제</string>
+    <string name="core_ui_experience_type_project">프로젝트</string>
+    <string name="core_ui_experience_type_award">수상</string>
+    <string name="core_ui_experience_type_intern">인턴</string>
+    <string name="core_ui_experience_type_activity">대외활동</string>
+    <string name="core_ui_experience_type_certificate">자격증</string>
+    <string name="core_ui_sheet_cancel">취소</string>
+</resources>

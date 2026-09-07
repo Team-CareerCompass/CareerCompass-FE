@@ -35,6 +35,21 @@ public enum class ExperienceEmptyReason {
 
 /** 스낵바 한 줄로 끝나는 알림. */
 public enum class ExperienceListMessage {
+    /** 카드를 저장했다. */
+    Saved,
+
+    /** 저장이 실패했다 — 시트에 친 값은 그대로 남는다. */
+    SaveFailed,
+
+    /** 서버가 상한을 이유로 거부했다(422). 화면이 먼저 막지만 다른 기기에서 담았으면 여기로 온다. */
+    SaveLimitExceeded,
+
+    /** 카드를 지웠다. */
+    Deleted,
+
+    /** 삭제가 실패했다. */
+    DeleteFailed,
+
     /** 상한(30개)에 닿아 추가 진입점을 막았다. */
     LimitReached,
 
@@ -49,6 +64,10 @@ public sealed interface ExperienceListEvent {
     ) : ExperienceListEvent
 
     public data class CardClicked(
+        val id: Long,
+    ) : ExperienceListEvent
+
+    public data class DeleteClicked(
         val id: Long,
     ) : ExperienceListEvent
 

@@ -7,6 +7,11 @@
     <string name="profile_experience_limit_reached">경험 카드는 최대 %1$d장까지 등록할 수 있어요. 지우고 다시 추가해 주세요</string>
     <string name="profile_experience_load_more_failed">더 불러오지 못했어요</string>
     <string name="profile_experience_load_more">더 보기</string>
+    <string name="profile_experience_saved">저장했어요</string>
+    <string name="profile_experience_save_failed">저장하지 못했어요</string>
+    <string name="profile_experience_deleted">카드를 지웠어요</string>
+    <string name="profile_experience_delete_failed">지우지 못했어요</string>
+    <string name="profile_experience_delete">삭제</string>
 
     <string name="profile_experience_filter_all">전체</string>
     <string name="profile_experience_filter_project">프로젝트</string>

@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.presentation.experience
+package com.careercompass.core.ui.component
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,16 +33,10 @@ import androidx.compose.ui.unit.sp
 import com.careercompass.core.model.experience.ExperienceType
 import com.careercompass.core.model.experience.MAX_EXPERIENCE_TECH_TAGS
 import com.careercompass.core.model.experience.MAX_EXPERIENCE_TECH_TAG_LENGTH
-import com.careercompass.core.ui.component.CareerCompassButton
-import com.careercompass.core.ui.component.CareerCompassButtonSize
-import com.careercompass.core.ui.component.CareerCompassButtonVariant
-import com.careercompass.core.ui.component.CareerCompassTag
-import com.careercompass.core.ui.component.CareerCompassTextField
-import com.careercompass.core.ui.component.CareerCompassTextFieldSize
+import com.careercompass.core.model.user.ProfileFieldViolation
+import com.careercompass.core.ui.R
+import com.careercompass.core.ui.failure.toMessage
 import com.careercompass.core.ui.theme.CareerCompassTheme
-import com.careercompass.feature.onboarding.presentation.R
-import com.careercompass.feature.onboarding.presentation.shared.model.OnboardingFieldError
-import com.careercompass.feature.onboarding.presentation.shared.util.toMessage
 
 /**
  * Step 3 「경험 추가·수정」 시트의 본문. 시트 컨테이너는 호스트가 감싼다.
@@ -61,8 +55,8 @@ public fun ExperienceQuickAddSheet(
 ) {
     val colors = CareerCompassTheme.colors
     val spacing = CareerCompassTheme.spacing
-    val selectedState = stringResource(R.string.onboarding_experience_type_selected_state)
-    val unselectedState = stringResource(R.string.onboarding_experience_type_unselected_state)
+    val selectedState = stringResource(R.string.core_ui_experience_type_selected_state)
+    val unselectedState = stringResource(R.string.core_ui_experience_type_unselected_state)
 
     Column(
         modifier =
@@ -76,14 +70,14 @@ public fun ExperienceQuickAddSheet(
         Text(
             text =
                 stringResource(
-                    if (state.isEditing) R.string.onboarding_experience_edit_title else R.string.onboarding_experience_add_title,
+                    if (state.isEditing) R.string.core_ui_experience_edit_title else R.string.core_ui_experience_add_title,
                 ),
             modifier = Modifier.semantics { heading() },
             color = colors.onSurface,
             style = CareerCompassTheme.typography.headline4,
         )
         Text(
-            text = stringResource(R.string.onboarding_experience_type_section),
+            text = stringResource(R.string.core_ui_experience_type_section),
             color = colors.onSurfaceVariant,
             style = CareerCompassTheme.typography.labelMedium,
         )
@@ -98,7 +92,7 @@ public fun ExperienceQuickAddSheet(
                 role = Role.RadioButton,
             )
             Text(
-                text = stringResource(R.string.onboarding_experience_type_locked),
+                text = stringResource(R.string.core_ui_experience_type_locked),
                 color = colors.mutedContent,
                 style = CareerCompassTheme.typography.caption,
             )
@@ -124,8 +118,8 @@ public fun ExperienceQuickAddSheet(
         CareerCompassTextField(
             value = state.title,
             onValueChange = { onEvent(ExperienceQuickAddEvent.TitleChanged(it)) },
-            label = stringResource(R.string.onboarding_experience_title_label),
-            placeholder = stringResource(R.string.onboarding_experience_title_placeholder),
+            label = stringResource(R.string.core_ui_experience_title_label),
+            placeholder = stringResource(R.string.core_ui_experience_title_placeholder),
             errorMessage = state.titleError?.let { it.toMessage() },
             isError = state.titleError != null,
             enabled = state.isInputEnabled,
@@ -149,9 +143,9 @@ public fun ExperienceQuickAddSheet(
                 CareerCompassTextField(
                     value = state.endDate,
                     onValueChange = { onEvent(ExperienceQuickAddEvent.EndDateChanged(it)) },
-                    label = stringResource(R.string.onboarding_experience_end_label),
+                    label = stringResource(R.string.core_ui_experience_end_label),
                     modifier = Modifier.weight(1f),
-                    placeholder = stringResource(R.string.onboarding_experience_date_placeholder),
+                    placeholder = stringResource(R.string.core_ui_experience_date_placeholder),
                     errorMessage = state.endDateError?.let { it.toMessage() },
                     isError = state.endDateError != null,
                     enabled = state.isInputEnabled,
@@ -190,7 +184,7 @@ public fun ExperienceQuickAddSheet(
             horizontalArrangement = Arrangement.spacedBy(spacing.small),
         ) {
             CareerCompassButton(
-                text = stringResource(R.string.onboarding_sheet_cancel),
+                text = stringResource(R.string.core_ui_sheet_cancel),
                 onClick = { onEvent(ExperienceQuickAddEvent.Dismissed) },
                 modifier = Modifier.weight(1f),
                 variant = CareerCompassButtonVariant.Secondary,
@@ -223,8 +217,8 @@ private fun ExperienceDetailSection(
 ) {
     val colors = CareerCompassTheme.colors
     val spacing = CareerCompassTheme.spacing
-    val expandedState = stringResource(R.string.onboarding_experience_detail_expanded_state)
-    val collapsedState = stringResource(R.string.onboarding_experience_detail_collapsed_state)
+    val expandedState = stringResource(R.string.core_ui_experience_detail_expanded_state)
+    val collapsedState = stringResource(R.string.core_ui_experience_detail_collapsed_state)
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
         Row(
@@ -244,9 +238,9 @@ private fun ExperienceDetailSection(
                 text =
                     stringResource(
                         if (state.isDetailExpanded) {
-                            R.string.onboarding_experience_detail_collapse
+                            R.string.core_ui_experience_detail_collapse
                         } else {
-                            R.string.onboarding_experience_detail_expand
+                            R.string.core_ui_experience_detail_expand
                         },
                     ),
                 color = if (state.isInputEnabled) colors.onSurface else colors.disabledContent,
@@ -260,7 +254,7 @@ private fun ExperienceDetailSection(
                     contentColor = colors.onSuccessContainer,
                 ) {
                     Text(
-                        text = stringResource(R.string.onboarding_experience_detail_filled),
+                        text = stringResource(R.string.core_ui_experience_detail_filled),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                         style =
                             CareerCompassTheme.typography.caption.copy(
@@ -274,7 +268,7 @@ private fun ExperienceDetailSection(
         }
         if (state.isDetailExpanded) {
             Text(
-                text = stringResource(R.string.onboarding_experience_detail_hint),
+                text = stringResource(R.string.core_ui_experience_detail_hint),
                 color = colors.mutedContent,
                 style = CareerCompassTheme.typography.caption,
             )
@@ -285,8 +279,8 @@ private fun ExperienceDetailSection(
                 CareerCompassTextField(
                     value = state.link,
                     onValueChange = { onEvent(ExperienceQuickAddEvent.LinkChanged(it)) },
-                    label = stringResource(R.string.onboarding_experience_link_label),
-                    placeholder = stringResource(R.string.onboarding_experience_link_placeholder),
+                    label = stringResource(R.string.core_ui_experience_link_label),
+                    placeholder = stringResource(R.string.core_ui_experience_link_placeholder),
                     errorMessage = state.linkError?.linkMessage(),
                     isError = state.linkError != null,
                     enabled = state.isInputEnabled,
@@ -322,11 +316,11 @@ private fun TechTagField(
     CareerCompassTextField(
         value = state.techInput,
         onValueChange = { onEvent(ExperienceQuickAddEvent.TechInputChanged(it)) },
-        label = stringResource(R.string.onboarding_experience_tech_label),
-        placeholder = stringResource(R.string.onboarding_experience_tech_placeholder),
+        label = stringResource(R.string.core_ui_experience_tech_label),
+        placeholder = stringResource(R.string.core_ui_experience_tech_placeholder),
         supportingText =
             stringResource(
-                R.string.onboarding_experience_tech_support,
+                R.string.core_ui_experience_tech_support,
                 MAX_EXPERIENCE_TECH_TAGS,
                 MAX_EXPERIENCE_TECH_TAG_LENGTH,
             ),
@@ -365,7 +359,7 @@ private fun RemovableTechTag(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    val removeDescription = stringResource(R.string.onboarding_experience_tech_remove, tag)
+    val removeDescription = stringResource(R.string.core_ui_experience_tech_remove, tag)
     val colors = CareerCompassTheme.colors
 
     Surface(
@@ -381,7 +375,7 @@ private fun RemovableTechTag(
         contentColor = if (enabled) colors.onSuccessContainer else colors.disabledContent,
     ) {
         Text(
-            text = stringResource(R.string.onboarding_experience_tech_chip, tag),
+            text = stringResource(R.string.core_ui_experience_tech_chip, tag),
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
             maxLines = 1,
             style =
@@ -396,28 +390,28 @@ private fun RemovableTechTag(
 
 /** 태그 개수 초과는 공통 「허용 범위를 벗어났어요」로는 무엇을 고쳐야 하는지 알 수 없어 상한을 문구에 넣는다. */
 @Composable
-private fun OnboardingFieldError.techMessage(): String =
+private fun ProfileFieldViolation.techMessage(): String =
     when (this) {
-        OnboardingFieldError.OutOfRange -> stringResource(R.string.onboarding_experience_tech_limit, MAX_EXPERIENCE_TECH_TAGS)
+        ProfileFieldViolation.OutOfRange -> stringResource(R.string.core_ui_experience_tech_limit, MAX_EXPERIENCE_TECH_TAGS)
         else -> toMessage()
     }
 
 /** 링크는 「형식이 올바르지 않아요」만으로 http/https 요구를 알 수 없어 필드 고유 문구를 쓴다. */
 @Composable
-private fun OnboardingFieldError.linkMessage(): String =
+private fun ProfileFieldViolation.linkMessage(): String =
     when (this) {
-        OnboardingFieldError.InvalidFormat -> stringResource(R.string.onboarding_experience_link_invalid)
+        ProfileFieldViolation.InvalidFormat -> stringResource(R.string.core_ui_experience_link_invalid)
         else -> toMessage()
     }
 
 /** 경험 유형의 화면 라벨 — Step 3 필터와 시트가 같은 문구를 쓴다. */
 public fun ExperienceType.labelResId(): Int =
     when (this) {
-        ExperienceType.Project -> R.string.onboarding_experience_type_project
-        ExperienceType.Award -> R.string.onboarding_experience_type_award
-        ExperienceType.Intern -> R.string.onboarding_experience_type_intern
-        ExperienceType.Activity -> R.string.onboarding_experience_type_activity
-        ExperienceType.Certificate -> R.string.onboarding_experience_type_certificate
+        ExperienceType.Project -> R.string.core_ui_experience_type_project
+        ExperienceType.Award -> R.string.core_ui_experience_type_award
+        ExperienceType.Intern -> R.string.core_ui_experience_type_intern
+        ExperienceType.Activity -> R.string.core_ui_experience_type_activity
+        ExperienceType.Certificate -> R.string.core_ui_experience_type_certificate
     }
 
 private fun submitLabelResId(
@@ -425,47 +419,47 @@ private fun submitLabelResId(
     isSubmitting: Boolean,
 ): Int =
     when {
-        isEditing && isSubmitting -> R.string.onboarding_experience_saving
-        isEditing -> R.string.onboarding_experience_save
-        isSubmitting -> R.string.onboarding_experience_submitting
-        else -> R.string.onboarding_experience_submit
+        isEditing && isSubmitting -> R.string.core_ui_experience_saving
+        isEditing -> R.string.core_ui_experience_save
+        isSubmitting -> R.string.core_ui_experience_submitting
+        else -> R.string.core_ui_experience_submit
     }
 
 private fun startDateLabelResId(type: ExperienceType): Int =
     when {
         // 수상의 시점은 연 단위다 — 칸이 `YYYY.MM` 을 요구하면 사용자는 없는 월을 지어내 채운다(#166).
-        type == ExperienceType.Award -> R.string.onboarding_experience_award_year_label
+        type == ExperienceType.Award -> R.string.core_ui_experience_award_year_label
 
-        type == ExperienceType.Certificate -> R.string.onboarding_experience_acquired_label
+        type == ExperienceType.Certificate -> R.string.core_ui_experience_acquired_label
 
-        ExperienceEditorRules.isStartDateRequired(type) -> R.string.onboarding_experience_start_label_required
+        ExperienceEditorRules.isStartDateRequired(type) -> R.string.core_ui_experience_start_label_required
 
-        else -> R.string.onboarding_experience_start_label
+        else -> R.string.core_ui_experience_start_label
     }
 
 private fun startDatePlaceholderResId(type: ExperienceType): Int =
-    if (type == ExperienceType.Award) R.string.onboarding_experience_year_placeholder else R.string.onboarding_experience_date_placeholder
+    if (type == ExperienceType.Award) R.string.core_ui_experience_year_placeholder else R.string.core_ui_experience_date_placeholder
 
 private fun primaryLabelResId(type: ExperienceType): Int =
     when (type) {
-        ExperienceType.Project -> R.string.onboarding_experience_project_role_label
-        ExperienceType.Award -> R.string.onboarding_experience_award_rank_label
-        ExperienceType.Intern -> R.string.onboarding_experience_intern_company_label
-        ExperienceType.Activity -> R.string.onboarding_experience_activity_organization_label
-        ExperienceType.Certificate -> R.string.onboarding_experience_certificate_issuer_label
+        ExperienceType.Project -> R.string.core_ui_experience_project_role_label
+        ExperienceType.Award -> R.string.core_ui_experience_award_rank_label
+        ExperienceType.Intern -> R.string.core_ui_experience_intern_company_label
+        ExperienceType.Activity -> R.string.core_ui_experience_activity_organization_label
+        ExperienceType.Certificate -> R.string.core_ui_experience_certificate_issuer_label
     }
 
 private fun detailLabelResId(type: ExperienceType): Int =
     when (type) {
-        ExperienceType.Activity -> R.string.onboarding_experience_activity_role_label
-        else -> R.string.onboarding_experience_intern_summary_label
+        ExperienceType.Activity -> R.string.core_ui_experience_activity_role_label
+        else -> R.string.core_ui_experience_intern_summary_label
     }
 
 private fun secondaryLabelResId(type: ExperienceType): Int =
     when (type) {
-        ExperienceType.Project -> R.string.onboarding_experience_project_summary_label
-        ExperienceType.Award -> R.string.onboarding_experience_award_organizer_label
-        ExperienceType.Intern -> R.string.onboarding_experience_intern_role_label
-        ExperienceType.Activity -> R.string.onboarding_experience_activity_summary_label
-        ExperienceType.Certificate -> R.string.onboarding_experience_activity_summary_label
+        ExperienceType.Project -> R.string.core_ui_experience_project_summary_label
+        ExperienceType.Award -> R.string.core_ui_experience_award_organizer_label
+        ExperienceType.Intern -> R.string.core_ui_experience_intern_role_label
+        ExperienceType.Activity -> R.string.core_ui_experience_activity_summary_label
+        ExperienceType.Certificate -> R.string.core_ui_experience_activity_summary_label
     }
