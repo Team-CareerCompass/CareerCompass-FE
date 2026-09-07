@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.domain.model
+package com.careercompass.core.model.user
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

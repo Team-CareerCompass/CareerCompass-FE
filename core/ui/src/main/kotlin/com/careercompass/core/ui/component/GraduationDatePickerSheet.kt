@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.presentation.basicinfo
+package com.careercompass.core.ui.component
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,11 +19,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import com.careercompass.core.ui.component.CareerCompassButton
-import com.careercompass.core.ui.component.CareerCompassButtonSize
-import com.careercompass.core.ui.component.CareerCompassTag
+import com.careercompass.core.ui.R
 import com.careercompass.core.ui.theme.CareerCompassTheme
-import com.careercompass.feature.onboarding.presentation.R
 
 /**
  * 졸업 예정 연월 선택 시트의 본문 — 연도는 가로 목록, 월은 12개 칩으로 고른다.
@@ -39,8 +36,8 @@ public fun GraduationDatePickerSheet(
 ) {
     val colors = CareerCompassTheme.colors
     val spacing = CareerCompassTheme.spacing
-    val selectedState = stringResource(R.string.onboarding_graduation_picker_selected_state)
-    val unselectedState = stringResource(R.string.onboarding_graduation_picker_unselected_state)
+    val selectedState = stringResource(R.string.core_ui_graduation_picker_selected_state)
+    val unselectedState = stringResource(R.string.core_ui_graduation_picker_unselected_state)
     val yearListState = rememberLazyListState()
 
     LaunchedEffect(state.selectedYear) {
@@ -57,12 +54,12 @@ public fun GraduationDatePickerSheet(
         verticalArrangement = Arrangement.spacedBy(spacing.medium),
     ) {
         Text(
-            text = stringResource(R.string.onboarding_graduation_picker_title),
+            text = stringResource(R.string.core_ui_graduation_picker_title),
             modifier = Modifier.semantics { heading() },
             color = colors.onSurface,
             style = CareerCompassTheme.typography.headline4,
         )
-        SectionLabel(text = stringResource(R.string.onboarding_graduation_picker_year_label))
+        SectionLabel(text = stringResource(R.string.core_ui_graduation_picker_year_label))
         LazyRow(
             state = yearListState,
             modifier = Modifier.fillMaxWidth().selectableGroup(),
@@ -71,7 +68,7 @@ public fun GraduationDatePickerSheet(
             items(items = state.years, key = { it }) { year ->
                 val selected = year == state.selectedYear
                 CareerCompassTag(
-                    label = stringResource(R.string.onboarding_graduation_picker_year, year),
+                    label = stringResource(R.string.core_ui_graduation_picker_year, year),
                     selected = selected,
                     onClick = { onEvent(GraduationDatePickerEvent.YearSelected(year)) },
                     stateDescription = if (selected) selectedState else unselectedState,
@@ -79,7 +76,7 @@ public fun GraduationDatePickerSheet(
                 )
             }
         }
-        SectionLabel(text = stringResource(R.string.onboarding_graduation_picker_month_label))
+        SectionLabel(text = stringResource(R.string.core_ui_graduation_picker_month_label))
         FlowRow(
             modifier = Modifier.fillMaxWidth().selectableGroup(),
             horizontalArrangement = Arrangement.spacedBy(spacing.small),
@@ -88,7 +85,7 @@ public fun GraduationDatePickerSheet(
             state.months.forEach { month ->
                 val selected = month == state.selectedMonth
                 CareerCompassTag(
-                    label = stringResource(R.string.onboarding_graduation_picker_month, month),
+                    label = stringResource(R.string.core_ui_graduation_picker_month, month),
                     selected = selected,
                     onClick = { onEvent(GraduationDatePickerEvent.MonthSelected(month)) },
                     stateDescription = if (selected) selectedState else unselectedState,
@@ -97,7 +94,7 @@ public fun GraduationDatePickerSheet(
             }
         }
         CareerCompassButton(
-            text = stringResource(R.string.onboarding_graduation_picker_confirm),
+            text = stringResource(R.string.core_ui_graduation_picker_confirm),
             onClick = { onEvent(GraduationDatePickerEvent.Confirmed) },
             modifier = Modifier.fillMaxWidth().padding(top = spacing.small),
             size = CareerCompassButtonSize.Large,

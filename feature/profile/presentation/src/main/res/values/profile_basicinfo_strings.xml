@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_edit_title">프로필 편집</string>
+    <string name="profile_edit_loading">프로필을 불러오는 중이에요</string>
+    <string name="profile_edit_save">저장</string>
+    <string name="profile_edit_saving">저장하고 있어요</string>
+    <string name="profile_edit_save_failed">저장하지 못했어요</string>
+    <string name="profile_edit_save_rejected">서버가 이 값을 받지 않았어요. 입력을 다시 확인해 주세요</string>
+    <string name="profile_edit_field_rejected">서버가 이 값을 받지 않았어요</string>
+
+    <string name="profile_edit_name_label">이름 *</string>
+    <string name="profile_edit_name_placeholder">이름을 입력해 주세요</string>
+    <string name="profile_edit_school_label">학교 *</string>
+    <string name="profile_edit_school_placeholder">학교를 골라 주세요</string>
+    <string name="profile_edit_department_label">학과 *</string>
+    <string name="profile_edit_department_placeholder">학과를 입력해 주세요</string>
+    <string name="profile_edit_gpa_label">학점</string>
+    <string name="profile_edit_gpa_placeholder">예: 3.87</string>
+    <string name="profile_edit_gpa_support">4.5 만점 기준으로 입력해 주세요</string>
+    <string name="profile_edit_graduation_label">졸업 예정</string>
+    <string name="profile_edit_graduation_placeholder">연도와 월을 골라 주세요</string>
+    <string name="profile_edit_graduation_support">서버에는 연도만 저장돼요</string>
+</resources>

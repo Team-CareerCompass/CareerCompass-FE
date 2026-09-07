@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.presentation.basicinfo
+package com.careercompass.core.ui.component
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOn

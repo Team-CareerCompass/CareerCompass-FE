@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.presentation.basicinfo
+package com.careercompass.core.ui.component
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,14 +25,9 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import com.careercompass.core.ui.component.CareerCompassButton
-import com.careercompass.core.ui.component.CareerCompassButtonSize
-import com.careercompass.core.ui.component.CareerCompassButtonVariant
-import com.careercompass.core.ui.component.CareerCompassTextField
-import com.careercompass.core.ui.component.CareerCompassTextFieldSize
+import com.careercompass.core.ui.R
+import com.careercompass.core.ui.failure.toMessage
 import com.careercompass.core.ui.theme.CareerCompassTheme
-import com.careercompass.feature.onboarding.presentation.R
-import com.careercompass.feature.onboarding.presentation.shared.util.toMessage
 
 /**
  * 학교 검색·선택 시트의 본문 — Step 1 「학교」 필드가 연다.
@@ -66,9 +61,9 @@ public fun SchoolPickerSheet(
             text =
                 stringResource(
                     if (directInput == null) {
-                        R.string.onboarding_school_picker_title
+                        R.string.core_ui_school_picker_title
                     } else {
-                        R.string.onboarding_school_picker_direct_title
+                        R.string.core_ui_school_picker_direct_title
                     },
                 ),
             modifier = Modifier.semantics { heading() },
@@ -94,14 +89,14 @@ private fun SchoolSearchMode(
     CareerCompassTextField(
         value = state.query,
         onValueChange = { onEvent(SchoolPickerEvent.QueryChanged(it)) },
-        label = stringResource(R.string.onboarding_school_picker_search_label),
-        placeholder = stringResource(R.string.onboarding_school_picker_search_placeholder),
+        label = stringResource(R.string.core_ui_school_picker_search_label),
+        placeholder = stringResource(R.string.core_ui_school_picker_search_placeholder),
         size = CareerCompassTextFieldSize.Large,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
     )
     if (state.results.isEmpty()) {
         Text(
-            text = stringResource(R.string.onboarding_school_picker_empty),
+            text = stringResource(R.string.core_ui_school_picker_empty),
             modifier = Modifier.padding(vertical = spacing.large),
             color = colors.mutedContent,
             style = CareerCompassTheme.typography.bodyMedium,
@@ -124,7 +119,7 @@ private fun SchoolSearchMode(
     }
     if (state.isDirectInputOffered) {
         CareerCompassButton(
-            text = stringResource(R.string.onboarding_school_picker_direct_action),
+            text = stringResource(R.string.core_ui_school_picker_direct_action),
             onClick = { onEvent(SchoolPickerEvent.DirectInputRequested) },
             modifier = Modifier.fillMaxWidth(),
             variant = CareerCompassButtonVariant.Secondary,
@@ -143,9 +138,9 @@ private fun SchoolDirectInputMode(
     CareerCompassTextField(
         value = state.value,
         onValueChange = { onEvent(SchoolPickerEvent.DirectInputChanged(it)) },
-        label = stringResource(R.string.onboarding_school_picker_direct_label),
-        placeholder = stringResource(R.string.onboarding_school_picker_direct_placeholder),
-        supportingText = stringResource(R.string.onboarding_school_picker_direct_support),
+        label = stringResource(R.string.core_ui_school_picker_direct_label),
+        placeholder = stringResource(R.string.core_ui_school_picker_direct_placeholder),
+        supportingText = stringResource(R.string.core_ui_school_picker_direct_support),
         errorMessage = state.error?.let { it.toMessage() },
         isError = state.error != null,
         size = CareerCompassTextFieldSize.Large,
@@ -156,14 +151,14 @@ private fun SchoolDirectInputMode(
         horizontalArrangement = Arrangement.spacedBy(spacing.small),
     ) {
         CareerCompassButton(
-            text = stringResource(R.string.onboarding_school_picker_direct_back),
+            text = stringResource(R.string.core_ui_school_picker_direct_back),
             onClick = { onEvent(SchoolPickerEvent.DirectInputCancelled) },
             modifier = Modifier.weight(1f),
             variant = CareerCompassButtonVariant.Secondary,
             size = CareerCompassButtonSize.Large,
         )
         CareerCompassButton(
-            text = stringResource(R.string.onboarding_school_picker_direct_confirm),
+            text = stringResource(R.string.core_ui_school_picker_direct_confirm),
             onClick = { onEvent(SchoolPickerEvent.DirectInputConfirmed) },
             modifier = Modifier.weight(1f),
             size = CareerCompassButtonSize.Large,
@@ -179,7 +174,7 @@ private fun SchoolRow(
 ) {
     val colors = CareerCompassTheme.colors
     val spacing = CareerCompassTheme.spacing
-    val description = stringResource(R.string.onboarding_school_picker_item_description, school)
+    val description = stringResource(R.string.core_ui_school_picker_item_description, school)
 
     Box(
         modifier =

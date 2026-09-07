@@ -1,16 +1,16 @@
 package com.careercompass.feature.onboarding.presentation.flow
 
 import com.careercompass.core.model.application.UploadFile
+import com.careercompass.core.ui.component.GraduationDatePickerEvent
+import com.careercompass.core.ui.component.GraduationPickerState
+import com.careercompass.core.ui.component.SchoolPickerEvent
+import com.careercompass.core.ui.component.SchoolPickerState
 import com.careercompass.core.ui.mvi.MviIntent
 import com.careercompass.core.ui.mvi.ReducerEvent
 import com.careercompass.feature.onboarding.presentation.OnboardingStep1Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep2Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep3Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep4Event
-import com.careercompass.feature.onboarding.presentation.basicinfo.GraduationDatePickerEvent
-import com.careercompass.feature.onboarding.presentation.basicinfo.GraduationPickerState
-import com.careercompass.feature.onboarding.presentation.basicinfo.SchoolPickerEvent
-import com.careercompass.feature.onboarding.presentation.basicinfo.SchoolPickerState
 import com.careercompass.feature.onboarding.presentation.complete.OnboardingCompleteEvent
 import com.careercompass.feature.onboarding.presentation.experience.ExperienceDeleteEvent
 import com.careercompass.feature.onboarding.presentation.experience.ExperienceDeleteState

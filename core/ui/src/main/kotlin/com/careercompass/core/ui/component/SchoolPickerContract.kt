@@ -1,10 +1,15 @@
-package com.careercompass.feature.onboarding.presentation.basicinfo
+package com.careercompass.core.ui.component
 
 import androidx.compose.runtime.Immutable
-import com.careercompass.feature.onboarding.presentation.shared.model.OnboardingFieldError
+import com.careercompass.core.model.user.ProfileFieldViolation
 
 /**
- * 학교 선택 시트 상태 — [results] 는 [query] 로 걸러진 목록이다.
+ * 학교 선택 시트 상태 — 온보딩 Step 1 과 마이 탭의 프로필 편집이 같은 시트를 쓴다(#176).
+ *
+ * 원래 온보딩 모듈에 있었다. 두 화면이 학교를 받게 되면서 「검색 선택 + 목록에 없으면 직접 입력」이라는
+ * 판정(#138)이 두 벌이 될 자리라, 시트와 그 상태를 통째로 `core:ui` 로 올렸다.
+ *
+ * 원래 KDoc — [results] 는 [query] 로 걸러진 목록이다.
  *
  * [directInput] 이 null 이 아니면 시트가 직접 입력 모드다. 두 모드를 한 시트에 둔 이유는
  * [isDirectInputOffered] 참고.
@@ -41,7 +46,7 @@ public data class SchoolPickerState(
 @Immutable
 public data class SchoolDirectInputState(
     public val value: String = "",
-    public val error: OnboardingFieldError? = null,
+    public val error: ProfileFieldViolation? = null,
 ) {
     /** 공백만 남은 값으로는 확정할 수 없다 — 확정 뒤에도 「다음」 이 막히는 헛걸음을 만들지 않는다. */
     public val isConfirmEnabled: Boolean

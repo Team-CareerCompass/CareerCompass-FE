@@ -20,13 +20,16 @@ import com.careercompass.core.model.experience.MAX_EXPERIENCE_LINK_LENGTH
 import com.careercompass.core.model.experience.MAX_EXPERIENCE_TECH_TAGS
 import com.careercompass.core.model.experience.MAX_EXPERIENCE_TECH_TAG_LENGTH
 import com.careercompass.core.model.user.JobInterest
+import com.careercompass.core.model.user.ProfileFieldViolation
+import com.careercompass.core.model.user.SchoolCatalog
+import com.careercompass.core.model.user.SchoolNameRules
 import com.careercompass.core.model.user.UserProfile
 import com.careercompass.core.model.user.UserProfileUpdate
+import com.careercompass.core.ui.component.GraduationDatePickerEvent
+import com.careercompass.core.ui.component.SchoolPickerEvent
 import com.careercompass.core.ui.failure.FailureSurface
 import com.careercompass.feature.onboarding.domain.model.OnboardingProgress
 import com.careercompass.feature.onboarding.domain.model.OnboardingStep
-import com.careercompass.feature.onboarding.domain.model.SchoolCatalog
-import com.careercompass.feature.onboarding.domain.model.SchoolNameRules
 import com.careercompass.feature.onboarding.domain.testing.FakeOnboardingProgressRepository
 import com.careercompass.feature.onboarding.domain.usecase.AddExperienceUseCase
 import com.careercompass.feature.onboarding.domain.usecase.CompleteOnboardingUseCase
@@ -45,8 +48,6 @@ import com.careercompass.feature.onboarding.presentation.OnboardingStep1Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep2Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep3Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep4Event
-import com.careercompass.feature.onboarding.presentation.basicinfo.GraduationDatePickerEvent
-import com.careercompass.feature.onboarding.presentation.basicinfo.SchoolPickerEvent
 import com.careercompass.feature.onboarding.presentation.complete.OnboardingCompleteEvent
 import com.careercompass.feature.onboarding.presentation.experience.ExperienceDeleteEvent
 import com.careercompass.feature.onboarding.presentation.experience.ExperienceEditorRules
@@ -330,7 +331,7 @@ class OnboardingViewModelTest {
         viewModel.onSchoolPickerEvent(SchoolPickerEvent.DirectInputChanged("   "))
         viewModel.onSchoolPickerEvent(SchoolPickerEvent.DirectInputConfirmed)
         assertEquals(
-            OnboardingFieldError.Required,
+            ProfileFieldViolation.Required,
             viewModel.uiState.value.schoolPicker
                 ?.directInput
                 ?.error,
@@ -339,7 +340,7 @@ class OnboardingViewModelTest {
 
         viewModel.onSchoolPickerEvent(SchoolPickerEvent.DirectInputChanged("가".repeat(SchoolNameRules.MAX_LENGTH + 1)))
         assertEquals(
-            OnboardingFieldError.TooLong(SchoolNameRules.MAX_LENGTH),
+            ProfileFieldViolation.TooLong(SchoolNameRules.MAX_LENGTH),
             viewModel.uiState.value.schoolPicker
                 ?.directInput
                 ?.error,

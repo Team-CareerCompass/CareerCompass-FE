@@ -38,6 +38,8 @@ import com.careercompass.feature.onboarding.presentation.OnboardingStep4Content
 import com.careercompass.feature.onboarding.presentation.OnboardingStep4UiState
 import com.careercompass.feature.onboarding.presentation.login.LoginContent
 import com.careercompass.feature.onboarding.presentation.login.LoginUiState
+import com.careercompass.feature.profile.presentation.basicinfo.ProfileEditContent
+import com.careercompass.feature.profile.presentation.basicinfo.ProfileEditUiState
 import com.careercompass.feature.profile.presentation.home.ProfileHomeContent
 import com.careercompass.feature.profile.presentation.home.ProfileHomeUiState
 import org.junit.Before
@@ -121,6 +123,14 @@ class AccessibilitySmokeAndroidTest {
         }
     }
 
+    /** 프로필 편집(#176) — 입력 칸 다섯과 읽기 전용 피커 두 개가 라벨·오류 문구를 함께 이고 있다. */
+    @Test
+    fun profileEdit_hasNoAutomatedAccessibilityErrors() {
+        renderAndCheck {
+            ProfileEditContent(state = profileEditState, onEvent = {})
+        }
+    }
+
     private fun renderAndCheck(content: @Composable () -> Unit) {
         composeRule.setContent {
             CareerCompassTheme {
@@ -131,6 +141,28 @@ class AccessibilitySmokeAndroidTest {
     }
 
     private companion object {
+        val profileEditState =
+            ProfileEditUiState(
+                original =
+                    UserProfile(
+                        id = 1L,
+                        name = "정일혁",
+                        school = "건국대학교",
+                        department = "컴퓨터공학부",
+                        gpa = 3.87,
+                        gradYear = 2027,
+                        jobInterests = listOf(JobInterest(code = "backend", priority = 1)),
+                        tags = listOf("AI"),
+                        onboardingDone = true,
+                        completion = 78,
+                    ),
+                name = "정일혁",
+                school = "건국대학교",
+                department = "컴퓨터공학부",
+                gradePointAverage = "3.87",
+                graduationDate = "2027",
+            )
+
         val profileHomeState =
             ProfileHomeUiState(
                 profile =

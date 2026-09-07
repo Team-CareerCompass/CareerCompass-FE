@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.domain.model
+package com.careercompass.core.model.user
 
 /**
  * 온보딩 Step 1 학교 선택 목록 — 기능 스펙 F1-2 「학교: 검색 선택, 학교 목록에서 선택」.

@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.domain.model
+package com.careercompass.core.model.user
 
 /**
  * 학교 이름 표기 규칙 — 목록에서 고른 값과 직접 입력한 값이 **저장 시점에 같은 모양**이 되게 한다.

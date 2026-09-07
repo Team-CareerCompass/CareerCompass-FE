@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.presentation.basicinfo
+package com.careercompass.core.ui.component
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
