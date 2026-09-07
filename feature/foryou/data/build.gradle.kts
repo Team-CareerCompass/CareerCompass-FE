@@ -14,4 +14,5 @@ dependencies {
     implementation(projects.core.network)
 
     testImplementation(libs.coroutines.test)
+    testImplementation(testFixtures(projects.feature.foryou.domain))
 }
