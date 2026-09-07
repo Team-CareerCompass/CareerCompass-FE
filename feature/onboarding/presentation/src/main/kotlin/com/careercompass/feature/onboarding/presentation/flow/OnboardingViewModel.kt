@@ -36,6 +36,8 @@ import com.careercompass.core.ui.component.ExperienceEditorState
 import com.careercompass.core.ui.component.ExperienceQuickAddEvent
 import com.careercompass.core.ui.component.GraduationDatePickerEvent
 import com.careercompass.core.ui.component.GraduationPickerState
+import com.careercompass.core.ui.component.PastApplicationItemCategoryEvent
+import com.careercompass.core.ui.component.PastApplicationItemCategoryState
 import com.careercompass.core.ui.component.SchoolDirectInputState
 import com.careercompass.core.ui.component.SchoolPickerEvent
 import com.careercompass.core.ui.component.SchoolPickerState
@@ -69,8 +71,6 @@ import com.careercompass.feature.onboarding.presentation.OnboardingStep4Event
 import com.careercompass.feature.onboarding.presentation.complete.OnboardingCompleteEvent
 import com.careercompass.feature.onboarding.presentation.pastapplication.DirectInputEvent
 import com.careercompass.feature.onboarding.presentation.pastapplication.DirectInputState
-import com.careercompass.feature.onboarding.presentation.pastapplication.PastApplicationItemCategoryEvent
-import com.careercompass.feature.onboarding.presentation.pastapplication.PastApplicationItemCategoryState
 import com.careercompass.feature.onboarding.presentation.pastapplication.UploadLabelEvent
 import com.careercompass.feature.onboarding.presentation.pastapplication.UploadLabelState
 import com.careercompass.feature.onboarding.presentation.reporting.OnboardingFailureStage

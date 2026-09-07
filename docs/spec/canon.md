@@ -64,6 +64,9 @@
 | refresh 재사용·logout 범위 정책 | refresh 일시 실패의 single-flight 공유 | [#79](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/79) |
 | 공고 파싱 실패를 나타내는 필드 | 「점수 산출 불가」의 두 사유(프로필 미입력 / 파싱 실패)를 화면이 가를 수 없다 | [#200](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/200) |
 | 직무·학교 목록 엔드포인트 | 온보딩의 두 피커가 로컬 상수로 돈다 | — |
+| 과거 지원서 응답의 파일 이름·형식 | 목록의 형식 배지(F1-4). `PastApplication` 은 id · label · items · createdAt 뿐이라 화면이 만들어 낼 수 없다 — 라벨에서 확장자를 읽는 우회는 「2024 카카오.pdf 지원서」 같은 값에서 엉뚱한 형식을 읽는다([#121](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/121) 이 이미 밟은 함정이다) | [#180](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/180) |
+| 과거 지원서 라벨 수정 엔드포인트 | 목록에서 라벨 고치기(F1-4). §4 는 업로드 요청 필드로만 라벨을 받는다 | [#180](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/180) |
+| 지원서를 텍스트로 받는 엔드포인트 | 앱 안에서 직접 써서 등록(F1-4 「등록 방식」 표의 둘 중 하나) | [#181](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/181) |
 | `GET /notifications` 의 응답 스키마 | 알림 목록 화면 | [#195](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/195) |
 
 ## 새 불일치를 발견하면

@@ -34,6 +34,15 @@ public enum class ProfileFailureStage(
     /** `DELETE /experiences/{id}`. */
     ExperienceDelete("experience_delete"),
 
+    /** `GET /past-applications`. */
+    PastApplicationList("past_application_list"),
+
+    /** `PATCH /past-applications/{appId}/items/{itemId}` — 항목 분류 수동 조정. */
+    PastApplicationCategory("past_application_category"),
+
+    /** `DELETE /past-applications/{id}` — 서버가 S3 원본까지 지운다. */
+    PastApplicationDelete("past_application_delete"),
+
     BiometricToggle("biometric_toggle"),
     ThemeMode("theme_mode"),
     Logout("logout"),

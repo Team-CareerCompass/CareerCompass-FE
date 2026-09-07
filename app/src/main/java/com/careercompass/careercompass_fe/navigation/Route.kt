@@ -54,9 +54,13 @@ public sealed interface Route : NavKey {
     @Serializable
     public data object ExperienceCards : Route
 
-    /** 과거 지원서 관리 — profile 모듈(#180 · #181). */
+    /** 과거 지원서 관리 — profile 모듈(#180). */
     @Serializable
-    public data object PastApplicationsPlaceholder : Route
+    public data object PastApplications : Route
+
+    /** 과거 지원서 등록(업로드·직접 작성) — profile 모듈(#181). 그 화면이 붙기 전까지 자리표시자다. */
+    @Serializable
+    public data object PastApplicationUploadPlaceholder : Route
 
     /** 알림 설정 — notification 모듈(#196). */
     @Serializable

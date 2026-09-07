@@ -29,6 +29,7 @@ import com.careercompass.core.ui.component.ExperienceDeleteEvent
 import com.careercompass.core.ui.component.ExperienceEditorRules
 import com.careercompass.core.ui.component.ExperienceQuickAddEvent
 import com.careercompass.core.ui.component.GraduationDatePickerEvent
+import com.careercompass.core.ui.component.PastApplicationItemCategoryEvent
 import com.careercompass.core.ui.component.SchoolPickerEvent
 import com.careercompass.core.ui.component.toDraft
 import com.careercompass.core.ui.component.toEditorState
@@ -55,7 +56,6 @@ import com.careercompass.feature.onboarding.presentation.OnboardingStep3Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep4Event
 import com.careercompass.feature.onboarding.presentation.complete.OnboardingCompleteEvent
 import com.careercompass.feature.onboarding.presentation.pastapplication.DirectInputEvent
-import com.careercompass.feature.onboarding.presentation.pastapplication.PastApplicationItemCategoryEvent
 import com.careercompass.feature.onboarding.presentation.pastapplication.UploadLabelEvent
 import com.careercompass.feature.onboarding.presentation.reporting.RecordingErrorReporter
 import com.careercompass.feature.onboarding.presentation.shared.model.OnboardingFieldError

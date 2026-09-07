@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.presentation.pastapplication
+package com.careercompass.core.ui.component
 
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher

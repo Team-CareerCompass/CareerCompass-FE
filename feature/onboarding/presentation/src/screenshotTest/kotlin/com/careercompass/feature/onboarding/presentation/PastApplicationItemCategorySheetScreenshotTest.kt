@@ -5,9 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import com.careercompass.core.model.application.PastApplicationCategory
+import com.careercompass.core.ui.component.PastApplicationItemCategorySheet
+import com.careercompass.core.ui.component.PastApplicationItemCategoryState
 import com.careercompass.core.ui.theme.CareerCompassTheme
-import com.careercompass.feature.onboarding.presentation.pastapplication.PastApplicationItemCategorySheet
-import com.careercompass.feature.onboarding.presentation.pastapplication.PastApplicationItemCategoryState
 
 @PreviewTest
 @Preview(name = "Past application item category unsure", widthDp = 360, heightDp = 800)

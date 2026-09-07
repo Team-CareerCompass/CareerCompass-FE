@@ -24,6 +24,7 @@ import com.careercompass.careercompass_fe.session.AppStartDestination
 import com.careercompass.careercompass_fe.session.SessionEndCause
 import com.careercompass.core.ui.component.CareerCompassBottomBar
 import com.careercompass.core.ui.component.CareerCompassBottomTab
+import com.careercompass.core.ui.navigation.pushSingleTop
 import com.careercompass.core.ui.navigation.rememberStandardNavEntryDecorators
 import com.careercompass.core.ui.theme.CareerCompassTheme
 import com.careercompass.feature.feed.presentation.navigation.FeedEntryRequest
@@ -34,6 +35,7 @@ import com.careercompass.feature.profile.presentation.basicinfo.ProfileEditScree
 import com.careercompass.feature.profile.presentation.experience.ExperienceListScreen
 import com.careercompass.feature.profile.presentation.home.ProfileHomeScreen
 import com.careercompass.feature.profile.presentation.home.ProfileSessionEnd
+import com.careercompass.feature.profile.presentation.pastapplication.PastApplicationListScreen
 
 /** 계측 smoke(`ApiBoundarySmokeAndroidTest`)가 앱 시작 화면을 찾는 시맨틱 태그. */
 internal const val APP_START_SEMANTICS_TAG = "careercompass_app_start"
@@ -207,9 +209,17 @@ public fun AppNavigation(
                                 onSessionEnded = { cause -> onSessionEnded(cause.toSessionEndCause()) },
                             )
                         }
-                        entry<Route.PastApplicationsPlaceholder> {
+                        entry<Route.PastApplications> {
+                            PastApplicationListScreen(
+                                onBackClick = { appState.popBack() },
+                                // 등록 화면(#181)이 붙기 전까지 자리표시자로 보낸다.
+                                onAddClick = { appState.backStack.pushSingleTop(Route.PastApplicationUploadPlaceholder) },
+                                onSessionEnded = { cause -> onSessionEnded(cause.toSessionEndCause()) },
+                            )
+                        }
+                        entry<Route.PastApplicationUploadPlaceholder> {
                             PlaceholderScreen(
-                                title = stringResource(R.string.placeholder_past_applications_title),
+                                title = stringResource(R.string.placeholder_past_application_upload_title),
                                 onBackClick = { appState.popBack() },
                             )
                         }

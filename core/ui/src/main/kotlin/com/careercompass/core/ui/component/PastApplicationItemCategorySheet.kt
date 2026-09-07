@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.presentation.pastapplication
+package com.careercompass.core.ui.component
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,11 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.careercompass.core.model.application.PastApplicationCategory
-import com.careercompass.core.ui.component.CareerCompassButton
-import com.careercompass.core.ui.component.CareerCompassButtonSize
-import com.careercompass.core.ui.component.CareerCompassButtonVariant
+import com.careercompass.core.ui.R
 import com.careercompass.core.ui.theme.CareerCompassTheme
-import com.careercompass.feature.onboarding.presentation.R
 
 /**
  * Step 4 항목 분류 조정 시트의 본문. 시트 컨테이너는 호스트가 감싼다.
@@ -43,8 +40,8 @@ public fun PastApplicationItemCategorySheet(
 ) {
     val colors = CareerCompassTheme.colors
     val spacing = CareerCompassTheme.spacing
-    val selectedState = stringResource(R.string.onboarding_item_category_selected_state)
-    val unselectedState = stringResource(R.string.onboarding_item_category_unselected_state)
+    val selectedState = stringResource(R.string.core_ui_item_category_selected_state)
+    val unselectedState = stringResource(R.string.core_ui_item_category_unselected_state)
 
     Column(
         modifier =
@@ -55,7 +52,7 @@ public fun PastApplicationItemCategorySheet(
         verticalArrangement = Arrangement.spacedBy(spacing.medium),
     ) {
         Text(
-            text = stringResource(R.string.onboarding_item_category_title),
+            text = stringResource(R.string.core_ui_item_category_title),
             modifier = Modifier.semantics { heading() },
             color = colors.onSurface,
             style = CareerCompassTheme.typography.headline4,
@@ -80,7 +77,7 @@ public fun PastApplicationItemCategorySheet(
             }
         }
         CareerCompassButton(
-            text = stringResource(com.careercompass.core.ui.R.string.core_ui_sheet_cancel),
+            text = stringResource(R.string.core_ui_sheet_cancel),
             onClick = { onEvent(PastApplicationItemCategoryEvent.Dismissed) },
             modifier = Modifier.fillMaxWidth().padding(top = spacing.small),
             variant = CareerCompassButtonVariant.Secondary,
@@ -126,12 +123,12 @@ private fun CategoryRow(
 /** 분류의 화면 라벨 — 기능 스펙 F1-4 의 6종 문구를 Step 4 목록과 시트가 함께 쓴다. */
 public fun PastApplicationCategory.labelResId(): Int =
     when (this) {
-        PastApplicationCategory.Motivation -> R.string.onboarding_item_category_motivation
-        PastApplicationCategory.Growth -> R.string.onboarding_item_category_growth
-        PastApplicationCategory.Experience -> R.string.onboarding_item_category_experience
-        PastApplicationCategory.Competency -> R.string.onboarding_item_category_competency
-        PastApplicationCategory.Aspiration -> R.string.onboarding_item_category_aspiration
-        PastApplicationCategory.Other -> R.string.onboarding_item_category_other
+        PastApplicationCategory.Motivation -> R.string.core_ui_item_category_motivation
+        PastApplicationCategory.Growth -> R.string.core_ui_item_category_growth
+        PastApplicationCategory.Experience -> R.string.core_ui_item_category_experience
+        PastApplicationCategory.Competency -> R.string.core_ui_item_category_competency
+        PastApplicationCategory.Aspiration -> R.string.core_ui_item_category_aspiration
+        PastApplicationCategory.Other -> R.string.core_ui_item_category_other
     }
 
 private const val PREVIEW_MAX_LINES = 3
