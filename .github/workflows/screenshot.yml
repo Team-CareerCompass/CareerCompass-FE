@@ -20,12 +20,12 @@ on:
       gradle_tasks:
         description: "신뢰된 영향도 계산기가 만든 screenshot Gradle task 목록"
         required: false
-        default: ":core:ui:validateScreenshotTest :feature:onboarding:presentation:validateScreenshotTest :feature:feed:presentation:validateScreenshotTest :feature:editor:presentation:validateScreenshotTest :feature:profile:presentation:validateScreenshotTest :feature:foryou:presentation:validateScreenshotTest :feature:notification:presentation:validateScreenshotTest"
+        default: ":core:ui:validateScreenshotTest :feature:onboarding:presentation:validateScreenshotTest :feature:feed:presentation:validateScreenshotTest :feature:editor:presentation:validateScreenshotTest :feature:foryou:presentation:validateScreenshotTest :feature:notification:presentation:validateScreenshotTest"
         type: string
       screenshot_modules:
         description: "영향받는 screenshot project path 목록"
         required: false
-        default: ":core:ui :feature:onboarding:presentation :feature:feed:presentation :feature:editor:presentation :feature:profile:presentation :feature:foryou:presentation :feature:notification:presentation"
+        default: ":core:ui :feature:onboarding:presentation :feature:feed:presentation :feature:editor:presentation :feature:foryou:presentation :feature:notification:presentation"
         type: string
 
 permissions:

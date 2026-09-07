@@ -67,7 +67,28 @@
 | 과거 지원서 응답의 파일 이름·형식 | 목록의 형식 배지(F1-4). `PastApplication` 은 id · label · items · createdAt 뿐이라 화면이 만들어 낼 수 없다 — 라벨에서 확장자를 읽는 우회는 「2024 카카오.pdf 지원서」 같은 값에서 엉뚱한 형식을 읽는다([#121](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/121) 이 이미 밟은 함정이다) | [#180](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/180) |
 | 과거 지원서 라벨 수정 엔드포인트 | 목록에서 라벨 고치기(F1-4). §4 는 업로드 요청 필드로만 라벨을 받는다 | [#180](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/180) |
 | 지원서를 텍스트로 받는 엔드포인트 | 앱 안에서 직접 써서 등록(F1-4 「등록 방식」 표의 둘 중 하나) | [#181](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/181) |
+| 지원 이력 응답의 공고 제목·기관 | 지원 이력 목록(F4-4)이 「어느 공고에 낸 것인가」를 못 쓴다. §6 의 지원서 스키마는 `id`·`status`·`items` 뿐이고, `postingId` 로 공고를 한 건씩 다시 읽는 우회는 목록 한 페이지에 20번의 왕복을 만든다 | [#188](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/188) |
+| 지원서 단건 조회(`GET /applications/{id}`) | 스트림이 끊긴 뒤 지금 상태를 다시 읽는 길. 지금은 `POST /applications` 가 「진행 중이면 기존 것을 돌려준다」는 규칙에 기대 복구한다 — 그 규칙이 서버에 들어가지 않으면 재시도가 초안을 하나 더 만든다 | [#182](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/182) |
 | `GET /notifications` 의 응답 스키마 | 알림 목록 화면 | [#195](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/195) |
+
+## 지원서 스트림의 계약 (§6 의 빈 곳, #182 판정)
+
+API_SPEC §6 은 `GET /applications/{id}/stream` 에 이벤트를 **하나만** 적어 두었다 — `event: item_done`.
+그런데 같은 절의 지원서 상태에는 `partial_failed` 가 있다. 「일부가 실패했다」가 성립하려면 어느 항목이 실패했는지
+항목 쪽에서 알 수 있어야 하는데, 그것을 말해 주는 이벤트도 항목 상태 값도 스펙에 없다. 정하지 않으면 에디터를
+만드는 사람이 그 자리에서 임의로 정하고, 서버가 다르게 만들면 둘 중 하나를 뜯는다.
+
+| 물음 | 판정 | 근거 |
+| --- | --- | --- |
+| 항목 실패를 어떻게 아는가 | **`event: item_failed`(`{"itemId", "code"}`)를 서버에 요구한다.** 오기 전까지 앱은 「`loading` 도 `done` 도 아닌 항목 상태는 실패」로 읽는다 | 이것이 없으면 화면은 실패한 항목을 「아직 쓰는 중」과 구분할 수 없어 영원히 스피너를 돌린다. 관대하게 읽는 쪽(모르는 값 = 완료)은 빈 답을 완성으로 보여 주므로 반대로 기운다 |
+| 스트림이 끝난 것을 어떻게 아는가 | **연결이 닫히는 것으로 본다.** 종료 이벤트를 새로 요구하지 않는다 | 닫힘은 어차피 다뤄야 한다(끊김과 정상 종료가 같은 신호다). 종료 이벤트를 두면 「이벤트는 왔는데 연결이 안 닫힌 경우」가 새로 생기고, 그때 무엇이 이기는지 또 정해야 한다. 닫힌 뒤 아직 `loading` 인 항목은 실패로 굳힌다(`ApplicationDraft.settled`) |
+| 상태가 도중에 바뀌면 | **`event: status`(`{"status"}`)를 서버에 요구한다.** 없으면 닫힘 시점에 앱이 계산한다 | 서버가 `partial_failed` 로 갈린 것을 스트림 도중에 알려 주면 화면이 그 자리에서 안내를 바꿀 수 있다. 없어도 닫힘 계산이 같은 값에 도달하므로 **차단 조건은 아니다** |
+| 모르는 이벤트·읽을 수 없는 본문이 오면 | **그 덩어리만 버리고 스트림을 이어 간다** | 예외로 끊으면 이미 받은 항목까지 버려진다 — 사용자에게는 다 쓴 자소서가 통째로 사라지는 일이다. 버려서 잃는 것은 답 하나이고, 그 항목은 닫힘 때 실패로 굳어 재생성 버튼이 뜬다 |
+| 끊긴 뒤 어떻게 이어 받는가 | **재연결하지 않는다. `POST /applications` 로 지금 상태를 다시 받는다** | 서버가 만들어 둔 초안은 하나이고, 「진행 중이면 기존 id 를 돌려준다」가 이미 정해져 있다(위 「지원서 규칙」). SSE 재연결(`Last-Event-ID`)을 쓰면 그 규칙과 두 벌이 된다 — 그래서 `okhttp-sse` 도 쓰지 않는다 |
+| 얼마나 기다리는가 | 한 항목 2분 · 스트림 전체 5분(`LongRunningOperation.ApplicationStream`) | 항목마다 LLM 을 부르므로 일반 API 의 30초로는 서버가 아직 쓰는 중에 우리가 먼저 끊는다(#134 와 같은 실패). 전체 상한을 문항 수 × 최악으로 잡지 않은 것은, 사용자가 진행 표시 앞에서 기다릴 수 있는 시간이 먼저 끝나기 때문이다 — 끊어도 받은 항목은 남는다 |
+
+서버 쪽에 필요한 것 — `event: item_failed` 와 `event: status`, 그리고 항목 응답의 실패 상태 값.
+**BE 저장소에 아직 알리지 않았다** — 위 「지원서 규칙」의 버전 목록·복원 요구와 함께 한 번에 전한다.
 
 ## 새 불일치를 발견하면
 

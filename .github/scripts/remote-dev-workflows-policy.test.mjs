@@ -9,12 +9,14 @@ import { fileURLToPath } from "node:url";
 const workflowDirectory = new URL("../workflows/", import.meta.url);
 const readWorkflow = (name) => readFile(new URL(name, workflowDirectory), "utf8");
 
+// screenshot 골든을 가진 모듈만 적는다. `:feature:profile:presentation` 은 여기 없다 — 그 모듈은
+// screenshot 플러그인을 달지 않는다(#175). 목록에 남겨 두면 폴백 task 목록이 존재하지 않는 task 를 가리켜,
+// repository-quality 가 실패해 폴백이 쓰이는 순간 screenshot 잡까지 「task not found」로 함께 빨개진다.
 const screenshotModules = [
     ":core:ui",
     ":feature:onboarding:presentation",
     ":feature:feed:presentation",
     ":feature:editor:presentation",
-    ":feature:profile:presentation",
     ":feature:foryou:presentation",
     ":feature:notification:presentation",
 ];

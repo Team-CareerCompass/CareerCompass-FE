@@ -32,10 +32,12 @@ public object NetworkQualifiers {
     public const val REFRESH_CLIENT: String = "RefreshClient"
     public const val UPLOAD_CLIENT: String = "UploadClient"
     public const val BOARD_DETECT_CLIENT: String = "BoardDetectClient"
+    public const val APPLICATION_STREAM_CLIENT: String = "ApplicationStreamClient"
     public const val MAIN_RETROFIT: String = "MainRetrofit"
     public const val REFRESH_RETROFIT: String = "RefreshRetrofit"
     public const val UPLOAD_RETROFIT: String = "UploadRetrofit"
     public const val BOARD_DETECT_RETROFIT: String = "BoardDetectRetrofit"
+    public const val APPLICATION_STREAM_RETROFIT: String = "ApplicationStreamRetrofit"
 }
 
 /** 일반 API 의 타임아웃 — 우리 서버가 자기 DB 를 읽어 돌려주는 시간이 기준이다. */
@@ -148,6 +150,19 @@ public object NetworkModule {
         @Named(NetworkQualifiers.MAIN_CLIENT) mainClient: OkHttpClient,
     ): OkHttpClient = mainClient.newLongRunningClient(LongRunningOperation.BoardDetect)
 
+    /**
+     * 지원서 초안 SSE 전용 — [LongRunningOperation.ApplicationStream] 값으로 기다리는 시간만 늘린다.
+     *
+     * §6 의 나머지 호출(생성·재생성·저장·이력)까지 이 클라이언트에 태우지 않는다. 그것들은 평범한 API 라,
+     * 같이 태우면 응답이 멈춘 이력 조회까지 10분을 기다린다.
+     */
+    @Provides
+    @Singleton
+    @Named(NetworkQualifiers.APPLICATION_STREAM_CLIENT)
+    public fun provideApplicationStreamOkHttpClient(
+        @Named(NetworkQualifiers.MAIN_CLIENT) mainClient: OkHttpClient,
+    ): OkHttpClient = mainClient.newLongRunningClient(LongRunningOperation.ApplicationStream)
+
     @Provides
     @Singleton
     @Named(NetworkQualifiers.MAIN_RETROFIT)
@@ -180,6 +195,15 @@ public object NetworkModule {
     @Named(NetworkQualifiers.BOARD_DETECT_RETROFIT)
     public fun provideBoardDetectRetrofit(
         @Named(NetworkQualifiers.BOARD_DETECT_CLIENT) client: OkHttpClient,
+        json: Json,
+        apiErrorCallAdapterFactory: ApiErrorCallAdapterFactory,
+    ): Retrofit = retrofit(client, json, apiErrorCallAdapterFactory)
+
+    @Provides
+    @Singleton
+    @Named(NetworkQualifiers.APPLICATION_STREAM_RETROFIT)
+    public fun provideApplicationStreamRetrofit(
+        @Named(NetworkQualifiers.APPLICATION_STREAM_CLIENT) client: OkHttpClient,
         json: Json,
         apiErrorCallAdapterFactory: ApiErrorCallAdapterFactory,
     ): Retrofit = retrofit(client, json, apiErrorCallAdapterFactory)

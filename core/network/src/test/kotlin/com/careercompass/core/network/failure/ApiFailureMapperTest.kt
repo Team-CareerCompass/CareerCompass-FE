@@ -1,4 +1,4 @@
-package com.careercompass.core.data.failure
+package com.careercompass.core.network.failure
 
 import com.careercompass.core.domain.error.CoreAuthFailure
 import com.careercompass.core.domain.error.CoreDataFailure

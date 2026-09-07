@@ -1,7 +1,6 @@
 package com.careercompass.core.data.repoimpl.user
 
 import com.careercompass.core.common.result.runCatchingCancellable
-import com.careercompass.core.data.failure.mapDataFailure
 import com.careercompass.core.data.mapper.UserMapper
 import com.careercompass.core.datastore.ProfileDataSource
 import com.careercompass.core.domain.repository.UserProfileRepository
@@ -13,6 +12,7 @@ import com.careercompass.core.model.user.UserProfileUpdate
 import com.careercompass.core.network.dto.JobInterestsRequestDto
 import com.careercompass.core.network.dto.TagsRequestDto
 import com.careercompass.core.network.dto.UserProfileDto
+import com.careercompass.core.network.failure.mapDataFailure
 import com.careercompass.core.network.model.requireData
 import com.careercompass.core.network.model.requireOk
 import com.careercompass.core.network.service.UserApiService
