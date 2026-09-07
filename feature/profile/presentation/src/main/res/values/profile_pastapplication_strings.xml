@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_past_application_title">과거 지원서</string>
+    <string name="profile_past_application_loading">과거 지원서를 불러오는 중이에요</string>
+    <string name="profile_past_application_count">%1$d / %2$d개</string>
+    <string name="profile_past_application_add">지원서 추가</string>
+    <string name="profile_past_application_limit_reached">과거 지원서는 최대 %1$d개까지 등록할 수 있어요. 지우고 다시 올려 주세요</string>
+    <string name="profile_past_application_item_count">항목 %1$d개</string>
+    <string name="profile_past_application_uncertain_count">확인 필요 %1$d개</string>
+    <string name="profile_past_application_uncertain_badge">확인 필요</string>
+    <string name="profile_past_application_expand">%1$s 펼치기</string>
+    <string name="profile_past_application_collapse">%1$s 접기</string>
+    <string name="profile_past_application_delete">삭제</string>
+    <string name="profile_past_application_deleted">지원서를 지웠어요</string>
+    <string name="profile_past_application_delete_failed">지우지 못했어요</string>
+    <string name="profile_past_application_category_failed">분류를 바꾸지 못했어요</string>
+
+    <string name="profile_past_application_delete_dialog_title">이 지원서를 지울까요?</string>
+    <string name="profile_past_application_delete_dialog_message">%1$s 와 원본 파일이 서버에서 함께 지워져요. 되돌릴 수 없어요</string>
+    <string name="profile_past_application_delete_dialog_confirm">네, 지울게요</string>
+    <string name="profile_past_application_delete_dialog_cancel">취소</string>
+
+    <string name="profile_past_application_empty_title">아직 올린 지원서가 없어요</string>
+    <string name="profile_past_application_empty_description">과거에 쓴 자소서가 있으면 AI 초안이 내 문체를 따라가요</string>
+    <string name="profile_past_application_empty_action">첫 지원서 올리기</string>
+</resources>

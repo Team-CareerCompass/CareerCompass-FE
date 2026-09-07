@@ -42,7 +42,7 @@ internal fun AppState.navigateToProfileMenu(menu: ProfileHomeMenu) {
         when (menu) {
             ProfileHomeMenu.ProfileEdit -> Route.ProfileEdit
             ProfileHomeMenu.ExperienceCards -> Route.ExperienceCards
-            ProfileHomeMenu.PastApplications -> Route.PastApplicationsPlaceholder
+            ProfileHomeMenu.PastApplications -> Route.PastApplications
             ProfileHomeMenu.NotificationSettings -> Route.NotificationSettingsPlaceholder
         }
     backStack.pushSingleTop(key)

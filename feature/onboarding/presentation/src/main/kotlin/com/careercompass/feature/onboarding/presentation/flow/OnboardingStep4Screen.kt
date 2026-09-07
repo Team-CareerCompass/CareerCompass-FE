@@ -17,6 +17,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.careercompass.core.model.application.PastApplicationFileFormat
 import com.careercompass.core.model.application.PastApplicationItem
 import com.careercompass.core.model.application.UploadFile
+import com.careercompass.core.ui.component.PastApplicationItemCategoryEvent
+import com.careercompass.core.ui.component.PastApplicationItemCategorySheet
+import com.careercompass.core.ui.component.labelResId
 import com.careercompass.feature.onboarding.presentation.OnboardingApplicationDocument
 import com.careercompass.feature.onboarding.presentation.OnboardingApplicationDocumentFormat
 import com.careercompass.feature.onboarding.presentation.OnboardingApplicationDocumentStatus
@@ -29,11 +32,8 @@ import com.careercompass.feature.onboarding.presentation.flow.util.UploadFileSel
 import com.careercompass.feature.onboarding.presentation.flow.util.readUploadFile
 import com.careercompass.feature.onboarding.presentation.pastapplication.DirectInputEvent
 import com.careercompass.feature.onboarding.presentation.pastapplication.DirectInputSheet
-import com.careercompass.feature.onboarding.presentation.pastapplication.PastApplicationItemCategoryEvent
-import com.careercompass.feature.onboarding.presentation.pastapplication.PastApplicationItemCategorySheet
 import com.careercompass.feature.onboarding.presentation.pastapplication.UploadLabelEvent
 import com.careercompass.feature.onboarding.presentation.pastapplication.UploadLabelSheet
-import com.careercompass.feature.onboarding.presentation.pastapplication.labelResId
 import com.careercompass.feature.onboarding.presentation.shared.component.OnboardingSheetHost
 
 /**

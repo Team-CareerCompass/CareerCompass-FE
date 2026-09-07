@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.presentation.pastapplication
+package com.careercompass.core.ui.component
 
 import androidx.compose.runtime.Immutable
 import com.careercompass.core.model.application.PastApplicationCategory
