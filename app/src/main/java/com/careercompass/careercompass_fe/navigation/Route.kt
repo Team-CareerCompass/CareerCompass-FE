@@ -29,9 +29,9 @@ public sealed interface Route : NavKey {
     public data object ApplicationsTab : Route
 
     /**
-     * 하단 탭 「마이」(프로필·경험 카드·과거 자소서·알림 설정) — profile 모듈 몫.
+     * 하단 탭 「마이」 — profile 모듈의 마이 홈([com.careercompass.feature.profile.presentation.home.ProfileHomeScreen]).
      *
-     * 인수 전까지 셸이 세션 카드와 로그아웃만 그린다([MyTabPlaceholderScreen]) — 그것 말고는 세션을 끝낼 방법이 없다.
+     * 이 키만 탭이고, 마이 홈의 메뉴가 가리키는 네 화면은 아래 자리표시자로 그 위에 쌓인다.
      */
     @Serializable
     public data object MyTab : Route
@@ -39,4 +39,25 @@ public sealed interface Route : NavKey {
     /** 피드 헤더의 알림 — notification 모듈 몫. */
     @Serializable
     public data object NotificationsPlaceholder : Route
+
+    /**
+     * 마이 홈 메뉴가 가리키는 네 화면의 자리표시자 — 각 담당 이슈가 실제 화면을 붙이면 그 항목을 지운다.
+     *
+     * 피드 위 한 칸으로 쌓이므로 바텀바가 저절로 숨는다([AppState.shouldShowBottomBar] 의 `else`). 알림 화면
+     * ([NotificationsPlaceholder])이 이미 쓰던 자리와 같은 모양이라 판정을 새로 만들지 않는다.
+     */
+    @Serializable
+    public data object ProfileEditPlaceholder : Route
+
+    /** 경험 카드 목록·편집 — profile 모듈(#178 · #179). */
+    @Serializable
+    public data object ExperienceCardsPlaceholder : Route
+
+    /** 과거 지원서 관리 — profile 모듈(#180 · #181). */
+    @Serializable
+    public data object PastApplicationsPlaceholder : Route
+
+    /** 알림 설정 — notification 모듈(#196). */
+    @Serializable
+    public data object NotificationSettingsPlaceholder : Route
 }

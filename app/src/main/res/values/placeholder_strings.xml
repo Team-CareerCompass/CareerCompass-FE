@@ -7,21 +7,9 @@
     <string name="placeholder_notifications_title">알림을 준비하고 있어요</string>
     <string name="placeholder_description">곧 이용할 수 있어요</string>
 
-    <!-- 마이 탭 자리표시자의 세션 카드·지문 로그인 스위치·로그아웃 — profile 모듈이 탭을 인수하면 화면과 함께 지운다. -->
-    <string name="placeholder_my_account_label">로그인 계정</string>
-    <string name="placeholder_my_name_unknown">이름을 아직 몰라요</string>
-    <string name="placeholder_my_affiliation_unknown">학교·학과 정보가 없어요</string>
-    <string name="placeholder_my_biometric_label">지문 로그인</string>
-    <string name="placeholder_my_biometric_unavailable">이 기기에서는 지문 로그인을 켤 수 없어요</string>
-    <string name="placeholder_my_theme_label">화면 테마</string>
-    <string name="placeholder_my_theme_dialog_title">화면 테마</string>
-    <string name="placeholder_my_theme_system">시스템 설정 따르기</string>
-    <string name="placeholder_my_theme_light">밝게</string>
-    <string name="placeholder_my_theme_dark">어둡게</string>
-    <string name="placeholder_my_theme_dialog_close">닫기</string>
-    <string name="placeholder_my_logout">로그아웃</string>
-    <string name="placeholder_my_logout_dialog_title">로그아웃할까요?</string>
-    <string name="placeholder_my_logout_dialog_message">다시 이용하려면 소셜 로그인을 다시 해야 해요</string>
-    <string name="placeholder_my_logout_dialog_confirm">네, 로그아웃</string>
-    <string name="placeholder_my_logout_dialog_cancel">취소</string>
+    <!-- 마이 홈 메뉴가 가리키는 화면들 — 각 담당 이슈가 실제 화면을 붙이면 그 줄과 라우트를 함께 지운다. -->
+    <string name="placeholder_profile_edit_title">프로필 편집</string>
+    <string name="placeholder_experience_cards_title">경험 카드</string>
+    <string name="placeholder_past_applications_title">과거 지원서</string>
+    <string name="placeholder_notification_settings_title">알림 설정</string>
 </resources>
