@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.careercompass.careercompass_fe.R
@@ -27,6 +28,8 @@ import com.careercompass.core.ui.component.CareerCompassBottomTab
 import com.careercompass.core.ui.navigation.pushSingleTop
 import com.careercompass.core.ui.navigation.rememberStandardNavEntryDecorators
 import com.careercompass.core.ui.theme.CareerCompassTheme
+import com.careercompass.feature.editor.presentation.setup.ApplicationSetupScreen
+import com.careercompass.feature.editor.presentation.setup.ApplicationSetupViewModel
 import com.careercompass.feature.feed.presentation.navigation.FeedEntryRequest
 import com.careercompass.feature.feed.presentation.navigation.FeedNavHost
 import com.careercompass.feature.onboarding.presentation.navigation.OnboardingNavHost
@@ -220,6 +223,24 @@ public fun AppNavigation(
                         entry<Route.PastApplicationUploadPlaceholder> {
                             PlaceholderScreen(
                                 title = stringResource(R.string.placeholder_past_application_upload_title),
+                                onBackClick = { appState.popBack() },
+                            )
+                        }
+                        // ── 지원서 작성 — editor 모듈의 문항 확인(#183)
+                        entry<Route.ApplicationSetup> { key ->
+                            ApplicationSetupScreen(
+                                onBackClick = { appState.popBack() },
+                                onDraftStarted = { started -> appState.navigateToApplicationProgress(started.applicationId) },
+                                onSessionEnded = { onSessionEnded(SessionEndCause.Expired) },
+                                viewModel =
+                                    hiltViewModel<ApplicationSetupViewModel, ApplicationSetupViewModel.Factory>(
+                                        creationCallback = { factory -> factory.create(key.postingId) },
+                                    ),
+                            )
+                        }
+                        entry<Route.ApplicationProgressPlaceholder> {
+                            PlaceholderScreen(
+                                title = stringResource(R.string.placeholder_application_progress_title),
                                 onBackClick = { appState.popBack() },
                             )
                         }

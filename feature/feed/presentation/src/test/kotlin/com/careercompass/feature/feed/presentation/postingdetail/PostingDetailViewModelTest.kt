@@ -155,14 +155,18 @@ class PostingDetailViewModelTest {
         assertNull(viewModel.state.value.pendingNavigation)
     }
 
+    /** 초안 화면에서 뒤로 오면 이 상세가 그대로 남아 있어야 한다 — 상세를 걷어내는 이동이 아니다. */
     @Test
-    fun `초안 작성은 준비 중 안내로 끝난다`() {
+    fun `초안 작성은 문항 확인 화면으로 보낸다`() {
         val viewModel = viewModel(repositoryWith(postingDetail(id = POSTING_ID)))
 
         viewModel.onEvent(PostingDetailEvent.CreateDraftClicked)
 
-        assertEquals(PostingDetailMessage.DraftComingSoon, viewModel.state.value.message)
-        assertNull(viewModel.state.value.pendingNavigation)
+        assertEquals(
+            PostingDetailDestination.ApplicationSetup(POSTING_ID),
+            viewModel.state.value.pendingNavigation,
+        )
+        assertNull(viewModel.state.value.message)
     }
 
     @Test

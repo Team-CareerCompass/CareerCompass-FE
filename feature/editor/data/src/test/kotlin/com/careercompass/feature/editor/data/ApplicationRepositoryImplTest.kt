@@ -10,6 +10,7 @@ import com.careercompass.feature.editor.data.mapper.ApplicationStreamEventMapper
 import com.careercompass.feature.editor.data.support.FakeApplicationApiService
 import com.careercompass.feature.editor.data.support.FakeApplicationStreamApiService
 import com.careercompass.feature.editor.domain.error.EditorFailure
+import com.careercompass.feature.editor.domain.model.ApplicationItemDraft
 import com.careercompass.feature.editor.domain.model.ApplicationResult
 import com.careercompass.feature.editor.domain.model.ApplicationStatus
 import com.careercompass.feature.editor.domain.model.ApplicationStreamEvent
@@ -48,10 +49,12 @@ class ApplicationRepositoryImplTest {
         runTest {
             apiService.onCreate = { BaseResponse(ok = true, data = applicationDto()) }
 
-            val draft = repository.createDraft(postingId = 101L, tone = ApplicationTone.Casual).getOrThrow()
+            val draft = repository.createDraft(postingId = 101L, tone = ApplicationTone.Casual, items = null).getOrThrow()
 
             assertEquals("casual", apiService.createRequests.single().tone)
             assertEquals(101L, apiService.createRequests.single().postingId)
+            // 손보지 않은 요청은 계약에 없는 필드를 담지 않는다 — 직렬화에서 통째로 빠진다.
+            assertNull(apiService.createRequests.single().items)
             assertEquals(42L, draft.id)
             assertEquals(ApplicationStatus.Generating, draft.status)
         }
@@ -62,10 +65,32 @@ class ApplicationRepositoryImplTest {
         runTest {
             apiService.onCreate = { throw apiException(code = "LLM_UNAVAILABLE", status = 503) }
 
-            val failure = repository.createDraft(101L, ApplicationTone.Formal).exceptionOrNull()
+            val failure = repository.createDraft(101L, ApplicationTone.Formal, items = null).exceptionOrNull()
 
             assertTrue("expected ServiceUnavailable but was $failure", failure is CoreDataFailure.ServiceUnavailable)
             assertEquals("LLM_UNAVAILABLE", (failure as CoreDataFailure).code)
+        }
+
+    /** 사용자가 고친 문항이 없으면 화면이 받은 입력이 서버에 닿지 못한다(F4-1 의 「직접 입력」). */
+    @Test
+    fun `손본 문항은 order 와 글자 수 제한까지 실어 보낸다`() =
+        runTest {
+            apiService.onCreate = { BaseResponse(ok = true, data = applicationDto()) }
+
+            repository.createDraft(
+                postingId = 101L,
+                tone = ApplicationTone.Formal,
+                items =
+                    listOf(
+                        ApplicationItemDraft(order = 1, question = "직접 쓴 문항", maxChars = null),
+                        ApplicationItemDraft(order = 2, question = "두 번째", maxChars = 400),
+                    ),
+            )
+
+            val items = requireNotNull(apiService.createRequests.single().items)
+            assertEquals(listOf(1, 2), items.map { it.order })
+            assertEquals(listOf("직접 쓴 문항", "두 번째"), items.map { it.question })
+            assertEquals(listOf(null, 400), items.map { it.maxChars })
         }
 
     @Test

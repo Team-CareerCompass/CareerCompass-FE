@@ -4,6 +4,7 @@ import com.careercompass.feature.editor.domain.draft
 import com.careercompass.feature.editor.domain.error.EditorFailure
 import com.careercompass.feature.editor.domain.item
 import com.careercompass.feature.editor.domain.model.ApplicationHistoryPage
+import com.careercompass.feature.editor.domain.model.ApplicationItemDraft
 import com.careercompass.feature.editor.domain.model.ApplicationItemStatus
 import com.careercompass.feature.editor.domain.model.ApplicationResult
 import com.careercompass.feature.editor.domain.model.ApplicationStatus
@@ -17,15 +18,73 @@ import org.junit.Test
 class ApplicationUseCasesTest {
     private val repository = FakeApplicationRepository()
 
+    private fun itemDraft(
+        order: Int,
+        question: String,
+        maxChars: Int?,
+    ) = ApplicationItemDraft(order = order, question = question, maxChars = maxChars)
+
     /** 어조를 안 고르면 격식체다 — 자소서의 기본값이고, 서버가 모르는 값을 받으면 사용자가 못 고치는 실패가 된다. */
     @Test
     fun `초안 생성은 기본 어조로 공고 id 를 올려 보낸다`() =
         runTest {
-            repository.onCreateDraft = { _, _ -> Result.success(draft()) }
+            repository.onCreateDraft = { _, _, _ -> Result.success(draft()) }
 
             CreateApplicationDraftUseCase(repository)(postingId = 101L)
 
-            assertEquals(listOf(101L to ApplicationTone.Formal), repository.createDraftCalls.toList())
+            val call = repository.createDraftCalls.single()
+            assertEquals(101L, call.postingId)
+            assertEquals(ApplicationTone.Formal, call.tone)
+        }
+
+    /**
+     * 문항은 계약에 없는 필드다. 보낼 이유가 없을 때 보내면 그 필드를 모르는 서버가 요청을 거절할 여지만
+     * 만든다 — 인식 결과를 그대로 쓴 요청은 지금 계약과 한 글자도 다르지 않아야 한다.
+     */
+    @Test
+    fun `인식 결과를 그대로 쓰면 문항을 보내지 않는다`() =
+        runTest {
+            repository.onCreateDraft = { _, _, _ -> Result.success(draft()) }
+            val recognized = listOf(itemDraft(1, "지원 동기", 500))
+
+            CreateApplicationDraftUseCase(repository)(
+                postingId = 101L,
+                items = recognized,
+                recognizedItems = recognized,
+            )
+
+            assertEquals(null, repository.createDraftCalls.single().items)
+        }
+
+    @Test
+    fun `문항을 손봤으면 손본 목록을 실어 보낸다`() =
+        runTest {
+            repository.onCreateDraft = { _, _, _ -> Result.success(draft()) }
+            val edited = listOf(itemDraft(1, "고친 문항", 300))
+
+            CreateApplicationDraftUseCase(repository)(
+                postingId = 101L,
+                items = edited,
+                recognizedItems = listOf(itemDraft(1, "지원 동기", 500)),
+            )
+
+            assertEquals(edited, repository.createDraftCalls.single().items)
+        }
+
+    /** 공고가 문항을 못 찾은 경우에도 사용자가 쓴 것은 반드시 가야 한다 — 그것이 F4-1 의 「직접 입력」이다. */
+    @Test
+    fun `인식 결과가 없어도 직접 쓴 문항은 실어 보낸다`() =
+        runTest {
+            repository.onCreateDraft = { _, _, _ -> Result.success(draft()) }
+            val written = listOf(itemDraft(1, "직접 쓴 문항", null))
+
+            CreateApplicationDraftUseCase(repository)(
+                postingId = 101L,
+                items = written,
+                recognizedItems = emptyList(),
+            )
+
+            assertEquals(written, repository.createDraftCalls.single().items)
         }
 
     @Test

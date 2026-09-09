@@ -62,6 +62,20 @@ public class AppState(
     /** 피드 헤더의 알림 — notification 모듈이 진입점을 제공할 때까지 셸의 자리표시자. */
     public fun navigateToNotifications(): Unit = backStack.pushSingleTop(Route.NotificationsPlaceholder)
 
+    /** 지원서 작성 첫 화면(#183) — 같은 공고로 두 번 눌러도 한 장만 쌓는다. */
+    public fun navigateToApplicationSetup(postingId: Long): Unit = backStack.pushSingleTop(Route.ApplicationSetup(postingId))
+
+    /**
+     * 초안 생성이 시작됐다 — 진행 화면으로 **갈아 끼운다**(#184 이 붙기 전까지 자리표시자).
+     *
+     * 문항 확인 화면을 백스택에 남기지 않는다. 남기면 뒤로 가기가 이미 만든 초안을 다시 만드는 자리로
+     * 돌아오고, 사용자는 같은 공고에 초안이 둘 생겼다고 읽는다.
+     */
+    public fun navigateToApplicationProgress(applicationId: Long) {
+        backStack.removeAll { it is Route.ApplicationSetup }
+        backStack.pushSingleTop(Route.ApplicationProgressPlaceholder(applicationId))
+    }
+
     /** 루트를 한 칸 내린다. 바닥이면 내리지 않고 `false` — Nav3 는 빈 백스택을 그릴 수 없다. */
     public fun popBack(): Boolean {
         if (backStack.size <= 1) return false

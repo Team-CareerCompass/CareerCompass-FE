@@ -75,6 +75,7 @@ public fun FeedNavHost(
                         onPostingClick = actions::navigateToPostingDetail,
                         onRawClick = actions::navigateToPostingRaw,
                         onProfileClick = actions::navigateToProfileTab,
+                        onCreateDraftClick = actions::navigateToApplicationSetup,
                         onSessionEnded = actions::onSessionEnded,
                         viewModel =
                             hiltViewModel<PostingDetailViewModel, PostingDetailViewModel.Factory>(

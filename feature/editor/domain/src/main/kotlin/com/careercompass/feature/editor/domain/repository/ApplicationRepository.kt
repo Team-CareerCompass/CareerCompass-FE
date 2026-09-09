@@ -3,6 +3,7 @@ package com.careercompass.feature.editor.domain.repository
 import com.careercompass.feature.editor.domain.model.ApplicationDraft
 import com.careercompass.feature.editor.domain.model.ApplicationHistoryPage
 import com.careercompass.feature.editor.domain.model.ApplicationItem
+import com.careercompass.feature.editor.domain.model.ApplicationItemDraft
 import com.careercompass.feature.editor.domain.model.ApplicationResult
 import com.careercompass.feature.editor.domain.model.ApplicationStatus
 import com.careercompass.feature.editor.domain.model.ApplicationStreamEvent
@@ -20,10 +21,14 @@ public interface ApplicationRepository {
      * `POST /applications` — 초안 생성. 진행 중인 초안이 있으면 서버가 그것을 돌려준다.
      *
      * 그래서 이 호출은 끊긴 스트림의 복구 경로이기도 하다(`docs/spec/canon.md` 「지원서 규칙」).
+     *
+     * [items] 가 null 이면 문항을 보내지 않는다 — 사용자가 인식 결과를 그대로 쓴 경우이고, 그때 요청은
+     * 지금 계약과 한 글자도 다르지 않다. 손본 경우에만 실어 보낸다(「지원서 문항 확정의 계약」).
      */
     public suspend fun createDraft(
         postingId: Long,
         tone: ApplicationTone,
+        items: List<ApplicationItemDraft>?,
     ): Result<ApplicationDraft>
 
     /** `GET /applications/{id}/stream` (SSE) — 항목이 완성될 때마다 한 덩어리씩. */

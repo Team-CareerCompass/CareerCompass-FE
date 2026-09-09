@@ -9,5 +9,6 @@
 
     <!-- 마이 홈 메뉴가 가리키는 화면들 — 각 담당 이슈가 실제 화면을 붙이면 그 줄과 라우트를 함께 지운다. -->
     <string name="placeholder_past_application_upload_title">지원서 등록</string>
+    <string name="placeholder_application_progress_title">초안 작성</string>
     <string name="placeholder_notification_settings_title">알림 설정</string>
 </resources>

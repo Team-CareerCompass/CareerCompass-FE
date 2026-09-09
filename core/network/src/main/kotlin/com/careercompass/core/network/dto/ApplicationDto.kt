@@ -58,13 +58,37 @@ data class ApplicationListDto(
     val nextCursor: String? = null,
 )
 
-/** `POST /applications`. */
+/**
+ * `POST /applications`.
+ *
+ * [items] 는 **API_SPEC v0.1 §6 에 없는 필드**다. 계약은 `postingId` 와 `tone` 만 받는데, F4-1 은 인식된
+ * 문항을 사용자가 고치고 더할 수 있게 정했고 인식 결과가 없으면 직접 쓰게 정했다 — 그 결과를 보낼 자리가
+ * 없으면 화면이 받은 입력이 서버에 닿지 못한다. 판정과 서버에 요구할 것은 `docs/spec/canon.md` 의
+ * 「지원서 문항 확정의 계약」에 적었다.
+ *
+ * 기본값이 null 이라 **고치지 않은 요청에서는 직렬화되지 않는다**(`encodeDefaults = false`). 즉 이 필드가
+ * 서버에 도착하는 것은 사용자가 실제로 문항을 손봤을 때뿐이고, 그전까지의 요청은 지금 계약과 한 글자도
+ * 다르지 않다.
+ */
 @Serializable
 data class CreateApplicationRequestDto(
     @SerialName("postingId")
     val postingId: Long,
     @SerialName("tone")
     val tone: String,
+    @SerialName("items")
+    val items: List<ApplicationItemRequestDto>? = null,
+)
+
+/** 사용자가 확정한 문항 하나. `maxChars` 가 없으면 서버가 400~600자로 정한다(F4-2). */
+@Serializable
+data class ApplicationItemRequestDto(
+    @SerialName("order")
+    val order: Int,
+    @SerialName("question")
+    val question: String,
+    @SerialName("maxChars")
+    val maxChars: Int? = null,
 )
 
 /** `POST /applications/{id}/items/{itemId}/regenerate` — 둘 다 옵션이라 없으면 직렬화되지 않는다. */

@@ -13,6 +13,9 @@ public interface FeedExternalActions {
     /** 프로필 입력 안내 — 마이 탭. */
     public fun navigateToProfileTab()
 
+    /** 지원서 초안 작성 — editor 모듈의 문항 확인 화면(#183). 피드 그래프 밖이라 셸이 쌓는다. */
+    public fun navigateToApplicationSetup(postingId: Long)
+
     /** 401 로 세션이 끝났다 — 셸이 시작 목적지를 다시 계산해 로그인 화면으로 보낸다. */
     public fun onSessionEnded()
 }
