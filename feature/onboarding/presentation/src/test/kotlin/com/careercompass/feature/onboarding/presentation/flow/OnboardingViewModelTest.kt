@@ -1310,17 +1310,49 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun `서버 문서 삭제 실패는 목록을 유지하고 사유를 알린다`() {
+    fun `서버 문서 삭제 실패는 문서를 원래 자리에 되돌리고 사유를 알린다`() {
         pastApplicationRepository.applications += samplePastApplication(id = 9L, itemCount = 1)
+        pastApplicationRepository.applications += samplePastApplication(id = 10L, itemCount = 1)
         pastApplicationRepository.onDelete = { Result.failure(CoreDataFailure.ServerError("INTERNAL_ERROR", IOException("500"))) }
         progressRepository.progressState.value = OnboardingProgress.InProgress(OnboardingStep.PastApplication)
         val viewModel = createViewModel()
 
         viewModel.onStep4Event(OnboardingStep4Event.DocumentMenuClicked("remote-9"))
 
-        assertEquals(1, viewModel.uiState.value.step4.documents.size)
+        assertEquals(listOf("remote-9", "remote-10"), documentIds(viewModel))
         assertEquals(OnboardingFailureReason.Server, viewModel.uiState.value.failure)
         assertEquals(listOf("delete_past_application"), reporter.stages())
+    }
+
+    @Test
+    fun `문서 삭제 연타는 지운 문서로 DELETE 를 다시 보내지 않는다`() {
+        val gate = CompletableDeferred<Unit>()
+        var deleteCount = 0
+        pastApplicationRepository.applications += samplePastApplication(id = 9L, itemCount = 1)
+        pastApplicationRepository.onDelete = { id ->
+            deleteCount++
+            gate.await()
+            if (pastApplicationRepository.applications.removeIf { it.id == id }) {
+                Result.success(Unit)
+            } else {
+                Result.failure(CoreDataFailure.NotFound("RESOURCE_NOT_FOUND", IOException("404")))
+            }
+        }
+        progressRepository.progressState.value = OnboardingProgress.InProgress(OnboardingStep.PastApplication)
+        val viewModel = createViewModel()
+
+        viewModel.onStep4Event(OnboardingStep4Event.DocumentMenuClicked("remote-9"))
+        // 첫 요청이 끝나기 전에 한 번 더 누른다 — 카드는 이미 목록에서 빠져 있어야 한다.
+        assertEquals(emptyList<String>(), documentIds(viewModel))
+        viewModel.onStep4Event(OnboardingStep4Event.DocumentMenuClicked("remote-9"))
+
+        gate.complete(Unit)
+
+        assertEquals(1, deleteCount)
+        assertEquals(emptyList<String>(), documentIds(viewModel))
+        // 두 번째 404 가 이미 지워진 문서에 배너와 계측 표본을 남기지 않는다.
+        assertNull(viewModel.uiState.value.failure)
+        assertEquals(emptyList<String>(), reporter.stages())
     }
 
     @Test
@@ -1815,6 +1847,11 @@ class OnboardingViewModelTest {
             },
         createdAt = null,
     )
+
+    private fun documentIds(viewModel: OnboardingViewModel): List<String> {
+        val documents = viewModel.uiState.value.step4.documents
+        return documents.map(OnboardingUploadDocument::id)
+    }
 
     private fun items(
         viewModel: OnboardingViewModel,

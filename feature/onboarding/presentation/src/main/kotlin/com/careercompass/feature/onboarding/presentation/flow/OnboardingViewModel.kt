@@ -930,20 +930,27 @@ public class OnboardingViewModel
             upload(document)
         }
 
+        /**
+         * 삭제를 낙관적으로 반영한다 — 목록에서 먼저 빼고 요청을 보낸다. 실패하면 원래 자리로 되돌린다.
+         *
+         * 경험 카드 삭제([confirmExperienceDeletion])와 같은 규칙이다. 응답을 기다리는 동안 카드가 남아 있으면
+         * 연타가 같은 문서로 DELETE 를 두 번 보내고, 두 번째는 404 로 돌아와 이미 지워진 문서에 실패 배너와
+         * 계측 표본을 남긴다(#357). 목록에서 먼저 빼면 두 번째 탭은 보낼 문서를 찾지 못한다.
+         */
         private fun deleteDocument(documentId: String) {
-            val document =
+            val index =
                 currentState.step4.documents
-                    .firstOrNull { it.id == documentId } ?: return
-            val remoteId = document.remoteId
-            if (remoteId == null) {
-                updateStep4 { removeDocument(documentId) }
-                return
-            }
+                    .indexOfFirst { it.id == documentId }
+            if (index < 0) return
+            val document = currentState.step4.documents[index]
+            updateStep4 { removeDocument(documentId) }
+            val remoteId = document.remoteId ?: return
             viewModelScope.launch {
                 deletePastApplication(remoteId)
-                    .onSuccess { updateStep4 { removeDocument(documentId) } }
                     .onFailure { throwable ->
-                        dispatch(OnboardingReducerEvent.Failed(failed(OnboardingFailureStage.DeletePastApplication, throwable)))
+                        val reason = failed(OnboardingFailureStage.DeletePastApplication, throwable)
+                        updateStep4 { restore(document, index) }
+                        dispatch(OnboardingReducerEvent.Failed(reason))
                     }
             }
         }
@@ -1282,6 +1289,17 @@ private fun OnboardingStep4FormState.removeDocument(documentId: String): Onboard
         documents = documents.filterNot { it.id == documentId },
         expandedDocumentId = expandedDocumentId?.takeIf { it != documentId },
     )
+
+/** 삭제가 실패한 문서를 원래 자리에 되돌린다. 그 사이 목록이 짧아졌으면 끝에 붙인다. */
+private fun OnboardingStep4FormState.restore(
+    document: OnboardingUploadDocument,
+    index: Int,
+): OnboardingStep4FormState =
+    if (documents.any { it.id == document.id }) {
+        this
+    } else {
+        copy(documents = documents.toMutableList().apply { add(index.coerceAtMost(size), document) })
+    }
 
 private fun toRemoteDocument(application: PastApplication): OnboardingUploadDocument =
     OnboardingUploadDocument(
