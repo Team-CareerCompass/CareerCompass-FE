@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import com.careercompass.core.domain.error.CoreDataFailure
 import com.careercompass.core.domain.testing.FakeBoardRepository
 import com.careercompass.core.model.board.BoardUpdate
+import com.careercompass.core.ui.failure.FailureKind
 import com.careercompass.feature.feed.domain.usecase.DeleteBoardUseCase
 import com.careercompass.feature.feed.domain.usecase.GetBoardsUseCase
 import com.careercompass.feature.feed.domain.usecase.RetryBoardUseCase
@@ -285,7 +286,7 @@ class BoardListViewModelTest {
                 onGetBoards = { Result.failure(CoreDataFailure.Unauthorized("AUTH_REQUIRED", RuntimeException())) }
             }
         val state = viewModel(unauthorized).state.value
-        assertEquals(BoardListLoadState.Failed(FeedFailureReason.Generic), state.loadState)
+        assertEquals(BoardListLoadState.Failed(FeedFailureReason.Generic(FailureKind.AuthExpired)), state.loadState)
         assertTrue(state.sessionEnded)
     }
 

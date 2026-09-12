@@ -3,6 +3,7 @@ package com.careercompass.feature.feed.presentation.postingraw
 import androidx.lifecycle.SavedStateHandle
 import com.careercompass.core.domain.error.CoreDataFailure
 import com.careercompass.core.domain.testing.FakePostingRepository
+import com.careercompass.core.ui.failure.FailureKind
 import com.careercompass.feature.feed.domain.usecase.OpenPostingDetailUseCase
 import com.careercompass.feature.feed.presentation.FIXED_CLOCK
 import com.careercompass.feature.feed.presentation.MainDispatcherRule
@@ -129,7 +130,10 @@ class PostingRawViewModelTest {
                 onGetPostingDetail = { Result.failure(CoreDataFailure.ServerError("INTERNAL_ERROR", RuntimeException())) }
             }
 
-        assertEquals(PostingRawLoadState.Failed(FeedFailureReason.Generic), viewModel(repository).state.value.loadState)
+        assertEquals(
+            PostingRawLoadState.Failed(FeedFailureReason.Generic(FailureKind.Unexpected)),
+            viewModel(repository).state.value.loadState,
+        )
     }
 
     @Test

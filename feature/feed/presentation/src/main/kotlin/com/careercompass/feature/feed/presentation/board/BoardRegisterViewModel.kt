@@ -401,7 +401,7 @@ public class BoardRegisterViewModel
                             }
 
                             FeedFailureReason.NetworkUnavailable,
-                            FeedFailureReason.Generic,
+                            is FeedFailureReason.Generic,
                             -> {
                                 BoardRegisterReducerEvent.DetectionFinished(
                                     BoardDetectionState.Idle,
