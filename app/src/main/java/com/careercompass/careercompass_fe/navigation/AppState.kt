@@ -12,16 +12,19 @@ import com.careercompass.core.ui.navigation.pushSingleTop
 import com.careercompass.core.ui.navigation.replaceAllWith
 
 /**
- * 앱 셸의 루트 백스택과 그 조작 — 하단 탭 전환, 메인 진입, 자리표시자 push, 한 칸 내리기, 그리고 바텀바 판정.
+ * 앱 셸의 루트 백스택과 그 조작 — 하단 탭 전환, 메인 진입, 피드 밖 화면 push, 한 칸 내리기, 그리고 바텀바 판정.
  *
  * 컴포저블이 아니라 평범한 클래스다 — 루트 스택의 모양을 컴포지션 없이 JVM 테스트(`AppStateTest`)로 못박는다(#260).
  *
- * 루트 스택의 모양은 셋뿐이다.
+ * 루트 스택의 모양은 넷이다.
  * - 인증 전: `[Onboarding]`. 온보딩 안의 화면은 온보딩 로컬 스택이 갖는다.
  * - 메인: `[Feed]` 또는 `[Feed, 다른 탭]`. 피드가 바닥이고 다른 탭은 그 위 한 칸이라, 다른 탭에서의 back 은 피드로 돌아간다.
  *   Nav2 의 `popUpTo(피드) { saveState }` + `restoreState` 가 만들던 모양과 같다. 다만 Nav3 는 스택에서 빠진 entry 의
- *   상태를 버리므로, 자리표시자 탭은 다시 들어오면 새로 그려진다 — 피드 탭은 바닥에 남아 로컬 스택과 ViewModel 을 지킨다.
- * - 알림 자리표시자: 피드 위에 `[Feed, NotificationsPlaceholder]`.
+ *   상태를 버리므로, 다른 탭은 다시 들어오면 새로 그려진다 — 피드 탭은 바닥에 남아 로컬 스택과 ViewModel 을 지킨다.
+ * - 피드 위 한 칸: `[Feed, NotificationsPlaceholder]` · `[Feed, ApplicationSetup]` 처럼 탭이 아닌 화면.
+ *   바텀바가 저절로 숨고([shouldShowBottomBar] 의 `else`) back 은 피드로 돌아간다.
+ * - 마이 탭 위 한 칸: `[Feed, MyTab, ProfileEdit]` 처럼 마이 홈 메뉴가 가리키는 화면(`navigateToProfileMenu`).
+ *   과거 지원서 목록에서 등록으로 들어가면 그 위가 한 칸 더 쌓여 네 칸이 된다.
  */
 @Stable
 public class AppState(
