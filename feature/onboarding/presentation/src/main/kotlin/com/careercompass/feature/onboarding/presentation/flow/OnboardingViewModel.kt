@@ -129,6 +129,9 @@ public class OnboardingViewModel
 
         private var nextLocalDocumentId = 1
 
+        /** 경험 카드 제출을 세는 표. 응답이 어느 제출의 것인지 가린다(#340). */
+        private var experienceSubmissionToken = 0
+
         private var entryJob: Job? = null
 
         init {
@@ -696,12 +699,22 @@ public class OnboardingViewModel
 
         private fun onExperienceEditorEvent(event: ExperienceQuickAddEvent) {
             when (event) {
-                ExperienceQuickAddEvent.Submitted -> submitExperience()
+                ExperienceQuickAddEvent.Submitted -> {
+                    submitExperience()
+                }
 
-                ExperienceQuickAddEvent.Dismissed -> dispatch(OnboardingReducerEvent.ExperienceEditorUpdated(null))
+                // 제출 중에는 닫지 않는다(#340). 스크림·뒤로가기로 닫고 다른 카드를 치기 시작하면 늦게 온 응답이
+                // 그 시트를 닫아 입력이 사라진다. 마이 탭의 같은 시트도 같은 조건으로 막는다.
+                ExperienceQuickAddEvent.Dismissed -> {
+                    if (currentState.experienceEditor?.isSubmitting != true) {
+                        dispatch(OnboardingReducerEvent.ExperienceEditorUpdated(null))
+                    }
+                }
 
                 // 나머지는 순수 전이다 — 마이 탭의 같은 시트와 한 벌을 쓴다(#179).
-                else -> updateExperienceEditor { applying(event) }
+                else -> {
+                    updateExperienceEditor { applying(event) }
+                }
             }
         }
 
@@ -719,16 +732,38 @@ public class OnboardingViewModel
             val draft = validated.toDraft()
             dispatch(OnboardingReducerEvent.ExperienceSubmissionStarted(validated.copy(isSubmitting = true)))
             val stage = if (editingId == null) OnboardingFailureStage.AddExperience else OnboardingFailureStage.UpdateExperience
+            val token = ++experienceSubmissionToken
             viewModelScope.launch {
                 val result = if (editingId == null) addExperience(draft) else updateExperience(editingId, draft)
                 result
                     .onSuccess { saved ->
-                        dispatch(OnboardingReducerEvent.ExperienceSaved(currentState.step3.upsert(saved, isNew = editingId == null)))
+                        // 목록은 어느 시트가 열려 있든 갱신한다 — 서버에 저장된 카드는 저장된 것이다.
+                        val form = currentState.step3.upsert(saved, isNew = editingId == null)
+                        if (isSubmittingSheetOpen(token)) {
+                            dispatch(OnboardingReducerEvent.ExperienceSaved(form))
+                        } else {
+                            dispatch(OnboardingReducerEvent.Step3Updated(form))
+                        }
                     }.onFailure { throwable ->
-                        dispatch(OnboardingReducerEvent.ExperienceSubmissionFailed(failed(stage, throwable)))
+                        val reason = failed(stage, throwable)
+                        if (isSubmittingSheetOpen(token)) {
+                            dispatch(OnboardingReducerEvent.ExperienceSubmissionFailed(reason))
+                        } else {
+                            // 시트는 그 사이 바뀌었다 — 잠금을 풀 자리가 없으니 사유만 알린다.
+                            dispatch(OnboardingReducerEvent.Failed(reason))
+                        }
                     }
             }
         }
+
+        /**
+         * 지금 열린 시트가 [token] 의 제출을 시작한 그 시트인가.
+         *
+         * 응답은 제출을 시작한 시트에만 적용한다(#340). 시트가 그 사이 닫히거나 다른 카드로 바뀌었으면 목록만
+         * 갱신하고 시트는 건드리지 않는다 — 사용자가 치고 있던 입력을 늦게 온 응답이 지우지 않게.
+         */
+        private fun isSubmittingSheetOpen(token: Int): Boolean =
+            token == experienceSubmissionToken && currentState.experienceEditor?.isSubmitting == true
 
         private fun submitStep3() {
             if (!currentState.isInputEnabled) return

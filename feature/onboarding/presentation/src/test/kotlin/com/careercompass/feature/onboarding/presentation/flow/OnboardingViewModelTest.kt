@@ -589,6 +589,56 @@ class OnboardingViewModelTest {
     }
 
     @Test
+    fun `제출 중에는 시트를 닫지 않는다`() {
+        val gate = CompletableDeferred<Unit>()
+        experienceRepository.onCreateExperience = { draft ->
+            gate.await()
+            Result.success(sampleCard(id = 5L, details = draft.details).copy(title = draft.title))
+        }
+        val viewModel = createViewModel()
+        viewModel.onStep3Event(OnboardingStep3Event.AddExperienceClicked)
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.TypeSelected(ExperienceType.Award))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.TitleChanged("공모전"))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.PrimaryChanged("대상"))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.Submitted)
+        assertTrue(submittingEditor(viewModel))
+
+        // 스크림 탭·스와이프·뒤로가기가 모두 이 이벤트로 들어온다.
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.Dismissed)
+
+        assertTrue(submittingEditor(viewModel))
+
+        gate.complete(Unit)
+        assertNull(viewModel.uiState.value.experienceEditor)
+        assertEquals(listOf("공모전"), experienceTitles(viewModel))
+    }
+
+    @Test
+    fun `늦게 온 응답은 그 사이 연 다른 시트를 건드리지 않는다`() {
+        val gate = CompletableDeferred<Unit>()
+        experienceRepository.onCreateExperience = { draft ->
+            gate.await()
+            Result.success(sampleCard(id = 5L, details = draft.details).copy(title = draft.title))
+        }
+        val viewModel = createViewModel()
+        viewModel.onStep3Event(OnboardingStep3Event.AddExperienceClicked)
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.TypeSelected(ExperienceType.Award))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.TitleChanged("공모전"))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.PrimaryChanged("대상"))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.Submitted)
+
+        // 앞 제출이 끝나기 전에 다음 시트가 열린 상태. 여기 친 글자를 늦은 응답이 지우면 안 된다.
+        viewModel.onStep3Event(OnboardingStep3Event.AddExperienceClicked)
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.TitleChanged("두 번째 카드"))
+
+        gate.complete(Unit)
+
+        val state = viewModel.uiState.value
+        assertEquals("두 번째 카드", state.experienceEditor?.title)
+        assertEquals(listOf("공모전"), experienceTitles(viewModel))
+    }
+
+    @Test
     fun `카드를 누르면 기존 값이 채워진 수정 시트가 열리고 유형은 바뀌지 않는다`() {
         experienceRepository.experiences += internExperience(id = 3L)
         progressRepository.progressState.value = OnboardingProgress.InProgress(OnboardingStep.Experience)
@@ -1688,6 +1738,15 @@ class OnboardingViewModelTest {
             onboardingDone = onboardingDone,
             completion = 40,
         )
+
+    /** 제출 잠금이 걸린 시트가 열려 있는가. */
+    private fun submittingEditor(viewModel: OnboardingViewModel): Boolean =
+        viewModel.uiState.value.experienceEditor
+            ?.isSubmitting == true
+
+    private fun experienceTitles(viewModel: OnboardingViewModel): List<String> =
+        viewModel.uiState.value.step3.experiences
+            .map(Experience::title)
 
     private fun sampleExperience(id: Long) =
         Experience(
