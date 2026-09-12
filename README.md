@@ -52,7 +52,7 @@ Android 명령 전에는 `local.properties` 의 `sdk.dir` 로 SDK 위치를 제�
 | --- | --- |
 | Baseline Profile | [`baseline-prof.txt`](app/src/main/generated/baselineProfiles/baseline-prof.txt) 와 [`startup-prof.txt`](app/src/main/generated/baselineProfiles/startup-prof.txt) 를 커밋하고, generator·주간 workflow·release AAB 패키징 계약을 정책 테스트로 검증한다 |
 | API 경계 smoke | [`ApiBoundarySmokeAndroidTest`](app/src/androidTest/java/com/careercompass/careercompass_fe/ApiBoundarySmokeAndroidTest.kt) 가 API 26·36 managed-device lane에서 앱 시작 시맨틱과 지원 범위를 확인하고, [`AppNavigationAndroidTest`](app/src/androidTest/java/com/careercompass/careercompass_fe/AppNavigationAndroidTest.kt) 가 fake 세션으로 로그인·온보딩·피드 시작 분기를 확인한다 |
-| 접근성 smoke | [`AccessibilitySmokeAndroidTest`](app/src/androidTest/java/com/careercompass/careercompass_fe/AccessibilitySmokeAndroidTest.kt) 가 API 34에서 온보딩 Step 1~4·피드·마이 홈 화면에 Android Accessibility Test Framework 검사를 수행한다 |
+| 접근성 smoke | [`AccessibilitySmokeAndroidTest`](app/src/androidTest/java/com/careercompass/careercompass_fe/AccessibilitySmokeAndroidTest.kt) 가 API 34에서 로그인·온보딩 Step 1~4·피드·마이 홈·프로필 편집 화면에 Android Accessibility Test Framework 검사를 수행한다 |
 | UI 회귀 | `core:ui`, 온보딩(로그인·지문·Step 1~4·완료·시트), 피드(홈·상세·원문·필터·게시판)의 단위/Compose 테스트와 커밋된 screenshot baseline을 검증한다. 마이 홈은 Compose(Robolectric) 테스트로 덮고 골든은 두지 않는다([근거](docs/testing/screenshot.md)) |
 
 ## 분담
