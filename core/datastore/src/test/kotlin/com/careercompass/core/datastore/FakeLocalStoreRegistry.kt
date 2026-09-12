@@ -8,17 +8,25 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-/** 메모리 저장소로 동작하는 [LocalStoreRegistry]. SESSION 을 비우면 실제 구현처럼 세대가 오른다. */
+/**
+ * 메모리 저장소로 동작하는 [LocalStoreRegistry]. SESSION 을 비우면 실제 구현처럼 세대가 오른다.
+ *
+ * 어떤 이름이 어느 scope 로 등록됐는지는 [registrations] 로 검증한다.
+ */
 internal class FakeLocalStoreRegistry : LocalStoreRegistry {
     private val stores = mutableMapOf<String, Pair<StoreScope, DataStore<Preferences>>>()
     private val generation = MutableStateFlow(0L)
+    val registrations = mutableListOf<Pair<String, StoreScope>>()
 
     override val sessionGeneration: StateFlow<Long> = generation.asStateFlow()
 
     override fun store(
         name: String,
         scope: StoreScope,
-    ): DataStore<Preferences> = stores.getOrPut(name) { scope to InMemoryPreferencesDataStore() }.second
+    ): DataStore<Preferences> {
+        registrations += name to scope
+        return stores.getOrPut(name) { scope to InMemoryPreferencesDataStore() }.second
+    }
 
     override suspend fun clearScope(scope: StoreScope) {
         if (scope == StoreScope.SESSION) generation.update { it + 1 }
