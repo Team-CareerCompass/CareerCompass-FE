@@ -3,6 +3,7 @@ package com.careercompass.feature.onboarding.presentation.flow
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.careercompass.core.common.reporting.ErrorReporter
+import com.careercompass.core.domain.repository.AuthRepository
 import com.careercompass.core.model.application.MAX_PAST_APPLICATIONS
 import com.careercompass.core.model.application.MAX_PAST_APPLICATION_FILE_BYTES
 import com.careercompass.core.model.application.PastApplication
@@ -77,6 +78,8 @@ import com.careercompass.feature.onboarding.presentation.reporting.OnboardingFai
 import com.careercompass.feature.onboarding.presentation.reporting.recordOnboardingFailure
 import com.careercompass.feature.onboarding.presentation.shared.model.OnboardingFieldError
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import java.io.ByteArrayInputStream
 import java.time.Year
@@ -114,6 +117,8 @@ public class OnboardingViewModel
         private val deletePastApplication: DeletePastApplicationUseCase,
         private val updatePastApplicationItemCategory: UpdatePastApplicationItemCategoryUseCase,
         private val completeOnboarding: CompleteOnboardingUseCase,
+        // 세션 경계만 본다 — 앞 세션으로 낸 진입 판정을 언제 버려야 하는지 알려 준다.
+        private val authRepository: AuthRepository,
         private val errorReporter: ErrorReporter,
         savedStateHandle: SavedStateHandle,
     ) : MviViewModel<OnboardingIntent, OnboardingFlowState, OnboardingReducerEvent>(
@@ -124,9 +129,20 @@ public class OnboardingViewModel
 
         private var nextLocalDocumentId = 1
 
+        private var entryJob: Job? = null
+
         init {
             viewModelScope.launch { uiState.collect(draft::save) }
-            viewModelScope.launch { resolveEntry() }
+            entryJob = viewModelScope.launch { resolveEntry() }
+            // 진입 판정은 이 ViewModel 이 만들어진 시점의 세션 것이다. 그 세션이 끝나면(지문 화면의 「다른 방법으로
+            // 로그인」·로그아웃·만료) 판정도 함께 버린다 — 다음 계정의 Step 1 이 앞 계정의 프리필과 이동 지시를
+            // 물려받지 않게(#335). 새 세션의 판정은 그 계정이 온보딩에 들어올 때 앱 셸이 다시 세운다.
+            viewModelScope.launch {
+                authRepository.sessionGeneration.drop(1).collect {
+                    entryJob?.cancel()
+                    dispatch(OnboardingReducerEvent.SessionSwitched)
+                }
+            }
         }
 
         override fun onIntent(intent: OnboardingIntent) {
@@ -242,6 +258,11 @@ public class OnboardingViewModel
 
                 OnboardingReducerEvent.SessionEnded -> {
                     state.copy(sessionEnded = true)
+                }
+
+                OnboardingReducerEvent.SessionSwitched -> {
+                    // 세션 종료 신호만 넘긴다 — 셸이 아직 읽지 않았으면 이 초기화로 사라져서는 안 된다.
+                    OnboardingFlowState(isResolvingEntry = false, sessionEnded = state.sessionEnded)
                 }
 
                 is OnboardingReducerEvent.NavigationRequested -> {

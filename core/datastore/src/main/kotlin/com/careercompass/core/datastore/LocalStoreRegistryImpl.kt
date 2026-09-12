@@ -13,7 +13,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
@@ -51,6 +55,9 @@ internal class LocalStoreRegistryImpl(
     private val lock = Any()
     private val entries = mutableMapOf<String, Entry>()
     private val pendingManifestJobs = mutableListOf<Job>()
+    private val generation = MutableStateFlow(0L)
+
+    override val sessionGeneration: StateFlow<Long> = generation.asStateFlow()
 
     private val manifest: DataStore<Preferences> by lazy {
         PreferenceDataStoreFactory.create(scope = newStoreScope()) { produceFile(MANIFEST_NAME) }
@@ -90,7 +97,13 @@ internal class LocalStoreRegistryImpl(
         return dataStore
     }
 
+    /**
+     * 세대는 비우기 전에 올린다 — 그래야 이 시점 이후에 커밋되는 앞 세션의 쓰기가
+     * [editWithinSession] 의 대조에서 전부 걸린다. 뒤에 올리면 비운 직후부터 세대를 올리기 전까지가
+     * 그대로 구멍이 된다.
+     */
     override suspend fun clearScope(scope: StoreScope) {
+        if (scope == StoreScope.SESSION) generation.update { it + 1 }
         awaitPendingRegistrations()
         val manifestNames = readManifestNames(scope)
         val targets =

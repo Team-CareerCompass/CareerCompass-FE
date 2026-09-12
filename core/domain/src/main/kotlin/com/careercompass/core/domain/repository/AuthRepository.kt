@@ -15,6 +15,14 @@ public interface AuthRepository {
     public val isLoggedIn: Flow<Boolean>
 
     /**
+     * 세션 경계를 세는 값 — 세션이 끝나거나([logout]·[clearSession]) 새로 시작할 때마다([saveSession]) 오른다.
+     *
+     * 구독하면 지금 세대를 먼저 한 번 내고, 이후 경계마다 낸다. 앞 세션을 보고 만든 화면 상태를 다음 계정이
+     * 물려받으면 안 되는 자리에서, 버릴 시점을 이 값의 변화로 안다(#335).
+     */
+    public val sessionGeneration: Flow<Long>
+
+    /**
      * 이 기기에 지문 로그인을 등록한 사용자가 **현재 세션 사용자와 같은지**.
      *
      * 등록 사용자 id 는 DEVICE 스코프, 현재 사용자 id 는 SESSION 스코프 프로필 캐시에서 읽어 대조한다. 그래서

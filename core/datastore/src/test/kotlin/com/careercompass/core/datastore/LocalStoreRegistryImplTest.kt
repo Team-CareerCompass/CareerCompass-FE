@@ -67,6 +67,38 @@ class LocalStoreRegistryImplTest {
             assertEquals("device-id", device.data.first()[key])
         }
 
+    /**
+     * #348 — 세션이 끝난 뒤에 커밋되는 앞 세션의 쓰기를 걸러내는 기준이 세대다. 세대를 비우기보다 늦게 올리면
+     * 비운 직후부터 올리기 전까지가 그대로 구멍이 된다.
+     */
+    @Test
+    fun `SESSION 을 비우면 세대가 오르고 그 전에 시작한 쓰기는 버려진다`() =
+        runBlocking {
+            val registry = registry()
+            val session = registry.store("Profile", StoreScope.SESSION)
+            val startedAt = registry.sessionGeneration.value
+
+            registry.clearScope(StoreScope.SESSION)
+            registry.editWithinSession(session, startedAt) { it[key] = "앞 세션 응답" }
+
+            assertEquals(startedAt + 1, registry.sessionGeneration.value)
+            assertNull(session.data.first()[key])
+
+            registry.editWithinSession(session) { it[key] = "이번 세션 응답" }
+            assertEquals("이번 세션 응답", session.data.first()[key])
+        }
+
+    @Test
+    fun `DEVICE 를 비우는 것은 세션 세대와 무관하다`() =
+        runBlocking {
+            val registry = registry()
+            registry.store("Device", StoreScope.DEVICE)
+
+            registry.clearScope(StoreScope.DEVICE)
+
+            assertEquals(0L, registry.sessionGeneration.value)
+        }
+
     @Test
     fun `이전 프로세스에서 등록된 저장소도 매니페스트로 찾아 비운다`() =
         runBlocking {

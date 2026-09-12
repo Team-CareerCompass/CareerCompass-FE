@@ -198,6 +198,35 @@ class BiometricLoginViewModelTest {
         assertNull(viewModel.uiState.value.pendingNavigation)
     }
 
+    /**
+     * #335 — 여기서 로그인하는 사람은 다음 계정일 수 있다. 앞 계정의 SESSION 스코프 저장소(프로필·온보딩 진행·
+     * 공고 스냅샷)를 지우지 않고 로그인 화면만 띄우면 그 계정이 앞 계정의 상태를 그대로 물려받는다.
+     */
+    @Test
+    fun `다른 방법으로 로그인은 로컬 세션을 정리한다`() {
+        val viewModel = createViewModel()
+
+        viewModel.onIntent(BiometricLoginIntent.ChooseOtherMethod)
+
+        assertEquals(1, authRepository.clearSessionCalls)
+        assertFalse(authRepository.loggedIn)
+        assertEquals(BiometricDestination.Login, viewModel.uiState.value.pendingNavigation)
+    }
+
+    @Test
+    fun `정리가 끝나기 전에는 로그인 화면으로 보내지 않는다`() {
+        val cleared = CompletableDeferred<Result<Unit>>()
+        authRepository.onClearSession = { cleared.await() }
+        val viewModel = createViewModel()
+
+        viewModel.onIntent(BiometricLoginIntent.ChooseOtherMethod)
+        assertNull(viewModel.uiState.value.pendingNavigation)
+
+        cleared.complete(Result.success(Unit))
+
+        assertEquals(BiometricDestination.Login, viewModel.uiState.value.pendingNavigation)
+    }
+
     private fun profile(
         name: String?,
         onboardingDone: Boolean,

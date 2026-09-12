@@ -14,7 +14,10 @@ import com.careercompass.core.network.dto.UserProfileDto
 import com.careercompass.core.network.model.ApiException
 import com.careercompass.core.network.model.BaseResponse
 import com.careercompass.core.network.service.UserApiService
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -27,11 +30,13 @@ class UserProfileRepositoryImplTest {
     private class FakeUserApi : UserApiService {
         var profile = UserProfileDto(1, "정일혁", "건국대학교", "컴퓨터공학부", 3.87, 2027, listOf(JobInterestDto("backend", 1)), listOf("AI"), true, 78)
         var getMeThrows: Throwable? = null
+        var onGetMe: suspend () -> Unit = {}
         val updates = mutableListOf<UpdateProfileRequestDto>()
         val jobInterests = mutableListOf<JobInterestsRequestDto>()
         val tags = mutableListOf<TagsRequestDto>()
 
         override suspend fun getMe(): BaseResponse<UserProfileDto> {
+            onGetMe()
             getMeThrows?.let { throw it }
             return BaseResponse(ok = true, data = profile)
         }
@@ -55,7 +60,7 @@ class UserProfileRepositoryImplTest {
 
     private val api = FakeUserApi()
     private val registry = FakeLocalStoreRegistry()
-    private val profileDataSource = ProfileDataSource(registry.store("Profile", StoreScope.SESSION))
+    private val profileDataSource = ProfileDataSource(registry.store("Profile", StoreScope.SESSION), registry)
     private val repository = UserProfileRepositoryImpl(api, profileDataSource, Json { ignoreUnknownKeys = true })
 
     @Test
@@ -70,6 +75,26 @@ class UserProfileRepositoryImplTest {
             assertEquals(1L, profileDataSource.userId.first())
             assertEquals(true, repository.lastKnownOnboardingDone())
             registry.clearScope(StoreScope.SESSION)
+            assertNull(repository.profile.first())
+            assertNull(profileDataSource.userId.first())
+        }
+
+    /**
+     * #348 — 마이 탭에서 조회 중 로그아웃하면 정리와 화면 취소 사이에 응답이 도착한다. 세대 가드가 없으면 그
+     * 응답이 앞 계정의 JSON·user_id 를 비워진 저장소에 다시 써, 다음 계정의 지문 게이트와 온보딩 판정이 그 값으로 열린다.
+     */
+    @Test
+    fun `clearScope 뒤 도착한 persist 가 저장소를 비운 채로 둔다`() =
+        runTest {
+            val response = CompletableDeferred<Unit>()
+            api.onGetMe = { response.await() }
+            val refresh = async { repository.refreshProfile() }
+            runCurrent()
+
+            registry.clearScope(StoreScope.SESSION)
+            response.complete(Unit)
+            refresh.await().getOrThrow()
+
             assertNull(repository.profile.first())
             assertNull(profileDataSource.userId.first())
         }

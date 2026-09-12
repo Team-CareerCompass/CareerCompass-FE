@@ -2,6 +2,7 @@ package com.careercompass.feature.onboarding.presentation.flow
 
 import androidx.lifecycle.SavedStateHandle
 import com.careercompass.core.domain.error.CoreDataFailure
+import com.careercompass.core.domain.testing.FakeAuthRepository
 import com.careercompass.core.domain.testing.FakeExperienceRepository
 import com.careercompass.core.domain.testing.FakePastApplicationRepository
 import com.careercompass.core.domain.testing.FakeUserProfileRepository
@@ -85,6 +86,7 @@ class OnboardingViewModelTest {
     private val progressRepository = FakeOnboardingProgressRepository()
     private val experienceRepository = FakeExperienceRepository()
     private val pastApplicationRepository = FakePastApplicationRepository()
+    private val authRepository = FakeAuthRepository(loggedIn = true)
     private val reporter = RecordingErrorReporter()
 
     @Before
@@ -112,6 +114,7 @@ class OnboardingViewModelTest {
             deletePastApplication = DeletePastApplicationUseCase(pastApplicationRepository),
             updatePastApplicationItemCategory = UpdatePastApplicationItemCategoryUseCase(pastApplicationRepository),
             completeOnboarding = CompleteOnboardingUseCase(progressRepository, userProfileRepository),
+            authRepository = authRepository,
             errorReporter = reporter,
             savedStateHandle = savedStateHandle,
         )
@@ -156,6 +159,27 @@ class OnboardingViewModelTest {
         val viewModel = createViewModel()
 
         assertEquals(OnboardingDestination.Feed, viewModel.uiState.value.pendingNavigation)
+    }
+
+    /**
+     * #335 — 이 ViewModel 은 온보딩 스택 전체와 수명을 같이하므로 지문 화면에서 「다른 방법으로 로그인」을 거쳐
+     * 다음 계정이 들어와도 살아 있다. 앞 계정으로 낸 판정을 들고 있으면 그 계정이 Step 1 대신 피드로 들어가고
+     * 폼에는 앞 계정의 이름이 채워진다.
+     */
+    @Test
+    fun `세션이 바뀌면 앞 세션으로 낸 진입 판정을 버린다`() {
+        userProfileRepository.profileState.value = sampleProfile(onboardingDone = true)
+        val viewModel = createViewModel()
+        assertEquals(OnboardingDestination.Feed, viewModel.uiState.value.pendingNavigation)
+        assertEquals("정일혁", viewModel.uiState.value.step1.name)
+
+        authRepository.sessionGenerationState.value += 1
+
+        val state = viewModel.uiState.value
+        assertNull(state.pendingNavigation)
+        assertNull(state.userName)
+        assertEquals("", state.step1.name)
+        assertTrue(state.isInputEnabled)
     }
 
     @Test
