@@ -94,7 +94,7 @@ private fun OnboardingStep4Body(
         )
         OrDivider()
         DirectInputAction(
-            enabled = state.isInputEnabled,
+            enabled = state.isDirectInputEnabled,
             onClick = { onEvent(OnboardingStep4Event.DirectInputClicked) },
         )
         if (state.uploadedDocuments.isNotEmpty()) {
@@ -119,6 +119,15 @@ private fun OnboardingStep4Body(
     }
 }
 
+/**
+ * 지원서 파일을 고르는 업로드 칸.
+ *
+ * 클릭 수식어 위에 `contentDescription` 을 얹지 않는다. 병합 노드에 설명을 얹으면 스크린 리더가 그 한 줄만
+ * 읽고 안쪽 본문이 통째로 묻힌다. 여기서 묻히는 것은 "PDF · DOCX · TXT · 최대 10MB" 라는 파일 조건이고,
+ * 그 문구가 없으면 무엇을 올릴 수 있는지 듣고 알 길이 없다. 이름은 본문이 지고 행동은
+ * `onClickLabel` 이 지게 나눈다. 피드의 `FeedListingCard` 가 카드 본문을 두고 `stateDescription` 만
+ * 얹는 것과 같은 원칙이다(#346).
+ */
 @Composable
 private fun UploadTarget(
     enabled: Boolean,
@@ -126,7 +135,7 @@ private fun UploadTarget(
 ) {
     val colors = CareerCompassTheme.colors
     val spacing = CareerCompassTheme.spacing
-    val uploadDescription = stringResource(R.string.onboarding_step4_upload_content_description)
+    val uploadActionLabel = stringResource(R.string.onboarding_step4_upload_action)
 
     Surface(
         modifier =
@@ -135,13 +144,10 @@ private fun UploadTarget(
                 .clip(CareerCompassTheme.shapes.largeControl)
                 .clickable(
                     enabled = enabled,
+                    onClickLabel = uploadActionLabel,
                     role = Role.Button,
                     onClick = onClick,
-                ).semantics(mergeDescendants = true) {
-                    contentDescription = uploadDescription
-                    role = Role.Button
-                    if (!enabled) disabled()
-                },
+                ),
         shape = CareerCompassTheme.shapes.largeControl,
         color = if (enabled) colors.surface else colors.disabledContainer,
         contentColor = if (enabled) colors.onSurface else colors.disabledContent,
@@ -694,6 +700,13 @@ private fun ClassifiedItems(
     }
 }
 
+/**
+ * 분류 항목 한 줄. 누르면 그 항목의 분류를 바꾼다.
+ *
+ * [UploadTarget] 과 같은 이유로 `contentDescription` 대신 `onClickLabel` 을 쓴다. 설명을 얹으면
+ * "분류 확인 필요" 배지와 본문 미리보기가 스크린 리더에서 사라져, 어느 항목을 확인해야 하는지가
+ * 눈으로만 보이는 정보가 된다(#346).
+ */
 @Composable
 private fun ClassifiedItemRow(
     item: OnboardingApplicationItem,
@@ -703,7 +716,8 @@ private fun ClassifiedItemRow(
     val colors = CareerCompassTheme.colors
     val spacing = CareerCompassTheme.spacing
     val shape = CareerCompassTheme.shapes.largeControl
-    val description = stringResource(R.string.onboarding_step4_item_change_category, item.categoryLabel)
+    val changeCategoryLabel =
+        stringResource(R.string.onboarding_step4_item_change_category, item.categoryLabel)
 
     Surface(
         modifier =
@@ -713,13 +727,10 @@ private fun ClassifiedItemRow(
                 .clip(shape)
                 .clickable(
                     enabled = enabled,
+                    onClickLabel = changeCategoryLabel,
                     role = Role.Button,
                     onClick = onClick,
-                ).semantics(mergeDescendants = true) {
-                    contentDescription = description
-                    role = Role.Button
-                    if (!enabled) disabled()
-                }.testTag(itemRowTag(item.id)),
+                ).testTag(itemRowTag(item.id)),
         shape = shape,
         color = colors.subtleSurface,
         contentColor = colors.onSurface,

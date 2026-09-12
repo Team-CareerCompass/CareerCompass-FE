@@ -75,18 +75,22 @@ entry<FeedRoute.PostingDetail> { key ->
 
 ## 루트 스택
 
-앱 셸의 `AppState` 가 루트 `NavBackStack` 을 갖고 `NavDisplay` 로 그린다. 키는 app 의 `Route` 다. 모양은 셋뿐이다.
+앱 셸의 `AppState` 가 루트 `NavBackStack` 을 갖고 `NavDisplay` 로 그린다. 키는 app 의 `Route` 다. 모양은 여섯이다.
 
 | 상태 | 루트 스택 | 비고 |
 | --- | --- | --- |
 | 인증 전 | `[Onboarding]` | 온보딩 안의 화면은 온보딩 로컬 스택이 갖는다. 바닥에서의 back 은 앱을 나간다 |
 | 메인 | `[Feed]` 또는 `[Feed, 다른 탭]` | 피드가 바닥이고 다른 탭은 그 위 한 칸이다. 다른 탭에서의 back 은 피드로 돌아간다. Nav2 의 `popUpTo(피드) { saveState }` + `restoreState` 와 같은 모양이다 |
 | 알림 자리표시자 | `[Feed, NotificationsPlaceholder]` | 탭 전환이 걷어낸다 |
+| 마이 메뉴 | `[Feed, MyTab, 메뉴 화면]` | 마이 홈의 메뉴 넷(프로필 편집 · 경험 카드 · 과거 지원서 · 알림 설정)이 `MyTab` 위 한 칸으로 쌓인다(`navigateToProfileMenu`). 목적지 표를 profile 모듈이 아니라 셸이 갖는 이유는 네 화면의 주인이 서로 다르기 때문이다. 과거 지원서에서 등록으로 한 번 더 들어가면 네 칸(`[…, PastApplications, PastApplicationUploadPlaceholder]`)이 된다 |
+| 지원서 작성 | `[Feed, ApplicationSetup(postingId)]` | 공고 상세가 여는데 **피드 로컬 스택이 아니라 루트**에 쌓는다. 목적지가 다른 모듈이고, 뒤로 오면 그 공고 상세가 그대로 남아 있어야 하기 때문이다. 공고 id 를 키가 나르고, 같은 공고로 두 번 눌러도 `pushSingleTop` 이 한 장만 남긴다 |
+| 초안 작성 진행 | `[Feed, ApplicationProgressPlaceholder(applicationId)]` | 생성이 시작되면 `ApplicationSetup` 을 스택에서 **빼고** 갈아 끼운다(`navigateToApplicationProgress`). 남기면 뒤로가기가 이미 만든 초안을 다시 만드는 자리로 돌아가고, 사용자는 같은 공고에 초안이 둘 생겼다고 읽는다 |
 
 - 인증을 끝내면 `replaceAllWith(Feed)` 로 수렴한다. 뒤로가기로 인증 화면에 돌아가지 않는다.
 - Nav3 는 스택에서 빠진 entry 의 상태를 버리므로 자리표시자 탭은 다시 들어오면 새로 그려진다. 피드 탭은 바닥에 남아 로컬 스택과 ViewModel 을 지킨다. 다른 담당 모듈의 탭이 상태를 가져야 하면 그때 탭별 스택을 둔다.
 - 세션 종료마다 `MainActivity` 가 `revision` 으로 셸 컴포지션을 새로 만들어 루트 스택을 새로 세운다. 프로세스 재생성에서 세션이 그대로면 `rememberNavBackStack` 이 루트·로컬 스택을 함께 되살리고 entry 의 입력 초안도 돌아온다(#133).
 - 루트 바닥(크기 1)에서는 `NavDisplay` 가 back 핸들러를 끄므로 시스템 back 이 액티비티로 흘러 앱을 나간다.
+- 바텀바는 탭 키에서만 그린다. 마이 메뉴·지원서 작성·초안 진행처럼 탭이 아닌 키가 위에 오면 `AppState.shouldShowBottomBar` 의 `else` 로 저절로 숨으므로, 자리마다 판정을 새로 만들지 않는다.
 
 ## 셸이 로컬 스택에 부탁하는 진입
 

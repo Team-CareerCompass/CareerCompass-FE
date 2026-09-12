@@ -46,8 +46,8 @@ public class AuthInterceptor
                     when (outcome) {
                         is TokenReissuer.Outcome.TokenAlreadyChanged -> outcome.accessToken
                         is TokenReissuer.Outcome.Rotated -> outcome.accessToken
-                        is TokenReissuer.Outcome.SessionChanged -> throw TokenReissueFailureException(outcome.exception)
-                        is TokenReissuer.Outcome.AuthenticationRejected -> throw TokenReissueFailureException(outcome.exception)
+                        is TokenReissuer.Outcome.SessionChanged -> throw outcome.toRequestFailure()
+                        is TokenReissuer.Outcome.AuthenticationRejected -> throw outcome.toRequestFailure()
                         is TokenReissuer.Outcome.Failure -> storedToken
                     }
                 } else {

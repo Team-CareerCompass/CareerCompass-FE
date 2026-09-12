@@ -20,7 +20,8 @@ public const val DEEP_LINK_HOST_POSTINGS: String = "postings"
  * 하려면 intent 에 `FLAG_ACTIVITY_SINGLE_TOP`(필요하면 `FLAG_ACTIVITY_CLEAR_TOP` 도)을 붙인다.
  *
  * 딥링크는 인증 뒤에만 적용된다 — 로그인·온보딩 중이면 `MainViewModel.pendingDeepLink` 에 보관했다가 피드 그래프에 들어온
- * 순간 이동하고, 세션 종료로 루트 백스택이 다시 세워지면 소비되지 않은 딥링크는 버린다.
+ * 순간 이동하고(그사이 프로세스가 죽어도 저장 상태에 실려 돌아온다), 세션 종료로 루트 백스택이 다시 세워지면 소비되지
+ * 않은 딥링크는 버린다. 이미 메인에 들어와 다른 탭·화면을 보고 있으면 셸이 먼저 피드로 내린 뒤 적용한다.
  */
 public sealed interface AppDeepLink {
     /** 공고 상세 — `careercompass://postings/{postingId}`. */

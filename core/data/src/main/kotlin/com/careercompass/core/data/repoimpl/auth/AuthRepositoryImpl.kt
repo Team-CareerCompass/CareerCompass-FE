@@ -7,6 +7,7 @@ import com.careercompass.core.datastore.LocalStoreRegistry
 import com.careercompass.core.datastore.ProfileDataSource
 import com.careercompass.core.datastore.StoreScope
 import com.careercompass.core.datastore.TokenDataSource
+import com.careercompass.core.domain.auth.SocialSessionCleaner
 import com.careercompass.core.domain.error.SessionEndedException
 import com.careercompass.core.domain.repository.AuthRepository
 import com.careercompass.core.model.auth.Session
@@ -43,6 +44,8 @@ internal class AuthRepositoryImpl
         private val localStoreRegistry: LocalStoreRegistry,
         // 로그인 응답의 isNewUser 를 온보딩 완료 힌트로 남기고, 현재 세션 사용자 id 로 지문 등록 사용자와 대조한다.
         private val profileDataSource: ProfileDataSource,
+        // 소셜 SDK 가 기기에 둔 OAuth 토큰 정리 — 서버 로그아웃도 로컬 토큰 삭제도 그 저장소는 건드리지 못한다(#370).
+        private val socialSessionCleaner: SocialSessionCleaner,
     ) : AuthRepository {
         /**
          * 세션 경계를 한 줄로 세우는 자물쇠 — 토큰 쓰기와 세션 정리가 서로를 가로지르지 않게 한다.
@@ -173,17 +176,31 @@ internal class AuthRepositoryImpl
         /** 지문 로그인 기록은 전부 계정에 귀속된다 — 주인을 모르는 채로 남기면 다음 계정이 그 기록을 물려받는다. */
         private suspend fun requireCurrentUserId(): Long = profileDataSource.userId.first() ?: error("프로필을 받기 전에는 지문 로그인 기록을 남길 수 없습니다.")
 
-        /** [expectedGeneration] 을 주면 그 세대일 때만 정리한다 — 그 사이 열린 새 세션은 건드리지 않는다. */
+        /**
+         * [expectedGeneration] 을 주면 그 세대일 때만 정리한다 — 그 사이 열린 새 세션은 건드리지 않는다.
+         *
+         * 소셜 SDK 정리는 실제로 비운 경우에만, 자물쇠 밖에서 부른다. 세대가 어긋나 건너뛴 자리에서 부르면 이미
+         * 들어온 새 세션의 SDK 토큰을 지우고, 자물쇠 안에서 부르면 SDK 호출이 끝날 때까지 토큰 쓰기가 줄을 선다.
+         */
         private suspend fun clearLocalSession(expectedGeneration: Long? = null) {
-            sessionMutex.withLock {
-                if (expectedGeneration != null && currentGeneration != expectedGeneration) return
-                try {
-                    localStoreRegistry.clearScope(StoreScope.SESSION)
-                } finally {
-                    // tracker 는 network 계층 in-memory 상태라 레지스트리 관할 밖. 남기면 재로그인 후 이전 토큰 기준 deadline 으로 오판한다.
-                    // 저장소 비우기가 실패해도 비운다 — 실패를 이유로 남겨 두면 앞 세션 기준 deadline 이 다음 세션까지 간다(#367).
-                    expiryTracker.clear()
+            // 세대가 어긋나면 아무것도 건드리지 않는다. 그 밖에는 비우기를 시도한 것으로 보고, 저장소가
+            // 실패해도 소셜 SDK 토큰까지는 비운다(#367 · #370). 남겨 두면 그 토큰 하나로 서버 세션을
+            // 다시 열 수 있어, 「로그아웃했는데 다시 들어가진다」가 된다.
+            var attempted = false
+            try {
+                sessionMutex.withLock {
+                    if (expectedGeneration != null && currentGeneration != expectedGeneration) return@withLock
+                    attempted = true
+                    try {
+                        localStoreRegistry.clearScope(StoreScope.SESSION)
+                    } finally {
+                        // tracker 는 network 계층 in-memory 상태라 레지스트리 관할 밖. 남기면 재로그인 후 이전
+                        // 토큰 기준 deadline 으로 오판한다. 저장소 비우기가 실패해도 비운다(#367).
+                        expiryTracker.clear()
+                    }
                 }
+            } finally {
+                if (attempted) runCatchingCancellable { socialSessionCleaner.clearSocialSession() }
             }
         }
 

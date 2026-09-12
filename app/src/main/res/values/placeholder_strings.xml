@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="placeholder_feed_title">피드를 준비하고 있어요</string>
     <string name="placeholder_analysis_title">분석 탭을 준비하고 있어요</string>
     <string name="placeholder_applications_title">지원서 탭을 준비하고 있어요</string>
-    <string name="placeholder_my_title">마이 탭을 준비하고 있어요</string>
     <string name="placeholder_notifications_title">알림을 준비하고 있어요</string>
     <string name="placeholder_description">곧 이용할 수 있어요</string>
 

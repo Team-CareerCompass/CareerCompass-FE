@@ -118,8 +118,13 @@ internal fun BoardRegisterMessage.toLabel(resources: Resources): String =
             resources.getString(R.string.feed_board_register_detect_failed)
         }
 
-        BoardRegisterMessage.RegisterFailed -> {
-            resources.getString(R.string.feed_board_register_failed)
+        // 사유를 확인하지 못한 실패만 이 화면의 문구를 쓴다. 표에 행이 있는 실패는 표가 이긴다(#360).
+        is BoardRegisterMessage.RegisterFailed -> {
+            if (kind == FailureKind.Unexpected) {
+                resources.getString(R.string.feed_board_register_failed)
+            } else {
+                kind.display(FailureSurface.Board).sentence(resources)
+            }
         }
 
         // 점검 문구도 표에서 읽는다 — 화면 한 장을 쓰는 자리(FeedMaintenanceState)와 같은 행이다. 본문은

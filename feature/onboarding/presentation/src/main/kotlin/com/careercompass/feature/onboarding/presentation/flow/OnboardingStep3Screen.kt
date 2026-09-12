@@ -63,6 +63,9 @@ public fun OnboardingStep3Screen(
     state.experienceEditor?.let { editor ->
         OnboardingSheetHost(
             onDismissRequest = { viewModel.onIntent(OnboardingIntent.ExperienceEditor(ExperienceQuickAddEvent.Dismissed)) },
+            // 제출 중에는 스크림·스와이프·뒤로가기로 시트가 숨겨지지 않게 한다(#340). ViewModel 도 같은 조건으로
+            // 닫기를 무시하므로, 숨은 시트만 남거나 늦은 응답이 다음 시트에 떨어지는 일이 없다.
+            isDismissEnabled = !editor.isSubmitting,
         ) {
             ExperienceQuickAddSheet(state = editor, onEvent = { viewModel.onIntent(OnboardingIntent.ExperienceEditor(it)) })
         }
@@ -83,6 +86,7 @@ private fun OnboardingStep3FormState.toUiState(isInputEnabled: Boolean): Onboard
         selectedExperienceTypeId = selectedType.wireValue,
         experiences = experiences.map { it.toUiModel() },
         isInputEnabled = isInputEnabled,
+        isListLoading = isLoading,
     )
 
 @Composable
