@@ -20,6 +20,7 @@ import com.careercompass.core.model.experience.MAX_EXPERIENCE_CARDS
 import com.careercompass.core.model.experience.MAX_EXPERIENCE_LINK_LENGTH
 import com.careercompass.core.model.experience.MAX_EXPERIENCE_TECH_TAGS
 import com.careercompass.core.model.experience.MAX_EXPERIENCE_TECH_TAG_LENGTH
+import com.careercompass.core.model.paging.CursorPage
 import com.careercompass.core.model.user.JobInterest
 import com.careercompass.core.model.user.ProfileFieldViolation
 import com.careercompass.core.model.user.SchoolCatalog
@@ -586,6 +587,56 @@ class OnboardingViewModelTest {
         assertFalse(state.experienceEditor!!.isSubmitting)
         assertEquals(OnboardingFailureReason.LimitExceeded(FailureSurface.ExperienceCard), state.failure)
         assertEquals(listOf("add_experience"), reporter.stages())
+    }
+
+    @Test
+    fun `제출 중에는 시트를 닫지 않는다`() {
+        val gate = CompletableDeferred<Unit>()
+        experienceRepository.onCreateExperience = { draft ->
+            gate.await()
+            Result.success(sampleCard(id = 5L, details = draft.details).copy(title = draft.title))
+        }
+        val viewModel = createViewModel()
+        viewModel.onStep3Event(OnboardingStep3Event.AddExperienceClicked)
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.TypeSelected(ExperienceType.Award))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.TitleChanged("공모전"))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.PrimaryChanged("대상"))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.Submitted)
+        assertTrue(submittingEditor(viewModel))
+
+        // 스크림 탭·스와이프·뒤로가기가 모두 이 이벤트로 들어온다.
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.Dismissed)
+
+        assertTrue(submittingEditor(viewModel))
+
+        gate.complete(Unit)
+        assertNull(viewModel.uiState.value.experienceEditor)
+        assertEquals(listOf("공모전"), experienceTitles(viewModel))
+    }
+
+    @Test
+    fun `늦게 온 응답은 그 사이 연 다른 시트를 건드리지 않는다`() {
+        val gate = CompletableDeferred<Unit>()
+        experienceRepository.onCreateExperience = { draft ->
+            gate.await()
+            Result.success(sampleCard(id = 5L, details = draft.details).copy(title = draft.title))
+        }
+        val viewModel = createViewModel()
+        viewModel.onStep3Event(OnboardingStep3Event.AddExperienceClicked)
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.TypeSelected(ExperienceType.Award))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.TitleChanged("공모전"))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.PrimaryChanged("대상"))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.Submitted)
+
+        // 앞 제출이 끝나기 전에 다음 시트가 열린 상태. 여기 친 글자를 늦은 응답이 지우면 안 된다.
+        viewModel.onStep3Event(OnboardingStep3Event.AddExperienceClicked)
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.TitleChanged("두 번째 카드"))
+
+        gate.complete(Unit)
+
+        val state = viewModel.uiState.value
+        assertEquals("두 번째 카드", state.experienceEditor?.title)
+        assertEquals(listOf("공모전"), experienceTitles(viewModel))
     }
 
     @Test
@@ -1165,6 +1216,64 @@ class OnboardingViewModelTest {
     }
 
     @Test
+    fun `목록을 읽는 동안에는 다시 읽지 않고 카드 추가도 잠근다`() {
+        val gate = CompletableDeferred<Unit>()
+        var getCount = 0
+        experienceRepository.onGetExperiences = { _, _, _ ->
+            getCount++
+            gate.await()
+            Result.success(CursorPage(items = listOf(sampleExperience(id = 1L)), nextCursor = null))
+        }
+        progressRepository.progressState.value = OnboardingProgress.InProgress(OnboardingStep.Experience)
+        val viewModel = createViewModel()
+        assertTrue(viewModel.uiState.value.step3.isLoading)
+
+        // 아직 받지 못한 목록으로 상한을 판정하지 않는다.
+        viewModel.onStep3Event(OnboardingStep3Event.AddExperienceClicked)
+        assertNull(viewModel.uiState.value.experienceEditor)
+        // 같은 단계로 다시 들어와도 도는 조회에 하나를 더 걸지 않는다.
+        viewModel.onStep2Event(OnboardingStep2Event.NextClicked)
+        assertEquals(1, getCount)
+
+        gate.complete(Unit)
+        assertFalse(viewModel.uiState.value.step3.isLoading)
+        viewModel.onStep3Event(OnboardingStep3Event.AddExperienceClicked)
+        assertNotNull(viewModel.uiState.value.experienceEditor)
+    }
+
+    @Test
+    fun `조회 중 등록한 카드는 목록 응답이 와도 남는다`() {
+        var getCount = 0
+        experienceRepository.onGetExperiences = { _, _, _ ->
+            getCount++
+            // 첫 조회는 실패한다 — 실패한 조회는 추가를 잠그지 않으므로 목록 없이 카드를 등록할 수 있다.
+            if (getCount == 1) {
+                Result.failure(CoreDataFailure.NetworkUnavailable(IOException("offline")))
+            } else {
+                // 이 응답은 방금 등록한 카드(id 1)를 아직 모른다.
+                Result.success(CursorPage(items = listOf(sampleExperience(id = 5L)), nextCursor = null))
+            }
+        }
+        progressRepository.progressState.value = OnboardingProgress.InProgress(OnboardingStep.Experience)
+        val viewModel = createViewModel()
+        assertFalse(viewModel.uiState.value.step3.isLoaded)
+        assertFalse(viewModel.uiState.value.step3.isLoading)
+
+        viewModel.onStep3Event(OnboardingStep3Event.AddExperienceClicked)
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.TypeSelected(ExperienceType.Award))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.TitleChanged("공모전"))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.PrimaryChanged("대상"))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.Submitted)
+        assertEquals(listOf("공모전"), experienceTitles(viewModel))
+
+        // 다음 진입이 목록을 다시 읽는다.
+        viewModel.onStep2Event(OnboardingStep2Event.NextClicked)
+
+        assertEquals(2, getCount)
+        assertEquals(listOf("공모전", "CareerCompass"), experienceTitles(viewModel))
+    }
+
+    @Test
     fun `Step 3 다음은 진행 기록만 바꾸고 Step 4 로 이동하며 목록을 미리 읽는다`() {
         pastApplicationRepository.applications += samplePastApplication(id = 9L, itemCount = 3)
         val viewModel = createViewModel()
@@ -1260,17 +1369,72 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun `서버 문서 삭제 실패는 목록을 유지하고 사유를 알린다`() {
+    fun `서버 문서 삭제 실패는 문서를 원래 자리에 되돌리고 사유를 알린다`() {
         pastApplicationRepository.applications += samplePastApplication(id = 9L, itemCount = 1)
+        pastApplicationRepository.applications += samplePastApplication(id = 10L, itemCount = 1)
         pastApplicationRepository.onDelete = { Result.failure(CoreDataFailure.ServerError("INTERNAL_ERROR", IOException("500"))) }
         progressRepository.progressState.value = OnboardingProgress.InProgress(OnboardingStep.PastApplication)
         val viewModel = createViewModel()
 
         viewModel.onStep4Event(OnboardingStep4Event.DocumentMenuClicked("remote-9"))
 
-        assertEquals(1, viewModel.uiState.value.step4.documents.size)
+        assertEquals(listOf("remote-9", "remote-10"), documentIds(viewModel))
         assertEquals(OnboardingFailureReason.Server, viewModel.uiState.value.failure)
         assertEquals(listOf("delete_past_application"), reporter.stages())
+    }
+
+    @Test
+    fun `문서 삭제 연타는 지운 문서로 DELETE 를 다시 보내지 않는다`() {
+        val gate = CompletableDeferred<Unit>()
+        var deleteCount = 0
+        pastApplicationRepository.applications += samplePastApplication(id = 9L, itemCount = 1)
+        pastApplicationRepository.onDelete = { id ->
+            deleteCount++
+            gate.await()
+            if (pastApplicationRepository.applications.removeIf { it.id == id }) {
+                Result.success(Unit)
+            } else {
+                Result.failure(CoreDataFailure.NotFound("RESOURCE_NOT_FOUND", IOException("404")))
+            }
+        }
+        progressRepository.progressState.value = OnboardingProgress.InProgress(OnboardingStep.PastApplication)
+        val viewModel = createViewModel()
+
+        viewModel.onStep4Event(OnboardingStep4Event.DocumentMenuClicked("remote-9"))
+        // 첫 요청이 끝나기 전에 한 번 더 누른다 — 카드는 이미 목록에서 빠져 있어야 한다.
+        assertEquals(emptyList<String>(), documentIds(viewModel))
+        viewModel.onStep4Event(OnboardingStep4Event.DocumentMenuClicked("remote-9"))
+
+        gate.complete(Unit)
+
+        assertEquals(1, deleteCount)
+        assertEquals(emptyList<String>(), documentIds(viewModel))
+        // 두 번째 404 가 이미 지워진 문서에 배너와 계측 표본을 남기지 않는다.
+        assertNull(viewModel.uiState.value.failure)
+        assertEquals(emptyList<String>(), reporter.stages())
+    }
+
+    @Test
+    fun `조회 중 끝난 업로드는 목록 응답이 와도 남는다`() {
+        val gate = CompletableDeferred<Unit>()
+        pastApplicationRepository.applications += samplePastApplication(id = 9L, itemCount = 1)
+        pastApplicationRepository.onGetPastApplications = {
+            gate.await()
+            // 이 응답은 조회를 건 뒤에 올라간 문서를 아직 모른다.
+            Result.success(listOf(samplePastApplication(id = 9L, itemCount = 1)))
+        }
+        progressRepository.progressState.value = OnboardingProgress.InProgress(OnboardingStep.PastApplication)
+        val viewModel = createViewModel()
+        assertTrue(viewModel.uiState.value.step4.isLoading)
+
+        // 프로세스가 죽기 전에 고른 파일은 조회 중에도 복구돼 올라간다(#133) — 고른 파일을 버리지 않는다.
+        viewModel.confirmUpload(uploadFile("resume.pdf"))
+        assertEquals(listOf("local-1"), documentIds(viewModel))
+
+        gate.complete(Unit)
+
+        assertEquals(listOf("remote-9", "local-1"), documentIds(viewModel))
+        assertTrue(viewModel.uiState.value.step4.isLoaded)
     }
 
     @Test
@@ -1689,6 +1853,15 @@ class OnboardingViewModelTest {
             completion = 40,
         )
 
+    /** 제출 잠금이 걸린 시트가 열려 있는가. */
+    private fun submittingEditor(viewModel: OnboardingViewModel): Boolean =
+        viewModel.uiState.value.experienceEditor
+            ?.isSubmitting == true
+
+    private fun experienceTitles(viewModel: OnboardingViewModel): List<String> =
+        viewModel.uiState.value.step3.experiences
+            .map(Experience::title)
+
     private fun sampleExperience(id: Long) =
         Experience(
             id = id,
@@ -1756,6 +1929,11 @@ class OnboardingViewModelTest {
             },
         createdAt = null,
     )
+
+    private fun documentIds(viewModel: OnboardingViewModel): List<String> {
+        val documents = viewModel.uiState.value.step4.documents
+        return documents.map(OnboardingUploadDocument::id)
+    }
 
     private fun items(
         viewModel: OnboardingViewModel,

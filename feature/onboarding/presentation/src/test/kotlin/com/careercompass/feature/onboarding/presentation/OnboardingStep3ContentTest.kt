@@ -3,7 +3,9 @@ package com.careercompass.feature.onboarding.presentation
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
@@ -186,7 +188,7 @@ public class OnboardingStep3ContentTest {
         val events = mutableListOf<OnboardingStep3Event>()
         setScreen(state = completeState, onEvent = events::add)
 
-        val body = composeRule.onNodeWithContentDescription("CareerCompass - 졸업 프로젝트 수정")
+        val body = experienceCardBody()
         val delete =
             composeRule
                 .onNodeWithContentDescription("CareerCompass - 졸업 프로젝트 삭제")
@@ -211,6 +213,20 @@ public class OnboardingStep3ContentTest {
                 events,
             )
         }
+    }
+
+    @Test
+    public fun experienceCard_keepsPeriodRoleAndTagsAudible() {
+        setScreen(state = completeState)
+
+        val experience = experiences.first()
+
+        experienceCardBody()
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
+            .assert(hasText(experience.title))
+            .assert(hasText("${experience.period} · ${experience.role}"))
+            .assert(hasText(experience.tags.first()))
+            .assert(hasClickLabel("${experience.title} 수정"))
     }
 
     @Test
@@ -306,6 +322,16 @@ public class OnboardingStep3ContentTest {
         composeRule.onNode(
             hasText("다음") and hasClickAction(),
         )
+
+    private fun experienceCardBody() =
+        composeRule.onNode(
+            hasText(experiences.first().title) and hasClickAction(),
+        )
+
+    private fun hasClickLabel(label: String): SemanticsMatcher =
+        SemanticsMatcher("click action label is '$label'") { node ->
+            node.config.getOrNull(SemanticsActions.OnClick)?.label == label
+        }
 
     private companion object {
         val experienceTypes =

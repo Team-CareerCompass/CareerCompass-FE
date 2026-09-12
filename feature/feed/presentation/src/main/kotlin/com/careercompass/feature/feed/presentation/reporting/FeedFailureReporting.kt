@@ -6,6 +6,9 @@ import com.careercompass.core.common.reporting.recordStagedFailure
 /** 리포팅 속성 키 — 피드 기능 안에서 어느 단계가 실패했는지. */
 public const val FEED_REPORT_KEY_STAGE: String = "feed_stage"
 
+/** 리포팅 속성 키. 값은 열지 못한 공고 원문 주소의 스킴이다. */
+public const val FEED_REPORT_KEY_URL_SCHEME: String = "url_scheme"
+
 /** 피드 기능의 실패 단계. 값은 리포팅 콘솔 필터용 안정 식별자다. */
 public enum class FeedFailureStage(
     public val key: String,
@@ -37,14 +40,20 @@ public enum class FeedFailureStage(
  *
  * 무엇을 접고 무엇을 남길지는 [recordStagedFailure] 한 곳이 정한다 — 온보딩과 같은 규칙을 쓴다.
  * 여기서 다시 거르면 두 규칙이 갈라진다.
+ *
+ * @param attributes 단계 외에 이 실패에만 붙는 컨텍스트. [ErrorReporter.recordFailure] 가 예외 문구를
+ *                   버리므로, 콘솔에 남겨야 할 값은 문구가 아니라 이쪽으로 넘긴다. 개인정보·자격증명은
+ *                   넣지 않는다.
  */
 public fun ErrorReporter.recordFeedFailure(
     stage: FeedFailureStage,
     throwable: Throwable,
+    attributes: Map<String, String> = emptyMap(),
 ) {
     recordStagedFailure(
         stageKey = FEED_REPORT_KEY_STAGE,
         stage = stage.key,
         throwable = throwable,
+        attributes = attributes,
     )
 }

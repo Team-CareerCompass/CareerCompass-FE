@@ -6,6 +6,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasClickAction
@@ -146,6 +147,21 @@ class BoardListContentTest {
             .onAllNodesWithText("재시도를 누르면 지금 바로 다시 수집해요. 토글만 켜면 다음 수집 주기까지 기다려요")
             .assertCountEquals(0)
         composeRule.onAllNodesWithContentDescription("$PAUSED_NAME 재시도").assertCountEquals(0)
+    }
+
+    /** 재시도 요청이 오가는 동안에는 버튼이 잠겨 연타가 요청을 늘리지 못한다(#341). */
+    @Test
+    fun retryInFlight_locksTheRetryButton() {
+        val loaded = deactivatedState().content as BoardListContentState.Loaded
+        val events = mutableListOf<BoardListEvent>()
+        composeRule.setListContent(
+            state = BoardListUiState(content = BoardListContentState.Loaded(loaded.boards.map { it.copy(isRetrying = true) })),
+            onEvent = events::add,
+        )
+
+        composeRule.onNodeWithContentDescription("$DEACTIVATED_NAME 재시도").assertIsNotEnabled().performClick()
+
+        composeRule.runOnIdle { assertEquals(emptyList<BoardListEvent>(), events) }
     }
 
     @Test

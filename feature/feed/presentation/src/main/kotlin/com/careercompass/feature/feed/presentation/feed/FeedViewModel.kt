@@ -126,7 +126,7 @@ public sealed interface FeedReducerEvent : ReducerEvent {
         val message: FeedMessage,
     ) : FeedReducerEvent
 
-    /** 처음부터 다시 읽는다 — 목록을 비우고 로딩으로 간다. */
+    /** 처음부터 다시 읽는다 — 목록을 비우고 로딩으로 간다. 보여 주던 스냅샷도 함께 내린다. */
     public data object LoadStarted : FeedReducerEvent
 
     public data object RefreshStarted : FeedReducerEvent
@@ -310,12 +310,18 @@ public class FeedViewModel
                 }
 
                 FeedReducerEvent.LoadStarted -> {
+                    // 목록을 비우는 순간 오프라인 표시의 근거가 사라진다. 스냅샷은 이미 화면에서 내려갔는데
+                    // isOffline·offlineSavedAt 을 남기면 로딩 중에도 저장본 배너가 떠 있어, 지금 읽어 오는
+                    // 목록이 묵은 사본이라고 말하게 된다(#358). offlineSnapshot 은 남긴다. 이번 조회가
+                    // 실패하면 오류 화면이 그것으로 「오프라인 모드로 보기」를 다시 열어야 한다.
                     state.copy(
                         loadState = FeedLoadState.Loading,
                         postings = emptyList(),
                         nextCursor = null,
                         isRefreshing = false,
                         loadMore = FeedLoadMoreState.Ready,
+                        isOffline = false,
+                        offlineSavedAt = null,
                     )
                 }
 
@@ -722,7 +728,7 @@ public class FeedViewModel
                             val reason = throwable.toFeedFailureReason()
                             dispatch(FeedReducerEvent.LoadFailed(reason))
                             // 점검 중에도 스냅샷은 유효하다 — 서버가 살아나기를 기다리는 동안 마지막 목록을 열어 둔다.
-                            if (reason != FeedFailureReason.Generic) loadSnapshotForOfflineOffer()
+                            if (reason !is FeedFailureReason.Generic) loadSnapshotForOfflineOffer()
                         }
                 }
         }

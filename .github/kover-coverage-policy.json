@@ -1,92 +1,206 @@
 {
   "schemaVersion": 1,
   "mode": "warn",
-  "note": "아직 커버리지를 측정한 적이 없다. 모든 모듈이 null 기준선이므로 비교가 일어나지 않는다. 첫 Kover 실행이 성공하면 그 결과로 이 파일을 갱신한다.",
+  "note": "develop@1ed5007a 트리에서 모듈별 :koverXmlReportCi 를 돌려 각 모듈 리포트의 집계 counter 를 그대로 옮긴 기준선이다. PR 레인이 비교하는 값과 같은 방식으로 재야 하므로 루트 병합 리포트가 아니라 모듈 리포트를 쓴다. 프로덕션 소스가 아직 없는 모듈은 잴 것이 없어 null 로 둔다. 갱신할 때는 source 의 sha 와 runUrl 을 그 수치를 낸 지점으로 함께 바꾼다.",
   "source": {
     "ref": "develop",
-    "sha": "7670b842a4955ca610a898bd70c1c28a6ba866f4",
-    "runUrl": "https://github.com/Team-CareerCompass/CareerCompass-FE/actions/runs/33353737467"
+    "sha": "1ed5007a526ba91abe5af4473b83d998dd00a4d3",
+    "runUrl": "https://github.com/Team-CareerCompass/CareerCompass-FE/actions/runs/34664218494"
   },
   "modules": {
     "app": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 228,
+        "covered": 157
+      },
+      "branch": {
+        "missed": 111,
+        "covered": 112
+      }
     },
     "core/common": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 2,
+        "covered": 71
+      },
+      "branch": {
+        "missed": 10,
+        "covered": 68
+      }
     },
     "core/data": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 151,
+        "covered": 285
+      },
+      "branch": {
+        "missed": 110,
+        "covered": 187
+      }
     },
     "core/datastore": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 18,
+        "covered": 134
+      },
+      "branch": {
+        "missed": 16,
+        "covered": 42
+      }
     },
     "core/domain": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 323,
+        "covered": 132
+      },
+      "branch": {
+        "missed": 164,
+        "covered": 23
+      }
     },
     "core/model": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 226,
+        "covered": 380
+      },
+      "branch": {
+        "missed": 274,
+        "covered": 261
+      }
     },
     "core/network": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 401,
+        "covered": 407
+      },
+      "branch": {
+        "missed": 553,
+        "covered": 260
+      }
     },
     "core/ui": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 365,
+        "covered": 2161
+      },
+      "branch": {
+        "missed": 474,
+        "covered": 755
+      }
     },
     "feature/onboarding/data": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 3,
+        "covered": 34
+      },
+      "branch": {
+        "missed": 2,
+        "covered": 6
+      }
     },
     "feature/onboarding/domain": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 12,
+        "covered": 118
+      },
+      "branch": {
+        "missed": 9,
+        "covered": 55
+      }
     },
     "feature/onboarding/presentation": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 530,
+        "covered": 3417
+      },
+      "branch": {
+        "missed": 986,
+        "covered": 1334
+      }
     },
     "feature/feed/data": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 3,
+        "covered": 73
+      },
+      "branch": {
+        "missed": 6,
+        "covered": 20
+      }
     },
     "feature/feed/domain": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 21,
+        "covered": 193
+      },
+      "branch": {
+        "missed": 13,
+        "covered": 129
+      }
     },
     "feature/feed/presentation": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 529,
+        "covered": 4607
+      },
+      "branch": {
+        "missed": 908,
+        "covered": 1759
+      }
     },
     "feature/editor/data": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 13,
+        "covered": 84
+      },
+      "branch": {
+        "missed": 4,
+        "covered": 19
+      }
     },
     "feature/editor/domain": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 23,
+        "covered": 187
+      },
+      "branch": {
+        "missed": 18,
+        "covered": 78
+      }
     },
     "feature/editor/presentation": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 129,
+        "covered": 346
+      },
+      "branch": {
+        "missed": 129,
+        "covered": 132
+      }
     },
     "feature/profile/data": {
       "line": null,
       "branch": null
     },
     "feature/profile/domain": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 39,
+        "covered": 57
+      },
+      "branch": {
+        "missed": 5,
+        "covered": 41
+      }
     },
     "feature/profile/presentation": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 464,
+        "covered": 1732
+      },
+      "branch": {
+        "missed": 593,
+        "covered": 739
+      }
     },
     "feature/foryou/data": {
       "line": null,

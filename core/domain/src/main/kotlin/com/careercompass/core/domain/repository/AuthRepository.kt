@@ -56,10 +56,10 @@ public interface AuthRepository {
     /** `POST /auth/refresh` — 저장된 refresh 토큰으로 회전하고 새 토큰을 저장한다. */
     public suspend fun rotateToken(): Result<TokenBundle>
 
-    /** `POST /auth/logout` best-effort 후 SESSION 스코프 저장소를 비운다. */
+    /** `POST /auth/logout` best-effort 후 SESSION 스코프 저장소와 소셜 SDK 세션을 비운다. */
     public suspend fun logout(): Result<Unit>
 
-    /** 서버 호출 없이 로컬 세션만 정리한다 — refresh 거절 등 되돌릴 수 없는 실패용. */
+    /** 서버 호출 없이 로컬 세션만 정리한다 — refresh 거절 등 되돌릴 수 없는 실패용. 소셜 SDK 세션도 함께 비운다. */
     public suspend fun clearSession(): Result<Unit>
 
     /**

@@ -93,6 +93,36 @@ test("screenshot workflow fallbacks cover every baseline module", async () => {
     }
 });
 
+test("docker fallback commands target exactly the baseline modules", async () => {
+    // Actions 가 멈춰 문서대로 컨테이너에서 골든을 돌리는 순간, 목록에 없는 모듈이 명령에 남아 있으면
+    // Gradle 이 태스크 선택 단계에서 "Task 'updateScreenshotTest' not found" 로 죽어 나머지 모듈 골든까지
+    // 못 받는다(#351, :feature:profile:presentation 이 그렇게 남아 있었다). workflow 쪽 fallback 만
+    // 맞춰 두면 이 경로는 아무도 검사하지 않으므로 같은 목록으로 여기서도 대조한다.
+    const repositoryRoot = new URL("../../", import.meta.url);
+    const [dockerfile, guide] = await Promise.all([
+        readFile(new URL("Dockerfile.screenshot", repositoryRoot), "utf8"),
+        readFile(new URL("docs/testing/screenshot.md", repositoryRoot), "utf8"),
+    ]);
+    const expected = [...screenshotModules].sort();
+
+    for (const [name, source] of [
+        ["Dockerfile.screenshot", dockerfile],
+        ["docs/testing/screenshot.md", guide],
+    ]) {
+        for (const task of ["updateScreenshotTest", "validateScreenshotTest"]) {
+            const mentioned = [...source.matchAll(
+                new RegExp(`(:[a-z0-9]+(?::[a-z0-9]+)+):${task}\\b`, "g"),
+            )].map(([, module]) => module);
+
+            assert.deepEqual(
+                [...new Set(mentioned)].sort(),
+                expected,
+                `${name} 의 ${task} 명령이 baseline 모듈 목록과 다르다`,
+            );
+        }
+    }
+});
+
 test("managed device keeps required contexts but boots only CI Test Plan lanes", async () => {
     const source = await readWorkflow("android-managed-device.yml");
 
