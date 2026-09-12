@@ -285,6 +285,36 @@ class AppNavigationAndroidTest {
         composeRule.onNodeWithText(DEEP_LINK_POSTING_TITLE, useUnmergedTree = true).assertIsDisplayed()
     }
 
+    /**
+     * 마이 탭을 보는 중에 알림으로 들어온 딥링크(#337). 셸이 먼저 피드로 내린 뒤 상세를 연다.
+     *
+     * 예전에는 루트가 `[Feed, MyTab]` 이라 피드 host 가 컴포지션에 없었고, 딥링크는 보관만 되다가 나중에 피드
+     * 탭을 누르는 순간에야 상세를 열었다. 알림 모듈이 만드는 것과 같은 intent 를 이미 떠 있는 액티비티에
+     * 보내므로 `MainActivity.onNewIntent` 부터 상세까지가 한 줄로 걸린다.
+     */
+    @Test
+    fun deepLinkOnMyTab_descendsToFeedAndOpensPostingDetail() {
+        fakeAuthRepository.loggedIn = true
+        fakeUserProfileRepository.profileState.value = profile(onboardingDone = true)
+        fakePostingRepository.details += postingDetail(id = DEEP_LINK_POSTING_ID, title = DEEP_LINK_POSTING_TITLE)
+
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        composeRule.onNodeWithText("마이").performClick()
+        composeRule.onNodeWithText("프로필 완성도").assertIsDisplayed()
+
+        sendDeepLinkToRunningActivity(DEEP_LINK_POSTING_ID)
+
+        composeRule.waitUntil(timeoutMillis = DEEP_LINK_TIMEOUT_MILLIS) {
+            composeRule
+                .onAllNodesWithText(DEEP_LINK_POSTING_TITLE, useUnmergedTree = true)
+                .fetchSemanticsNodes(atLeastOneRootRequired = false)
+                .isNotEmpty()
+        }
+        composeRule.onNodeWithText(DEEP_LINK_POSTING_TITLE, useUnmergedTree = true).assertIsDisplayed()
+        // 마이 홈이 사라졌다는 것이 루트가 실제로 내려왔다는 증거다. 상세는 피드 로컬 스택 위에 있다.
+        composeRule.onNodeWithText("프로필 완성도").assertDoesNotExist()
+    }
+
     @Test
     fun withoutSessionAndDeepLink_staysOnLogin() {
         fakeAuthRepository.loggedIn = false
@@ -343,6 +373,16 @@ class AppNavigationAndroidTest {
     private fun postingDeepLinkIntent(postingId: Long): Intent =
         Intent(Intent.ACTION_VIEW, Uri.parse("careercompass://postings/$postingId"))
             .setClass(ApplicationProvider.getApplicationContext<Context>(), MainActivity::class.java)
+
+    /**
+     * 이미 떠 있는 인스턴스로 딥링크를 보낸다. `MainActivity` 의 `launchMode` 가 standard 라 보내는 쪽이
+     * `FLAG_ACTIVITY_SINGLE_TOP` 을 붙여야 `onNewIntent` 로 들어온다(`AppDeepLink.kt` 의 계약).
+     */
+    private fun sendDeepLinkToRunningActivity(postingId: Long) {
+        scenario?.onActivity { activity ->
+            activity.startActivity(postingDeepLinkIntent(postingId).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        }
+    }
 
     private fun postingDetail(
         id: Long,

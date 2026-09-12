@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,7 +65,8 @@ internal const val APP_START_SEMANTICS_TAG = "careercompass_app_start"
  * @param isSessionExpiryNoticeVisible 로그인 화면에 「로그인이 만료됐다」를 알릴지. 셸이 켠다.
  * @param onSessionExpiryNoticeDismissed 그 안내를 닫았거나 다시 로그인을 시도했다 — 셸이 끈다.
  * @param pendingDeepLink 아직 적용하지 않은 딥링크. 피드 host 가 그려질 때만 반영되고 [onDeepLinkConsumed] 로 비운다 —
- *   로그인·온보딩 중에 받은 것은 인증을 마치고 피드 host 에 들어온 순간 적용된다.
+ *   로그인·온보딩 중에 받은 것은 인증을 마치고 피드 host 에 들어온 순간 적용되고, 이미 메인에 들어와 다른 탭·화면을
+ *   보고 있으면 셸이 먼저 피드로 내린다(#337).
  * @param onSessionEnded 로그아웃·세션 만료로 인증 이전 상태가 됐을 때 사유와 함께 시작 목적지를 다시 계산하게 한다.
  * @param onAuthSessionExpired 지문 확인 뒤 세션 검증이 만료를 알렸다 — 온보딩 스택이 스스로 로그인 화면으로 옮기므로
  *   재계산 없이 사유만 남긴다.
@@ -132,6 +134,15 @@ public fun AppNavigation(
         }
     val onPendingFeedEntryConsumed: () -> Unit = {
         if (boardRegisterRequested) boardRegisterRequested = false else onDeepLinkConsumed()
+    }
+
+    // 위 요청의 유일한 소비처가 피드 host 라, 루트가 메인 모양인데 다른 탭·화면을 보고 있으면 host 가 컴포지션에
+    // 없어 아무 일도 일어나지 않는다(#337). 알림을 눌러 앱이 앞으로 온 순간 상세가 열리게 셸이 먼저 피드로 내린다.
+    // 내린 뒤에는 topKey 가 피드라 조건이 스스로 꺼진다. 인증 흐름이면 판정이 false 라 지금처럼 보관만 한다.
+    LaunchedEffect(pendingDeepLink, topKey) {
+        if (pendingDeepLink != null && appState.shouldDescendToFeedForDeepLink(topKey)) {
+            appState.navigateToTab(CareerCompassBottomTab.Feed)
+        }
     }
 
     Surface(
