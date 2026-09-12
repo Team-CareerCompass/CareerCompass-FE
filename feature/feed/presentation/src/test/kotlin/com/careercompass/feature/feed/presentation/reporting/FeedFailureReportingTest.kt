@@ -31,6 +31,20 @@ class FeedFailureReportingTest {
     }
 
     @Test
+    fun `단계 밖 속성은 그대로 함께 실린다`() {
+        // 예외 문구는 리포터가 버린다. 단계 말고 남겨야 할 값은 속성으로만 콘솔에 닿는다(#368).
+        reporter.recordFeedFailure(
+            stage = FeedFailureStage.PostingRaw,
+            throwable = IllegalStateException("unsupported external url scheme: intent"),
+            attributes = mapOf(FEED_REPORT_KEY_URL_SCHEME to "intent"),
+        )
+
+        val attributes = reporter.records.single().second
+        assertEquals("posting_raw", attributes[FEED_REPORT_KEY_STAGE])
+        assertEquals("intent", attributes[FEED_REPORT_KEY_URL_SCHEME])
+    }
+
+    @Test
     fun `cleartext 차단은 네트워크 단절로 접혀 와도 결함으로 기록한다`() {
         // usesCleartextTraffic=false 인데 http 로 요청한 우리 설정 결함이다 — 사용자 환경이 아니다.
         val throwable = CoreDataFailure.NetworkUnavailable(UnknownServiceException("CLEARTEXT not permitted"))

@@ -9,6 +9,7 @@ import com.careercompass.feature.feed.presentation.MainDispatcherRule
 import com.careercompass.feature.feed.presentation.RecordingErrorReporter
 import com.careercompass.feature.feed.presentation.navigation.FeedRoute
 import com.careercompass.feature.feed.presentation.postingDetail
+import com.careercompass.feature.feed.presentation.reporting.FEED_REPORT_KEY_URL_SCHEME
 import com.careercompass.feature.feed.presentation.shared.model.FeedFailureReason
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -71,9 +72,23 @@ class PostingRawViewModelTest {
         assertNull(viewModel.state.value.openUrl)
         assertTrue(viewModel.state.value.openUrlRejected)
         assertEquals(listOf("posting_raw"), reporter.stages)
+        // 스킴이 예외 문구에만 있으면 콘솔에는 남지 않는다. 리포터가 문구를 버리기 때문이다(#368).
+        assertEquals("intent", reporter.records.single().second[FEED_REPORT_KEY_URL_SCHEME])
 
         viewModel.onOpenUrlRejectedConsumed()
         assertTrue(!viewModel.state.value.openUrlRejected)
+    }
+
+    /** 스킴이 아예 없는 값도 속성 한 칸을 채운다. 비어 있으면 기록 누락과 구분되지 않는다. */
+    @Test
+    fun `스킴이 없는 원본 링크는 스킴 없음을 속성으로 남긴다`() {
+        val viewModel =
+            viewModel(FakePostingRepository(details = listOf(postingDetail(id = POSTING_ID, url = "example.com/postings/1"))))
+
+        viewModel.onEvent(PostingRawEvent.OpenOriginalClicked)
+
+        assertTrue(viewModel.state.value.openUrlRejected)
+        assertEquals("none", reporter.records.single().second[FEED_REPORT_KEY_URL_SCHEME])
     }
 
     @Test
