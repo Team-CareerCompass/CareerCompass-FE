@@ -6,6 +6,8 @@ import com.careercompass.core.common.reporting.ErrorReporter
 import com.careercompass.core.domain.error.CoreDataFailure
 import com.careercompass.core.model.board.Board
 import com.careercompass.core.model.board.BoardUpdate
+import com.careercompass.core.ui.failure.FailureKind
+import com.careercompass.core.ui.failure.toFailureKind
 import com.careercompass.core.ui.mvi.MviIntent
 import com.careercompass.core.ui.mvi.MviViewModel
 import com.careercompass.core.ui.mvi.ReducerEvent
@@ -49,13 +51,32 @@ public sealed interface BoardListDestination {
     public data object Register : BoardListDestination
 }
 
-public enum class BoardListMessage {
-    ToggleFailed,
-    RetryFailed,
-    RetryRequested,
-    DeleteFailed,
-    Updated,
-    UpdateFailed,
+/** 목록에서 사용자가 시킨 일. 실패 안내가 무엇을 하다 실패했는지를 말할 때 쓴다. */
+public enum class BoardListAction {
+    Toggle,
+    Retry,
+    Delete,
+    Update,
+}
+
+public sealed interface BoardListMessage {
+    /** 재시도 요청이 서버에 닿았다. */
+    public data object RetryRequested : BoardListMessage
+
+    public data object Updated : BoardListMessage
+
+    /**
+     * 시킨 일이 실패했다. 실패 표(#204)의 어느 행이었는지([kind])를 그대로 들고 간다.
+     *
+     * 전에는 네 갈래가 각자 고정 문구 하나였다. `BOARD_BLOCKED`·`RATE_LIMITED`·`INVALID_INPUT` 이 모두
+     * 「재시도를 요청하지 못했어요」로 접혔고, 사용자는 사이트가 수집을 막아 둔 것을 앱이 잠깐 실패한 것으로
+     * 읽고 같은 버튼을 되풀이해 눌렀다(#360). 문구를 여기서 짓지 않고 갈래만 실어 보내면, 표에 행이 있는
+     * 실패는 표의 제 행으로 나간다. 무엇을 하다 실패했는지는 [action] 이 말한다.
+     */
+    public data class Failed(
+        val action: BoardListAction,
+        val kind: FailureKind,
+    ) : BoardListMessage
 }
 
 /**
@@ -99,6 +120,8 @@ public data class BoardListViewState(
     /** 수정 시트가 편집 중인 게시판. null 이면 닫힘. */
     val editDraft: BoardEditDraft? = null,
     val pendingNavigation: BoardListDestination? = null,
+    /** 재시도 요청이 오가는 중인 게시판 id. 그동안 그 카드의 재시도 버튼은 잠긴다. */
+    val retryingBoardIds: Set<Long> = emptySet(),
     val message: BoardListMessage? = null,
     val sessionEnded: Boolean = false,
 ) : UiState {
@@ -159,6 +182,16 @@ public sealed interface BoardListReducerEvent : ReducerEvent {
 
     public data class MessageRaised(
         val message: BoardListMessage,
+    ) : BoardListReducerEvent
+
+    /** 재시도 요청을 보냈다. 응답이 올 때까지 그 게시판의 버튼을 잠근다. */
+    public data class RetryStarted(
+        val boardId: Long,
+    ) : BoardListReducerEvent
+
+    /** 재시도 요청이 끝났다. 성공이든 실패든 잠금은 풀린다. */
+    public data class RetryFinished(
+        val boardId: Long,
     ) : BoardListReducerEvent
 
     public data object SessionEnded : BoardListReducerEvent
@@ -257,6 +290,14 @@ public class BoardListViewModel
                     state.copy(message = event.message)
                 }
 
+                is BoardListReducerEvent.RetryStarted -> {
+                    state.copy(retryingBoardIds = state.retryingBoardIds + event.boardId)
+                }
+
+                is BoardListReducerEvent.RetryFinished -> {
+                    state.copy(retryingBoardIds = state.retryingBoardIds - event.boardId)
+                }
+
                 BoardListReducerEvent.SessionEnded -> {
                     state.copy(sessionEnded = true)
                 }
@@ -347,7 +388,7 @@ public class BoardListViewModel
                     .onSuccess { updateBoards { boards -> boards.filterNot { it.id == board.id } } }
                     .onFailure { throwable ->
                         recordFailure(FeedFailureStage.BoardDelete, throwable)
-                        dispatch(BoardListReducerEvent.MessageRaised(BoardListMessage.DeleteFailed))
+                        raiseFailure(BoardListAction.Delete, throwable)
                     }
             }
         }
@@ -392,21 +433,33 @@ public class BoardListViewModel
                         // 되돌리는 것은 토글이 건드린 두 필드뿐이다 — 요청이 오가는 사이 수정 시트가 저장한
                         // 이름·주기를 옛 스냅샷으로 덮지 않는다(#235).
                         updateBoard(boardId) { it.copy(isActive = before.isActive, status = before.status) }
-                        dispatch(BoardListReducerEvent.MessageRaised(BoardListMessage.ToggleFailed))
+                        raiseFailure(BoardListAction.Toggle, throwable)
                     }
             }
         }
 
+        /**
+         * 지금 바로 다시 수집시킨다. 응답이 올 때까지 그 게시판의 버튼은 잠가 둔다.
+         *
+         * 잠그지 않으면 연타한 횟수만큼 `POST /boards/{id}/retry` 가 나가고 스낵바도 그만큼 뜬다. 버튼이
+         * 살아 있는 동안 사용자는 눌리지 않았다고 읽으므로 한 번 더 누르는 쪽이 자연스럽다(#341).
+         */
         private fun retry(boardId: Long) {
-            val board = currentState.boards.firstOrNull { it.id == boardId } ?: return
+            if (boardId in currentState.retryingBoardIds) return
+            if (currentState.boards.none { it.id == boardId }) return
+            dispatch(BoardListReducerEvent.RetryStarted(boardId))
             viewModelScope.launch {
-                retryBoard(boardId)
+                val result = retryBoard(boardId)
+                dispatch(BoardListReducerEvent.RetryFinished(boardId))
+                result
                     .onSuccess {
-                        replaceBoard(board.copy(status = DomainBoardStatus.Active, failCount = 0, isActive = true))
+                        // 손대는 것은 재시도가 되살린 세 필드뿐이다. 요청이 오가는 사이 수정 시트가 저장한
+                        // 이름이나 재조회가 실어 온 값을 요청 전 스냅샷으로 덮지 않는다(#235 의 토글과 같은 꼴).
+                        updateBoard(boardId) { it.copy(status = DomainBoardStatus.Active, failCount = 0, isActive = true) }
                         dispatch(BoardListReducerEvent.MessageRaised(BoardListMessage.RetryRequested))
                     }.onFailure { throwable ->
                         recordFailure(FeedFailureStage.BoardRetry, throwable)
-                        dispatch(BoardListReducerEvent.MessageRaised(BoardListMessage.RetryFailed))
+                        raiseFailure(BoardListAction.Retry, throwable)
                     }
             }
         }
@@ -431,7 +484,7 @@ public class BoardListViewModel
                     }.onFailure { throwable ->
                         recordFailure(FeedFailureStage.BoardUpdate, throwable)
                         updateDraft { it.copy(isSaving = false) }
-                        dispatch(BoardListReducerEvent.MessageRaised(BoardListMessage.UpdateFailed))
+                        raiseFailure(BoardListAction.Update, throwable)
                     }
             }
         }
@@ -461,6 +514,14 @@ public class BoardListViewModel
         private fun updateBoards(transform: (List<Board>) -> List<Board>) {
             val loaded = currentState.loadState as? BoardListLoadState.Loaded ?: return
             dispatch(BoardListReducerEvent.BoardsReplaced(transform(loaded.boards)))
+        }
+
+        /** 실패를 안내로 옮긴다. 문구는 짓지 않고 표의 행만 실어 보낸다(#360). */
+        private fun raiseFailure(
+            action: BoardListAction,
+            throwable: Throwable,
+        ) {
+            dispatch(BoardListReducerEvent.MessageRaised(BoardListMessage.Failed(action, throwable.toFailureKind())))
         }
 
         private fun recordFailure(
