@@ -95,12 +95,15 @@ private fun FeedFailureNotice(
             )
         }
 
-        FeedFailureReason.Generic -> {
+        is FeedFailureReason.Generic -> {
             // 문구는 화면이 짓지 않고 실패 표에서 읽는다(#204). 「공고」라는 명사는 문맥이 채우고, 버튼은 표의
             // 행동이 있을 때만 붙는다. 실패 전용 부품이라 「검색 결과 없음」과 삽화부터 갈린다(#222).
+            // 이 화면이 열 수 있는 길은 재조회뿐이라, 표가 다른 행동(프로필 입력·정리하기)을 가리키면
+            // 콜백을 넘기지 않는다. 넘기면 「프로필 입력하기」라고 적힌 버튼이 재조회를 하게 된다(#342).
+            val display = reason.failureKind.display(FailureSurface.Posting)
             CareerCompassFailureState(
-                display = reason.failureKind.display(FailureSurface.Posting),
-                onActionClick = onRetryClick,
+                display = display,
+                onActionClick = onRetryClick.takeIf { display.isRetryable },
                 modifier = modifier,
             )
         }

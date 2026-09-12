@@ -182,3 +182,36 @@ test("startup smoke aborts only on unmistakably fatal emulator output", async ()
     // 실패했을 때 무엇이 걸렸는지 로그에 남아야 다음 실패를 진단할 수 있다.
     assert.match(smoke, /부팅 중단 표시: \$\{fatal_line\}/);
 });
+
+// #336 — 스모크는 설치된 앱을 패키지명으로 찾는데, 기기가 아는 이름은 namespace 가 아니라
+// applicationId 다. #220 이 namespace 만 옮기고 스크립트를 그대로 두자 preflight 가 런처
+// 액티비티를 찾지 못해 스케줄 실행마다 빨개졌고, 그때의 단언은 존재 여부만 봐서 놓쳤다.
+test("startup smoke resolves the app by applicationId, not the namespace", async () => {
+    const [smoke, appBuild] = await Promise.all([
+        readFile(join(repositoryRoot, ".github/scripts/run-release-startup-smoke.sh"), "utf8"),
+        readFile(join(repositoryRoot, "app/build.gradle.kts"), "utf8"),
+    ]);
+
+    const applicationId = /^\s*applicationId = "([^"]+)"/m.exec(appBuild)?.[1];
+    assert.ok(applicationId, "app/build.gradle.kts 에서 applicationId 를 읽지 못했습니다");
+
+    const smokePackage = /^package_name="([^"]+)"$/m.exec(smoke)?.[1];
+    assert.ok(smokePackage, "스모크 스크립트에서 package_name 을 읽지 못했습니다");
+    assert.equal(
+        smokePackage,
+        applicationId,
+        `스모크가 찾는 패키지명이 applicationId 와 다릅니다: ${smokePackage} != ${applicationId}`,
+    );
+
+    // 패키지명은 한 곳에서만 정한다. 다른 줄에 리터럴이 박히면 위 대조가 그 줄을 못 본다.
+    const strayLiterals = smoke
+        .split("\n")
+        .filter((line) => /"com\.[A-Za-z0-9_.]+"/.test(line) && !line.startsWith("package_name="));
+    assert.deepEqual(strayLiterals, [], "패키지명 리터럴은 package_name 한 줄에만 둔다");
+
+    // 기기를 상대하는 세 지점이 모두 그 변수를 쓴다.
+    assert.match(smoke, /resolve-activity --brief/);
+    assert.match(smoke, /category\.LAUNCHER "\$\{package_name\}"/);
+    assert.match(smoke, /== "\$\{package_name\}\/"\*/);
+    assert.match(smoke, /pidof "\$\{package_name\}"/);
+});

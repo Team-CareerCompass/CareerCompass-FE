@@ -68,45 +68,11 @@
 
 별도 API나 유료 AI를 호출하지 않으며 기존 GitHub Actions 실행량만 사용한다. Actions의 **Collect Release Scope**에서 릴리스 PR 번호를 입력해 다시 산출할 수도 있다.
 
-### PR별 구조화 QA 원천
+### PR별 QA 원천과 게이트
 
-모든 PR은 `QA Metadata` 섹션의 JSON 객체를 채운다. `app-runtime`·`release-only`는 `precondition`·`action`·`expected`·`risk`·`evidence`가 필요하다. `ci-only`·`covered-by-ci`는 빈 QA 문구 대신 `exclusionReason`과 동일 입력·경계·관찰 결과를 적은 `ci` 또는 `test` evidence가 필요하다. 누락과 `#123 관련 동작을 재현...` 형태의 generic 문구는 Unit Test workflow에서 실패한다. 게이트 도입(`QA_METADATA_GATE_CUTOFF`) 전에 생성된 PR은 섹션이 없으면 검증을 건너뛰므로, 리베이스로 이 workflow를 받아도 소급 차단되지 않는다. 섹션을 채우면 생성 시각과 무관하게 검증한다.
+구성 PR이 테스트 범위를 본문으로 선언하는 게이트는 `CI Test Plan` 하나다. [PR 템플릿](../../.github/PULL_REQUEST_TEMPLATE.md)의 JSON 블록에 Android 계측 테스트를 `none`·`selected`·`full` 중 무엇으로 돌릴지 적으면, Repository Quality workflow의 `Validate CI Test Plan` 스텝이 [`validate-pr-ci-test-plan.mjs`](../../.github/scripts/validate-pr-ci-test-plan.mjs)로 변경 경계와 대조한다. `selected`는 그 revision에 실제로 존재하는 `FQCN#method`와 실행 lane이어야 한다.
 
-```json
-{
-  "scope": "app-runtime",
-  "precondition": "삭제할 자소서 초안이 목록에 있는 로그인 상태",
-  "action": "삭제 확인에서 확인을 눌러 DELETE 요청을 보낸다",
-  "expected": "성공 시 목록에서 제거되고 실패 시 기존 항목과 오류 안내가 유지된다",
-  "risk": "실패한 삭제가 성공처럼 보이거나 기존 항목이 유실될 수 있다",
-  "evidence": [
-    {
-      "kind": "issue",
-      "ref": "#42",
-      "assertion": "삭제 성공·실패의 관찰 결과를 정의한다"
-    }
-  ]
-}
-```
-
-앱 QA 제외 원천은 다음처럼 같은 경계를 검증하는 CI 근거를 구조화한다.
-
-```json
-{
-  "scope": "ci-only",
-  "exclusionReason": "GitHub Actions 제어 변경으로 APK 사용자 흐름이 존재하지 않는다",
-  "evidence": [
-    {
-      "kind": "ci",
-      "ref": "Unit Test / Run deployment script tests",
-      "assertion": "같은 스크립트 입력과 종료 상태를 CI에서 검증한다",
-      "input": "배포 판단 context fixture",
-      "boundary": "구조화 메타데이터 파싱부터 최종 JSON 검증까지",
-      "observation": "node test가 제외·병합·generic 0건을 단언한다"
-    }
-  ]
-}
-```
+QA 문구 자체는 구성 PR에서 검증하지 않는다. 구성 PR 본문에 `## QA 포인트` 헤딩을 두면 [`render-release-scope.mjs`](../../.github/scripts/render-release-scope.mjs)가 그 목록을 릴리스 PR 초안으로 모으고, 없으면 릴리스 PR에서 사람이 직접 쓴다. 검사 지점은 배포 직전 릴리스 노트 렌더 단계 하나이며, 그 판정 기준은 아래 「일반 배포」에 있다.
 
 ### 일반 배포 — `main` → Firebase App Distribution (자동)
 
@@ -114,7 +80,7 @@
 
 `release-distribution.yml`에 `develop` 수동 배포(`workflow_dispatch`) 경로는 두지 않는다. 도착지와 산출물 버전이 main 경로와 같아 실익이 PR 생성 한 단계뿐이었던 반면, release keystore와 service account를 임의 ref에 노출하는 표면이었다.
 
-예외적으로 [`firebase-wif-canary.yml`](../../.github/workflows/firebase-wif-canary.yml)은 `develop` 또는 `main`에서 보호 Environment 승인과 명시적 확인을 받은 뒤 실제 APK를 올리는 **수동 인증 호환성 검증 경로**다. 일반 릴리스나 임의 브랜치 배포 수단으로 사용하지 않으며, production JSON 자격을 WIF로 교체하기 전 판정 절차는 [WIF canary runbook](firebase-wif-canary.md)을 따른다.
+예외적으로 [`firebase-wif-canary.yml`](../../.github/workflows/firebase-wif-canary.yml)은 `develop` 또는 `main`에서 보호 Environment 승인과 명시적 확인을 받은 뒤 실제 APK를 올리는 수동 인증 호환성 검증 경로다. 일반 릴리스나 임의 브랜치 배포 수단으로 사용하지 않는다. 두 경로가 같은 WIF 설정을 쓰므로, 인증 쪽을 건드릴 때 무엇을 확인하는지는 [WIF canary runbook](firebase-wif-canary.md)에 있다.
 
 `develop` → `main` 릴리스 PR 본문에 다음 섹션을 채운다.
 
@@ -133,7 +99,7 @@ PR이 `main`에 머지되면 워크플로가 두 섹션을 릴리스 노트로 �
 CI가 사용하는 GitHub Secrets (Settings → Secrets and variables → Actions):
 
 - `KAKAO_NATIVE_APP_KEY`·`GOOGLE_WEB_CLIENT_ID`·`GOOGLE_SERVICES_JSON_B64`는 Environment를 사용하지 않는 dependency audit에서도 필요하므로 repository-level secret으로 둔다.
-- release keystore·Firebase 자격·WIF 설정은 보호된 `release-distribution` Environment의 secret으로 둔다.
+- release keystore와 Firebase 업로드용 WIF 설정은 보호된 `release-distribution` Environment의 secret으로 둔다.
 
 | 키 | 용도 |
 |---|---|
@@ -141,15 +107,14 @@ CI가 사용하는 GitHub Secrets (Settings → Secrets and variables → Action
 | `RELEASE_STORE_PASSWORD` | keystore 비밀번호 |
 | `RELEASE_KEY_ALIAS` | key alias (`careercompass-release`) |
 | `RELEASE_KEY_PASSWORD` | key 비밀번호 |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | App Distribution Admin 권한 부여된 service account JSON 원문 |
 | `KAKAO_NATIVE_APP_KEY` · `GOOGLE_WEB_CLIENT_ID` · `GOOGLE_SERVICES_JSON_B64` | release distribution·WIF canary·dependency audit가 쓰는 실서비스 앱 설정 |
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` · `GCP_FIREBASE_SERVICE_ACCOUNT` | 수동 WIF canary 전용 OIDC 설정 ([runbook](firebase-wif-canary.md)) |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` · `GCP_FIREBASE_SERVICE_ACCOUNT` | Firebase 업로드가 단기 자격을 받는 OIDC 설정. release distribution과 WIF canary가 같은 값을 쓴다 ([runbook](firebase-wif-canary.md)) |
 
 > base64 인코딩: `base64 -i ~/careercompass-release.jks | pbcopy` (macOS)
 
 PR 검증용 lint·unit-test·screenshot은 repository secret 대신
 `.github/actions/setup-ci-config`가 만드는 결정적 CI 전용 placeholder를 사용한다. 이 fixture는
-배포에 사용할 수 없으며, production `release-distribution.yml`은 계속 승인된 환경의 JSON 자격을 사용한다. WIF canary 성공만으로 이를 제거하지 않는다.
+배포에 사용할 수 없다. production `release-distribution.yml`은 승인된 Environment 뒤에서 Workload Identity로 인증하고, 업로드 직전에 발급받은 단기 자격만 쓴다. 장기 service account 키는 이 파이프라인 어디에도 두지 않으며, [`firebase-wif-canary-policy.test.mjs`](../../.github/scripts/firebase-wif-canary-policy.test.mjs)가 두 워크플로와 release config action을 읽어 그 부재를 단언한다.
 
 ### 배포 provenance — 이 APK 가 어느 commit·run 에서 나왔는지
 
@@ -160,7 +125,7 @@ PR 검증용 lint·unit-test·screenshot은 repository secret 대신
 받은 APK 가 정말 그 배포 경로에서 나왔는지는 손에 든 파일로 직접 확인할 수 있다.
 
 ```bash
-gh attestation verify ~/Downloads/careercompass-release.apk --repo 1hyok/CareerCompass-FE --signer-workflow 1hyok/CareerCompass-FE/.github/workflows/release-distribution.yml --source-ref refs/heads/main --deny-self-hosted-runners
+gh attestation verify ~/Downloads/careercompass-release.apk --repo Team-CareerCompass/CareerCompass-FE --signer-workflow Team-CareerCompass/CareerCompass-FE/.github/workflows/release-distribution.yml --source-ref refs/heads/main --deny-self-hosted-runners
 ```
 
 특정 릴리스 commit 으로 좁히려면 `--source-digest <commit SHA>` 를 더한다. 파일이 1비트라도 다르면 digest 가 달라져 검증이 실패한다.

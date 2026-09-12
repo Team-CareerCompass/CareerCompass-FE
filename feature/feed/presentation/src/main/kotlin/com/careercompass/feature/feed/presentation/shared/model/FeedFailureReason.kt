@@ -2,6 +2,7 @@ package com.careercompass.feature.feed.presentation.shared.model
 
 import com.careercompass.core.domain.error.CoreDataFailure
 import com.careercompass.core.ui.failure.FailureKind
+import com.careercompass.core.ui.failure.toFailureKind
 
 /**
  * 실패 화면이 갈라 그려야 하는 사유. 사용자가 할 일이 다른 것만 가른다.
@@ -9,19 +10,33 @@ import com.careercompass.core.ui.failure.FailureKind
  * - [NetworkUnavailable] — 내 연결을 확인하면 된다.
  * - [Maintenance] — 서버가 스스로 「지금은 안 된다」고 알린 상태(503 `LLM_UNAVAILABLE`)다. 재시도만
  *   되풀이해도 소용없다는 것을 말해 줘야 한다.
- * - [Generic] — 사유를 특정할 수 없다. 잠시 뒤 재시도 안내로 접는다.
+ * - [Generic] — 전용 화면을 두지 않은 나머지. 무엇을 띄울지는 실패 표가 정하므로, 원 실패가 표의 어느
+ *   행이었는지([Generic.kind])를 들고 간다.
  */
-public enum class FeedFailureReason {
-    NetworkUnavailable,
-    Maintenance,
-    Generic,
+public sealed interface FeedFailureReason {
+    public data object NetworkUnavailable : FeedFailureReason
+
+    public data object Maintenance : FeedFailureReason
+
+    /**
+     * 실패 표의 행을 그대로 그리는 사유. [kind] 가 제목·본문과 재시도 유무를 정한다.
+     *
+     * 전에는 여기가 사유를 버리는 자리였다. 404·403·422·429 가 모두 「사유 미확인」으로 접혀
+     * [FailureKind.Unexpected] 한 행으로 나갔고, 삭제된 공고에 딥링크로 들어간 사용자는 「공고를 찾을 수
+     * 없어요」 대신 「문제가 생겼어요 / 잠시 후 다시 시도해 주세요」와 재시도 버튼을 봤다. 눌러도 같은
+     * 404 가 돌아온다(#342). 이제 원 실패의 행을 그대로 실어, 재시도 유무도 표의 판정
+     * (`FailureDisplay.isRetryable`)을 따른다.
+     */
+    public data class Generic(
+        val kind: FailureKind,
+    ) : FeedFailureReason
 }
 
 public fun Throwable.toFeedFailureReason(): FeedFailureReason =
     when (this) {
         is CoreDataFailure.NetworkUnavailable -> FeedFailureReason.NetworkUnavailable
         is CoreDataFailure.ServiceUnavailable -> FeedFailureReason.Maintenance
-        else -> FeedFailureReason.Generic
+        else -> FeedFailureReason.Generic(toFailureKind())
     }
 
 /**
@@ -35,10 +50,10 @@ public fun Throwable.toFeedFailureReason(): FeedFailureReason =
  * - [FeedFailureReason.Maintenance] — **그렇다.** 503 `LLM_UNAVAILABLE` 은 서버가 「그 조건은 지금 못
  *   한다」고 답한 자리다. 적합도는 LLM 산출값이라 정렬을 「적합도순」으로 바꾸거나 최소 적합도를 걸면
  *   실제로 갈린다(이슈 #144 의 재현).
- * - [FeedFailureReason.Generic] — **그렇다.** 원인을 특정하지 못했다는 것이 조건 탓이 아니라는 뜻은
- *   아니다(잘못된 조합에 대한 400·500 이 모두 여기로 접힌다). 되돌릴 조건이 실제로 걸려 있을 때에
- *   한해서만 열리므로(`FeedViewState.canResetFailedQuery`) 헛다리를 짚어도 잃는 것이 없고, 닫아 두면
- *   빠져나갈 길이 없는 화면이 남는다.
+ * - [FeedFailureReason.Generic] — **그렇다.** 실린 갈래가 무엇이든 이 판정은 갈리지 않는다(#342 에서
+ *   갈래를 실은 뒤에도 그대로다). 잘못된 조합에 대한 400·422·500 이 모두 여기로 오고, 되돌릴 조건이
+ *   실제로 걸려 있을 때에 한해서만 열리므로(`FeedViewState.canResetFailedQuery`) 헛다리를 짚어도 잃는
+ *   것이 없고, 닫아 두면 빠져나갈 길이 없는 화면이 남는다.
  *
  * 401(세션 만료)이 여기 없는 이유 — 그 실패는 실패 화면을 그리지 않고 곧장 로그인으로 보낸다
  * (`FeedViewState.sessionEnded`). 사유 목록에 없는 것이 곧 답이다.
@@ -49,7 +64,7 @@ public val FeedFailureReason.isQueryAttributable: Boolean
             FeedFailureReason.NetworkUnavailable -> false
 
             FeedFailureReason.Maintenance,
-            FeedFailureReason.Generic,
+            is FeedFailureReason.Generic,
             -> true
         }
 
@@ -63,11 +78,13 @@ public val FeedFailureReason.isQueryAttributable: Boolean
  * [FeedFailureReason.NetworkUnavailable] 이 [FailureKind.NoConnection] 으로만 가는 것은 의도다 —
  * 「우리가 먼저 끊었다」(타임아웃)를 갈라 안내하는 화면은 게시판 구조 감지 하나뿐이고, 그 화면은
  * 이 사유를 거치지 않고 `CoreDataFailure.NetworkUnavailable.isTimeout` 을 직접 본다(#134).
+ *
+ * [FeedFailureReason.Generic] 만 행이 고정돼 있지 않다. 원 실패가 정한 행을 그대로 돌려준다(#342).
  */
 public val FeedFailureReason.failureKind: FailureKind
     get() =
         when (this) {
             FeedFailureReason.NetworkUnavailable -> FailureKind.NoConnection
             FeedFailureReason.Maintenance -> FailureKind.ServiceUnavailable
-            FeedFailureReason.Generic -> FailureKind.Unexpected
+            is FeedFailureReason.Generic -> kind
         }

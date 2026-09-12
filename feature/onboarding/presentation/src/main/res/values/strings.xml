@@ -25,7 +25,7 @@
     <string name="onboarding_step4_description">AI가 분류해 새 지원서 초안에 활용해요. 건너뛰어도 초안은 만들 수 있지만, 내 글투가 덜 반영돼요.</string>
     <string name="onboarding_step4_upload_title">파일을 드래그하거나 탭하세요</string>
     <string name="onboarding_step4_upload_requirements">PDF · DOCX · TXT · 최대 %1$dMB</string>
-    <string name="onboarding_step4_upload_content_description">지원서 파일 업로드</string>
+    <string name="onboarding_step4_upload_action">지원서 파일 업로드</string>
     <string name="onboarding_step4_or">또는</string>
     <string name="onboarding_step4_direct_input">직접 입력하기</string>
     <string name="onboarding_step4_uploaded_count">업로드한 지원서 (%1$d/%2$d)</string>

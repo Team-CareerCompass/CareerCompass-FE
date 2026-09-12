@@ -197,7 +197,7 @@ jobs:
               '- 의도된 시각 변경 → 이 PR에 `screenshot-baseline` 라벨을 붙여 CI baseline 생성 요청',
               '- diff 가 anti-aliasing/font 차이로 보이면 docker 환경 변경 여부 (Dockerfile.screenshot) 점검',
               '',
-              'CI ↔ 로컬 환경 차이는 본 워크플로의 container 단계가 root fix 한다 (README 의 "Compose Preview Screenshot Testing (docker baseline)" 섹션 참조).',
+              'CI ↔ 로컬 환경 차이는 본 워크플로의 container 단계가 root fix 한다 (docs/testing/screenshot.md 참조).',
             ].join('\n');
 
             const { data: comments } = await github.rest.issues.listComments({
