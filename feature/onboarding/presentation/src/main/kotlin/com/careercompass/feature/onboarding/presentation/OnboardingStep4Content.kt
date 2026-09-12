@@ -94,7 +94,7 @@ private fun OnboardingStep4Body(
         )
         OrDivider()
         DirectInputAction(
-            enabled = state.isInputEnabled,
+            enabled = state.isDirectInputEnabled,
             onClick = { onEvent(OnboardingStep4Event.DirectInputClicked) },
         )
         if (state.uploadedDocuments.isNotEmpty()) {
