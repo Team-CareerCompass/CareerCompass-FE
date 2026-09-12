@@ -35,6 +35,9 @@ public class FakeAuthRepository(
     public var onSetBiometricEnabled: (suspend (Boolean) -> Result<Unit>)? = null,
 ) : AuthRepository {
     public val loggedInState: MutableStateFlow<Boolean> = MutableStateFlow(loggedIn)
+
+    /** 세션 경계 — 기본 동작의 [saveSession]·[logout]·[clearSession] 이 올린다. 직접 올려 경계만 흉내 낼 수도 있다. */
+    public val sessionGenerationState: MutableStateFlow<Long> = MutableStateFlow(0L)
     public val biometricEnabledState: MutableStateFlow<Boolean> = MutableStateFlow(biometricEnabled)
     public val biometricEnrollDeclinedState: MutableStateFlow<Boolean> = MutableStateFlow(biometricEnrollDeclined)
 
@@ -45,6 +48,7 @@ public class FakeAuthRepository(
         }
 
     override val isLoggedIn: Flow<Boolean> get() = loggedInState
+    override val sessionGeneration: Flow<Long> get() = sessionGenerationState
     override val isBiometricEnabled: Flow<Boolean> get() = biometricEnabledState
     override val isBiometricEnrollDeclined: Flow<Boolean> get() = biometricEnrollDeclinedState
 
@@ -83,6 +87,7 @@ public class FakeAuthRepository(
     override suspend fun saveSession(session: Session): Result<Unit> {
         savedSessions += session
         onSaveSession?.let { return it(session) }
+        sessionGenerationState.value += 1
         accessToken = session.accessToken
         refreshToken = session.refreshToken
         loggedIn = true
@@ -112,6 +117,7 @@ public class FakeAuthRepository(
     override suspend fun logout(): Result<Unit> {
         logoutCounter.incrementAndGet()
         onLogout?.let { return it() }
+        sessionGenerationState.value += 1
         accessToken = null
         refreshToken = null
         loggedIn = false
@@ -121,6 +127,7 @@ public class FakeAuthRepository(
     override suspend fun clearSession(): Result<Unit> {
         clearCounter.incrementAndGet()
         onClearSession?.let { return it() }
+        sessionGenerationState.value += 1
         accessToken = null
         refreshToken = null
         loggedIn = false

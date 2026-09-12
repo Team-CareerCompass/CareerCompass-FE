@@ -27,7 +27,7 @@ import javax.inject.Inject
 public class BiometricLoginViewModel
     @Inject
     constructor(
-        authRepository: AuthRepository,
+        private val authRepository: AuthRepository,
         userProfileRepository: UserProfileRepository,
         private val resolveSessionEntry: ResolveSessionEntryUseCase,
         private val errorReporter: ErrorReporter,
@@ -62,7 +62,7 @@ public class BiometricLoginViewModel
                 }
 
                 BiometricLoginIntent.ChooseOtherMethod -> {
-                    dispatch(BiometricLoginReducerEvent.OtherMethodChosen)
+                    chooseOtherMethod()
                 }
 
                 BiometricLoginIntent.ConsumeNavigation -> {
@@ -112,6 +112,21 @@ public class BiometricLoginViewModel
                     state.copy(failure = null)
                 }
             }
+
+        /**
+         * 다른 방법으로 로그인 — 이 기기에 남은 세션을 먼저 정리하고 로그인 화면으로 보낸다.
+         *
+         * 여기서 로그인하는 사람은 다음 계정일 수 있다. 앞 계정의 SESSION 스코프 저장소(프로필·온보딩 진행·공고
+         * 스냅샷)를 지우지 않고 로그인 화면만 띄우면 그 계정이 앞 계정의 상태를 그대로 물려받는다(#335).
+         * 정리에 실패해도 화면은 보낸다 — 사용자를 지문 화면에 가둘 이유가 되지 못하고, 새 세션 저장이 한 번 더
+         * 비운다.
+         */
+        private fun chooseOtherMethod() {
+            viewModelScope.launch {
+                authRepository.clearSession()
+                dispatch(BiometricLoginReducerEvent.OtherMethodChosen)
+            }
+        }
 
         /**
          * 지문이 맞았다 — 인증 중 표시를 유지한 채 세션을 검증하고 목적지를 정한다. 검증이 이미 진행 중이면 합류한다.

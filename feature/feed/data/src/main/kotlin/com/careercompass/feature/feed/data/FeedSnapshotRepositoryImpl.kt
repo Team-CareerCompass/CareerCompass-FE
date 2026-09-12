@@ -6,6 +6,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.careercompass.core.common.result.runCatchingCancellable
+import com.careercompass.core.datastore.LocalStoreRegistry
+import com.careercompass.core.datastore.editWithinSession
 import com.careercompass.feature.feed.data.di.FeedSnapshotDataStore
 import com.careercompass.feature.feed.data.snapshot.FeedSnapshotDto
 import com.careercompass.feature.feed.data.snapshot.toDomain
@@ -27,6 +29,9 @@ import javax.inject.Singleton
  * 깨지고, 파일당 1개인 DataStore 를 그대로 쓰면서 원자적으로 덮어쓰기 쉽다. 저장은 [FeedSnapshot.MAX_POSTINGS]
  * 건까지 자른다. 해석 실패(형식 변경·모르는 열거값·불변식 위반)는 「스냅샷 없음」으로 읽고, 읽기 자체의
  * [IOException] 도 빈 값으로 본다.
+ *
+ * 저장은 세션 세대 가드를 지난다 — 세션이 끝난 뒤에 도착한 저장이 다음 계정의 오프라인 화면에 앞 계정의
+ * 공고를 띄우지 않게 한다(#348).
  */
 @Singleton
 internal class FeedSnapshotRepositoryImpl
@@ -34,6 +39,7 @@ internal class FeedSnapshotRepositoryImpl
     constructor(
         @param:FeedSnapshotDataStore private val dataStore: DataStore<Preferences>,
         private val json: Json,
+        private val localStoreRegistry: LocalStoreRegistry,
     ) : FeedSnapshotRepository {
         private object Keys {
             val SNAPSHOT_JSON = stringPreferencesKey("snapshot_json")
@@ -42,8 +48,7 @@ internal class FeedSnapshotRepositoryImpl
         override suspend fun save(snapshot: FeedSnapshot): Result<Unit> =
             runCatchingCancellable {
                 val encoded = json.encodeToString(FeedSnapshotDto.serializer(), snapshot.truncated().toDto())
-                dataStore.edit { prefs -> prefs[Keys.SNAPSHOT_JSON] = encoded }
-                Unit
+                localStoreRegistry.editWithinSession(dataStore) { prefs -> prefs[Keys.SNAPSHOT_JSON] = encoded }
             }
 
         override suspend fun load(): Result<FeedSnapshot?> =

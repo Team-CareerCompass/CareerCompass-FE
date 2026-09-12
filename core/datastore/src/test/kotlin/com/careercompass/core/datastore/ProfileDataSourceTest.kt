@@ -9,7 +9,8 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class ProfileDataSourceTest {
-    private val dataSource = ProfileDataSource(InMemoryPreferencesDataStore())
+    private val registry = FakeLocalStoreRegistry()
+    private val dataSource = ProfileDataSource(registry.store("Profile", StoreScope.SESSION), registry)
 
     @Test
     fun `프로필 JSON 을 저장하면 그대로 읽힌다`() =

@@ -1,5 +1,7 @@
 package com.careercompass.core.data.repoimpl.auth
 
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
 import com.careercompass.core.data.support.FakeLocalStoreRegistry
 import com.careercompass.core.data.support.InMemoryPreferencesDataStore
 import com.careercompass.core.datastore.DeviceDataSource
@@ -78,7 +80,7 @@ class AuthRepositoryImplTest {
     private val registry = FakeLocalStoreRegistry()
     private val tokenDataSource = TokenDataSource(registry.store("Token", StoreScope.SESSION))
     private val deviceDataSource = DeviceDataSource(InMemoryPreferencesDataStore())
-    private val profileDataSource = ProfileDataSource(registry.store("Profile", StoreScope.SESSION))
+    private val profileDataSource = ProfileDataSource(registry.store("Profile", StoreScope.SESSION), registry)
     private var now = 0L
     private val tracker = AccessTokenExpiryTracker { now }
     private val repository =
@@ -113,6 +115,30 @@ class AuthRepositoryImplTest {
             assertTrue(repository.isLoggedIn.first())
             assertEquals("access", repository.getAccessToken().getOrThrow())
             assertTrue(tracker.isExpiringSoon())
+        }
+
+    /**
+     * #335 — 로그아웃을 거치지 않고 다음 계정이 들어오는 길이 있다(지문 화면의 「다른 방법으로 로그인」).
+     * 저장이 세션 경계 노릇을 하지 않으면 그 계정이 앞 계정의 프로필·온보딩 진행을 그대로 물려받는다.
+     */
+    @Test
+    fun `세션 저장은 앞 세션의 Profile·OnboardingProgress 를 비운다`() =
+        runTest {
+            val progressStore = registry.store("OnboardingProgress", StoreScope.SESSION)
+            val completed = booleanPreferencesKey("completed")
+            profileDataSource.saveProfile(profileJson(userId = 1L), userId = 1L)
+            progressStore.edit { it[completed] = true }
+
+            repository.saveSession(Session("access-2", "refresh-2", isNewUser = true, expiresInSeconds = 3600)).getOrThrow()
+
+            assertEquals(listOf(StoreScope.SESSION), registry.clearedScopes)
+            assertNull(profileDataSource.profileJson.first())
+            assertNull(profileDataSource.userId.first())
+            assertNull(progressStore.data.first()[completed])
+            // 비우기는 새 토큰보다 앞이다 — 순서가 뒤집히면 로그인하자마자 로그아웃된 상태가 된다.
+            assertEquals("access-2", tokenDataSource.getAccessToken())
+            assertEquals("refresh-2", tokenDataSource.getRefreshToken())
+            assertEquals(false, profileDataSource.onboardingDoneHint.first())
         }
 
     @Test
@@ -229,7 +255,8 @@ class AuthRepositoryImplTest {
             logout.await().getOrThrow()
 
             assertEquals("refresh", authApi.logoutRequests.single().refreshToken)
-            assertTrue(registry.clearedScopes.isEmpty())
+            // 비우기는 새 세션 저장이 한 번 한 것뿐이다 — 늦게 끝난 로그아웃은 그 위에 손대지 않는다.
+            assertEquals(listOf(StoreScope.SESSION), registry.clearedScopes)
             assertEquals("access-2", tokenDataSource.getAccessToken())
             assertEquals("refresh-2", tokenDataSource.getRefreshToken())
             assertTrue(repository.isLoggedIn.first())

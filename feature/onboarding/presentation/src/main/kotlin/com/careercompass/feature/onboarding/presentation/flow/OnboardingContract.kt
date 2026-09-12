@@ -204,6 +204,15 @@ public sealed interface OnboardingReducerEvent : ReducerEvent {
         val reason: OnboardingFailureReason?,
     ) : OnboardingReducerEvent
 
+    /**
+     * 세션이 바뀌었다 — 앞 세션으로 만든 상태를 통째로 버린다(#335).
+     *
+     * 진입 판정·프리필·이동 지시·입력 초안은 전부 그 세션 사람의 것이다. 조각별로 지우면 다음에 상태가
+     * 늘어날 때 빠뜨리는 자리가 생기므로 처음 값으로 되돌린다. 세션 종료 신호만 넘긴다 — 셸이 아직 읽지
+     * 않았으면 이 초기화로 사라져서는 안 된다.
+     */
+    public data object SessionSwitched : OnboardingReducerEvent
+
     /** 저장 요청 밖의 실패 — 사유만 알린다(상한·낙관적 갱신 되돌림·파일 검증). */
     public data class Failed(
         val reason: OnboardingFailureReason?,
