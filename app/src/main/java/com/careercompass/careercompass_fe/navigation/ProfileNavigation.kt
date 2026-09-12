@@ -32,10 +32,11 @@ internal object AppBiometricEnrollPrompt : ProfileBiometricEnrollPrompt {
 }
 
 /**
- * 마이 홈 메뉴 ↔ 루트 키. 네 화면 모두 아직 자리표시자이고, 실제 화면이 붙으면 이 표의 오른쪽만 바뀐다.
+ * 마이 홈 메뉴 ↔ 루트 키. 넷 다 마이 탭 위 한 칸으로 쌓인다.
  *
  * 목적지를 profile 모듈이 아니라 셸이 갖는 이유는 네 화면의 주인이 서로 다르기 때문이다 — 프로필 편집·경험
- * 카드·과거 지원서는 profile, 알림 설정은 notification 모듈이다.
+ * 카드·과거 지원서는 profile, 알림 설정은 notification 모듈이다. 앞의 셋은 실제 화면이 붙었고(#176 · #178 · #180),
+ * 알림 설정만 아직 자리표시자라 그 화면이 붙으면 이 표의 오른쪽 한 줄만 바뀐다.
  */
 internal fun AppState.navigateToProfileMenu(menu: ProfileHomeMenu) {
     val key =

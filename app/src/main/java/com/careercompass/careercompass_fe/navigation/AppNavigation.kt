@@ -52,10 +52,10 @@ internal const val APP_START_SEMANTICS_TAG = "careercompass_app_start"
  * 세션 판정이다.
  *
  * 시작 목적지가 인증 계열(로그인·지문·온보딩)이면 온보딩 host 에서, 메인이면 피드 host 에서 시작한다.
- * 하단 탭은 피드 홈과 자리표시자 탭에서만 보이고 상세·원문·게시판 화면에서는 숨긴다 — 피드의 루트 키는
+ * 하단 탭은 피드 홈과 다른 탭에서만 보이고 상세·원문·게시판 화면에서는 숨긴다 — 피드의 루트 키는
  * 하나뿐이라 깊이는 피드 host 가 [FeatureStackBoundary.onAtRootChanged] 로 올려 준다.
- 다른 담당 모듈(foryou·editor)의 탭은 진입점이 생길 때까지 자리표시자다. 마이 탭은 profile 모듈의 마이 홈이
- * 그리고(#175), 그 메뉴가 가리키는 네 화면은 실제 화면이 붙을 때까지 루트 스택 위 자리표시자로 남는다
+ * 다른 담당 모듈(foryou·editor)의 탭은 진입점이 생길 때까지 자리표시자다. 마이 탭은 profile 모듈의 마이 홈이
+ * 그리고(#175), 그 메뉴가 가리키는 네 화면은 루트 스택 위 한 칸으로 쌓인다 — 알림 설정만 아직 자리표시자다
  * ([navigateToProfileMenu]).
  *
  * 세션이 왜 끝났는지는 [SessionEndCause] 로 갈라 셸에 넘긴다 — 401 을 만난 피드·온보딩 계열은 만료다. 마이 홈은
@@ -191,8 +191,10 @@ public fun AppNavigation(
                         }
 
                         // ── 다른 담당 모듈의 자리표시자 — 진입점이 생기면 그 모듈의 host 로 바뀐다.
-                        entry<Route.AnalysisTab> { PlaceholderTabScreen(tab = CareerCompassBottomTab.Analysis) }
-                        entry<Route.ApplicationsTab> { PlaceholderTabScreen(tab = CareerCompassBottomTab.Applications) }
+                        entry<Route.AnalysisTab> { PlaceholderTabScreen(title = stringResource(R.string.placeholder_analysis_title)) }
+                        entry<Route.ApplicationsTab> {
+                            PlaceholderTabScreen(title = stringResource(R.string.placeholder_applications_title))
+                        }
                         // ── 마이 탭 — profile 모듈의 마이 홈(#175)
                         entry<Route.MyTab> {
                             ProfileHomeScreen(
