@@ -75,7 +75,6 @@ docker run --rm --platform linux/amd64 -v "$PWD":/workspace -w /workspace career
           :feature:onboarding:presentation:updateScreenshotTest \
           :feature:feed:presentation:updateScreenshotTest \
           :feature:editor:presentation:updateScreenshotTest \
-          :feature:profile:presentation:updateScreenshotTest \
           :feature:foryou:presentation:updateScreenshotTest \
           :feature:notification:presentation:updateScreenshotTest \
             --rerun
@@ -85,7 +84,7 @@ docker run --rm --platform linux/amd64 -v "$PWD":/workspace -w /workspace career
 
 > 실패한 모듈만 갱신하려면 그 모듈 태스크만 지정한다 — 예: `./gradlew :feature:feed:presentation:updateScreenshotTest`
 >
-> 대상 모듈 목록은 [검증](../../.github/workflows/screenshot.yml)·[생성](../../.github/workflows/screenshot-baseline-generate.yml) workflow와 [적용 workflow의 허용 경로](../../.github/workflows/screenshot-baseline-apply.yml)에 함께 들어 있다. 모듈을 추가·이전했다면 세 workflow와 `Dockerfile.screenshot`, 이 문서를 함께 갱신한다.
+> 대상 모듈 목록은 [검증](../../.github/workflows/screenshot.yml)·[생성](../../.github/workflows/screenshot-baseline-generate.yml) workflow와 [적용 workflow의 허용 경로](../../.github/workflows/screenshot-baseline-apply.yml)에 함께 들어 있다. 모듈을 추가·이전했다면 세 workflow와 `Dockerfile.screenshot`, 이 문서를 함께 갱신한다. 다섯 자리가 어긋나면 `.github/scripts/remote-dev-workflows-policy.test.mjs` 의 `screenshotModules` 대조가 실패한다.
 
 ## 로컬 baseline 검증 (CI 실패 재현)
 
@@ -95,7 +94,6 @@ docker run --rm --platform linux/amd64 -v "$PWD":/workspace -w /workspace career
           :feature:onboarding:presentation:validateScreenshotTest \
           :feature:feed:presentation:validateScreenshotTest \
           :feature:editor:presentation:validateScreenshotTest \
-          :feature:profile:presentation:validateScreenshotTest \
           :feature:foryou:presentation:validateScreenshotTest \
           :feature:notification:presentation:validateScreenshotTest
 ```
