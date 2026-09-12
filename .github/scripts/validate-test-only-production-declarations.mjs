@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
-// PR 이 src/main 에 새로 넣은 Kotlin 함수가 main 어디서도 참조되지 않으면 실패시킨다 (#1895).
+// PR 이 src/main 에 새로 넣은 Kotlin 함수가 main 어디서도 참조되지 않으면 실패시킨다(애프터노트 #1895).
 //
-// 0904 PR #1583 에 ViewModel 멤버 `onReceiverRegisterStart()` 가 main 호출자 없이 테스트만 참조하는
-// 채로 올라갔다. `ProductionVisibilityKonsistTest`(#1678) 는 최상위 선언만 보므로 멤버 함수는 어떤
-// 게이트에도 걸리지 않았다. 이 스크립트는 PR files API 의 `patch` 에서 «추가된» 선언만 뽑아
-// 체크아웃된 PR 트리에서 이름 참조를 센다 — 기존 코드의 미참조 멤버는 대상이 아니라 baseline 이 없다.
+// 0904 애프터노트 PR #1583 에 ViewModel 멤버 `onReceiverRegisterStart()` 가 main 호출자 없이 테스트만
+// 참조하는 채로 올라갔다. konsist 가드는 계층 의존과 계약 모양만 보고 선언에 소비처가 있는지는 세지
+// 않아 멤버 함수는 어떤 게이트에도 걸리지 않았다. 이 스크립트는 PR files API 의 `patch` 에서 «추가된»
+// 선언만 뽑아 체크아웃된 PR 트리에서 이름 참조를 센다 — 기존 코드의 미참조 멤버는 대상이 아니라 baseline 이 없다.
 //
 // 판정은 이름 기반이라 거짓 음성 쪽으로 기운다(같은 이름이 main 어디든 있으면 통과). 참조는 있지만
 // 죽은 코드(항상 첫 줄에서 return · 소비자가 항상 null 을 넘기는 파라미터)는 못 본다 — 리뷰 몫이다.
