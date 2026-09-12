@@ -164,6 +164,21 @@ class FeedFailureContentTest {
         composeRule.onAllNodesWithText("다시 시도").assertCountEquals(0)
         composeRule.onNodeWithText("조건 지우고 다시 보기").assertIsDisplayed()
     }
+
+    /**
+     * 표가 이 화면에 없는 길을 가리키면 버튼을 그리지 않는다(#342).
+     *
+     * 이 자리에서 넘길 수 있는 콜백은 재조회 하나뿐이다. 그대로 넘기면 「프로필 입력하기」라고 적힌
+     * 버튼이 재조회를 하게 되고, 사용자는 프로필 화면을 기다리다 같은 실패 화면을 다시 본다.
+     */
+    @Test
+    fun profileIncomplete_dropsActionThisScreenCannotPerform() {
+        composeRule.setFailureContent(reason = FeedFailureReason.Generic(FailureKind.ProfileIncomplete))
+
+        composeRule.onNodeWithText("프로필이 아직 비어 있어요").assertIsDisplayed()
+        composeRule.onAllNodesWithText("프로필 입력하기").assertCountEquals(0)
+        composeRule.onAllNodesWithText("다시 시도").assertCountEquals(0)
+    }
 }
 
 private fun ComposeContentTestRule.setFailureContent(

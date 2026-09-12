@@ -76,6 +76,20 @@ class BoardListFailureContentTest {
         composeRule.onNodeWithText("게시판을 찾을 수 없어요").assertIsDisplayed()
         composeRule.onAllNodesWithText("다시 시도").assertCountEquals(0)
     }
+
+    /**
+     * 표가 이 화면에 없는 길을 가리키면 버튼을 그리지 않는다(#342).
+     *
+     * 목록이 넘길 수 있는 콜백은 재조회 하나뿐이라, 「정리하러 가기」라고 적힌 버튼이 재조회를 하게 된다.
+     */
+    @Test
+    fun limitExceeded_dropsActionThisScreenCannotPerform() {
+        composeRule.setFailureContent(reason = FeedFailureReason.Generic(FailureKind.LimitExceeded))
+
+        composeRule.onNodeWithText("게시판을 더 등록할 수 없어요").assertIsDisplayed()
+        composeRule.onAllNodesWithText("정리하러 가기").assertCountEquals(0)
+        composeRule.onAllNodesWithText("다시 시도").assertCountEquals(0)
+    }
 }
 
 private fun ComposeContentTestRule.setFailureContent(
