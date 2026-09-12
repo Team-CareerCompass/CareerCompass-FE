@@ -3,11 +3,14 @@ package com.careercompass.core.datastore
 import android.content.Context
 import android.util.Log
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStoreFile
+import com.careercompass.core.common.reporting.ErrorReporter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,13 +39,17 @@ import javax.inject.Inject
 internal class LocalStoreRegistryImpl(
     private val produceFile: (name: String) -> File,
     private val registryScope: CoroutineScope,
+    // 손상은 파일을 갈아 쓰고 지나간다 — 그래서 남긴 기록이 아니면 재발을 셀 방법이 없다.
+    private val errorReporter: ErrorReporter,
 ) : LocalStoreRegistry {
     @Inject
     constructor(
         @ApplicationContext context: Context,
+        errorReporter: ErrorReporter,
     ) : this(
         produceFile = { name -> context.preferencesDataStoreFile(name) },
         registryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+        errorReporter = errorReporter,
     )
 
     /** [registeredByCode] false = 매니페스트 기록만으로 열림([clearScope] 경유) — 코드의 scope 선언이 오면 그쪽이 정본. */
@@ -59,9 +66,7 @@ internal class LocalStoreRegistryImpl(
 
     override val sessionGeneration: StateFlow<Long> = generation.asStateFlow()
 
-    private val manifest: DataStore<Preferences> by lazy {
-        PreferenceDataStoreFactory.create(scope = newStoreScope()) { produceFile(MANIFEST_NAME) }
-    }
+    private val manifest: DataStore<Preferences> by lazy { createStore(MANIFEST_NAME) }
 
     override fun store(
         name: String,
@@ -159,8 +164,25 @@ internal class LocalStoreRegistryImpl(
         synchronized(lock) { pendingManifestJobs.toList() }.joinAll()
     }
 
+    /**
+     * 손상된 파일은 다시 던지지 않고 빈 값으로 갈아 쓴다.
+     *
+     * datastore 의 기본 핸들러는 읽기마다 `CorruptionException` 을 다시 던진다. 그 예외가 [IOException]
+     * 하위라 DataSource 의 복구 catch 가 읽기를 빈 값으로 가리고, 같은 파일에 대한 쓰기는 DataStore 가
+     * 읽기를 다시 시도하면서 매번 같은 예외로 끝난다 — 화면은 뜨는데 토큰 저장·deviceId 생성이 영구히
+     * 실패하고 복구 수단은 앱 데이터 삭제뿐이다(#349).
+     *
+     * 갈아 쓰되 조용히 지나가지는 않는다 — 손상 사실을 [errorReporter] 로 남겨야 재발을 셀 수 있다.
+     */
     private fun createStore(name: String): DataStore<Preferences> =
-        PreferenceDataStoreFactory.create(scope = newStoreScope()) { produceFile(name) }
+        PreferenceDataStoreFactory.create(
+            corruptionHandler =
+                ReplaceFileCorruptionHandler { exception ->
+                    errorReporter.recordFailure(exception, mapOf(KEY_STORE_STAGE to STAGE_CORRUPTION, KEY_STORE_NAME to name))
+                    emptyPreferences()
+                },
+            scope = newStoreScope(),
+        ) { produceFile(name) }
 
     /**
      * 저장소별 독립 [SupervisorJob] 을 [registryScope] 아래에 둔다 — 한 저장소의 실패가 다른 저장소로
@@ -218,6 +240,11 @@ internal class LocalStoreRegistryImpl(
 
     companion object {
         private const val TAG = "LocalStoreRegistry"
+
+        /** 리포팅 속성 — 어느 단계에서, 어느 저장소가 깨졌는지. 이름 외에 저장 내용은 싣지 않는다. */
+        private const val KEY_STORE_STAGE = "local_store_stage"
+        private const val KEY_STORE_NAME = "local_store_name"
+        private const val STAGE_CORRUPTION = "corruption"
 
         /** 레지스트리 자신의 (name → scope) 영속 기록 파일 — [store] 의 name 으로 쓸 수 없다. */
         internal const val MANIFEST_NAME = "local_store_registry"

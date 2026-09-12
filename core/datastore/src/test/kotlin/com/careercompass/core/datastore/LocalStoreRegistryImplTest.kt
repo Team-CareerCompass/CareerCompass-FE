@@ -2,6 +2,7 @@ package com.careercompass.core.datastore
 
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.careercompass.core.common.reporting.ErrorReporter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,18 +30,36 @@ class LocalStoreRegistryImplTest {
     @get:Rule
     val folder = TemporaryFolder()
 
+    private class RecordingReporter : ErrorReporter {
+        val attributes = mutableListOf<Map<String, String>>()
+
+        override fun writeFailure(
+            throwable: Throwable,
+            attributes: Map<String, String>,
+        ) {
+            this.attributes += attributes
+        }
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val key = stringPreferencesKey("value")
+    private val reporter = RecordingReporter()
 
     @After
     fun tearDown() {
         scope.cancel()
     }
 
-    private fun registry(): LocalStoreRegistryImpl =
+    private fun registry(): LocalStoreRegistryImpl = registry(scope) { name -> File(folder.root, "$name.preferences_pb") }
+
+    private fun registry(
+        registryScope: CoroutineScope,
+        produceFile: (name: String) -> File,
+    ): LocalStoreRegistryImpl =
         LocalStoreRegistryImpl(
-            produceFile = { name -> File(folder.root, "$name.preferences_pb") },
-            registryScope = scope,
+            produceFile = produceFile,
+            registryScope = registryScope,
+            errorReporter = reporter,
         )
 
     @Test
@@ -110,13 +129,10 @@ class LocalStoreRegistryImplTest {
         runBlocking {
             val brokenParent = File(folder.root, "broken").apply { mkdirs() }
             val registry =
-                LocalStoreRegistryImpl(
-                    produceFile = { name ->
-                        val parent = if (name in BROKEN_NAMES) brokenParent else folder.root
-                        File(parent, "$name.preferences_pb")
-                    },
-                    registryScope = scope,
-                )
+                registry(scope) { name ->
+                    val parent = if (name in BROKEN_NAMES) brokenParent else folder.root
+                    File(parent, "$name.preferences_pb")
+                }
             val token = registry.store(LocalStoreRegistry.TOKEN_STORE_NAME, StoreScope.SESSION)
             val profile = registry.store("Profile", StoreScope.SESSION)
             val broken = BROKEN_NAMES.map { registry.store(it, StoreScope.SESSION) }
@@ -148,11 +164,7 @@ class LocalStoreRegistryImplTest {
             scope.cancel()
 
             val restartedScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-            val restarted =
-                LocalStoreRegistryImpl(
-                    produceFile = { name -> File(folder.root, "$name.preferences_pb") },
-                    registryScope = restartedScope,
-                )
+            val restarted = registry(restartedScope) { name -> File(folder.root, "$name.preferences_pb") }
             try {
                 restarted.clearScope(StoreScope.SESSION)
 
@@ -160,6 +172,42 @@ class LocalStoreRegistryImplTest {
             } finally {
                 restartedScope.cancel()
             }
+        }
+
+    /**
+     * #349 — 기본 핸들러는 손상 파일을 읽을 때마다 다시 던지고, 그 예외가 IOException 하위라 읽기는 빈 값으로
+     * 가려지고 쓰기만 영구히 실패한다. 복구 수단이 앱 데이터 삭제뿐이 되지 않게 빈 값으로 갈아 쓰되, 손상
+     * 사실은 리포터로 남긴다.
+     */
+    @Test
+    fun `손상된 파일로 열어도 쓰기가 성공하고 손상을 남긴다`() =
+        runBlocking {
+            File(folder.root, "${LocalStoreRegistry.TOKEN_STORE_NAME}.preferences_pb").writeText("깨진 내용")
+            val registry = registry()
+            val token = registry.store(LocalStoreRegistry.TOKEN_STORE_NAME, StoreScope.SESSION)
+
+            token.edit { it[key] = "access" }
+
+            assertEquals("access", token.data.first()[key])
+            assertEquals(
+                listOf(LocalStoreRegistry.TOKEN_STORE_NAME),
+                reporter.attributes.mapNotNull { it["local_store_name"] },
+            )
+        }
+
+    /** 매니페스트도 같은 창구로 만든다 — 여기가 손상되면 이름 목록을 못 읽어 세션 정리가 통째로 막힌다. */
+    @Test
+    fun `매니페스트가 손상돼도 등록과 정리는 이어진다`() =
+        runBlocking {
+            File(folder.root, "${LocalStoreRegistryImpl.MANIFEST_NAME}.preferences_pb").writeText("깨진 내용")
+            val registry = registry()
+            val token = registry.store(LocalStoreRegistry.TOKEN_STORE_NAME, StoreScope.SESSION)
+            token.edit { it[key] = "access" }
+
+            registry.clearScope(StoreScope.SESSION)
+
+            assertNull(token.data.first()[key])
+            assertTrue(reporter.attributes.any { it["local_store_name"] == LocalStoreRegistryImpl.MANIFEST_NAME })
         }
 
     private companion object {
