@@ -71,6 +71,11 @@ public class AppState(
      *
      * 인증 흐름(`[Onboarding]`)에서는 내리지 않는다. 내리면 인증 게이트를 건너뛰므로, 인증을 마치고
      * [navigateToMain] 이 피드를 그릴 때까지 보관한다.
+     *
+     * 이 판정을 효과에서 떼어 둔 것은 계측으로는 못 잠그기 때문이다. `onNewIntent` 로 딥링크를 다시 받은
+     * `ActivityScenario` 는 추적 인스턴스가 PAUSED 에 머물러 `close()` 가 DESTROYED 를 영영 못 본다
+     * (0912 실측 — 액티비티 인스턴스는 재사용되는 것을 확인했고, 전달을 계측 컨텍스트로 바꾸거나 먼저
+     * finish 를 걸어도 같았다). 그래서 회귀는 JVM 에서 이 함수로 잠근다.
      */
     public fun shouldDescendToFeedForDeepLink(topKey: NavKey?): Boolean = backStack.firstOrNull() == Route.Feed && topKey != Route.Feed
 
