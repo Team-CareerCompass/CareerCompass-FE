@@ -1,7 +1,6 @@
 package com.careercompass.core.ui.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -38,6 +37,13 @@ import androidx.navigation3.ui.NavDisplay
  * `else -> boundary.exit()` 에 실제로 도달하는 것은 **화면 안 back 버튼**(`popOrExit`)뿐이다.
  * `FeatureNavDisplayTest` 의 「back 은 스택만 줄이고 바닥에서는 이 표시부를 지나쳐 위로 흐른다」가
  * 이 갈림을 잠근다.
+ *
+ * 깊이 신호는 **컴포지션에서 빠질 때 되돌리지 않는다**(#354). 되돌리면 로컬 스택이 부모 entry 에 그대로
+ * 남아 있는데도 셸은 바닥이라고 알게 되고, 위에 쌓였던 루트 화면에서 돌아오는 첫 프레임이 그 값으로 그려진다.
+ * 셸의 바텀바 판정은 그 프레임이 시작되기 전에 이미 값을 읽으므로, 컴포지션 안에서든 `LaunchedEffect` 에서든
+ * 그 프레임에 올리는 값으로는 늦는다. 되돌리기를 없애도 오염은 남지 않는다. 셸은 이 피처가 화면에 있을 때만
+ * 이 값을 읽고, host 는 컴포지션에 들어올 때마다 제 깊이를 다시 올리기 때문이다. 스택이 새로 세워진 경우도
+ * 첫 컴포지션의 `LaunchedEffect` 가 바닥임을 알려 스스로 바로잡는다.
  */
 @Composable
 public fun FeatureNavDisplay(
@@ -50,11 +56,6 @@ public fun FeatureNavDisplay(
     val isAtRoot = backStack.size <= 1
 
     LaunchedEffect(isAtRoot) { currentBoundary.onAtRootChanged(isAtRoot) }
-    // 탭 이탈로 host 가 컴포지션에서 빠질 때 깊이 신호를 되돌린다. 안 되돌리면 다른 탭의
-    // 바텀바 판정이 이 피처의 마지막 깊이에 오염된다.
-    DisposableEffect(Unit) {
-        onDispose { currentBoundary.onAtRootChanged(true) }
-    }
 
     NavDisplay(
         backStack = backStack,
