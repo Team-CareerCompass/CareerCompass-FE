@@ -15,7 +15,10 @@ set -euo pipefail
 : "${RELEASE_SMOKE_APK_PATH:?RELEASE_SMOKE_APK_PATH is required}"
 : "${ANDROID_HOME:?ANDROID_HOME is required}"
 
-package_name="com.careercompass.careercompass_fe"
+# 기기에서 앱을 찾는 이름은 namespace 가 아니라 applicationId 다. 이 저장소는 둘이 다르고,
+# namespace 만 옮겨졌을 때(#220) 이 값이 조용히 스테일해져 preflight 가 런처 액티비티를 못 찾았다.
+# release-aab-preflight.test.mjs 가 이 줄과 app/build.gradle.kts 의 applicationId 를 대조한다.
+package_name="com.cambridge.careercompass_fe"
 # 기기 관련 값은 로컬에서 이 스크립트를 그대로 돌려 볼 수 있도록 덮어쓸 수 있게 둔다.
 avd_name="${RELEASE_SMOKE_AVD:-careercompass-release-smoke}"
 system_image="${RELEASE_SMOKE_SYSTEM_IMAGE:-system-images;android-34;default;x86_64}"
