@@ -416,7 +416,14 @@ export function parseBomPom(content) {
     return managed;
 }
 
-export function parseResolvedDependencies(content, source = "") {
+// 해석 보고서가 어느 클래스패스를 설명하는지. `project` 는 모듈의 runtimeClasspath 류,
+// `build` 는 루트 `buildEnvironment`(플러그인 클래스패스)다. 카탈로그 선언과 해석 결과를
+// 비교할 때는 같은 클래스패스끼리만 견준다 — #312 는 KGP·AGP 가 끌어오는 coroutines 1.9.0
+// (플러그인 클래스패스) 을 앱 라이브러리 선언 1.11.0 과 비교해 «선언과 해석이 다르다» 고
+// 오탐했다. 앱·도메인 모듈은 전부 1.11.0 으로 해석되고 있었다.
+export const CLASSPATH_SCOPES = Object.freeze({ project: "project", build: "build" });
+
+export function parseResolvedDependencies(content, source = "", scope = CLASSPATH_SCOPES.project) {
     const dependencies = [];
     const matcher = /([A-Za-z0-9_.-]+):([A-Za-z0-9_.-]+):([^\s()]+)(?:\s+->\s+([^\s()]+))?/g;
     for (const line of String(content).split(/\r?\n/)) {
@@ -434,6 +441,7 @@ export function parseResolvedDependencies(content, source = "") {
                 requestedVersion,
                 selectedVersion: selectedVersion.replace(/[),]$/, ""),
                 source,
+                scope,
             });
         }
     }
@@ -449,11 +457,14 @@ function mergeResolvedDependencies(entries) {
             version: entry.selectedVersion,
             requests: [],
             sources: [],
+            scopes: [],
         };
         current.requests.push(entry.requestedVersion);
         current.sources.push(entry.source);
+        current.scopes.push(entry.scope ?? CLASSPATH_SCOPES.project);
         current.requests = [...new Set(current.requests)];
         current.sources = [...new Set(current.sources)];
+        current.scopes = [...new Set(current.scopes)];
         merged.set(key, current);
     }
     return [...merged.values()].sort((left, right) =>
@@ -750,6 +761,34 @@ function directEntries(catalog, usage) {
     return entries.sort((left, right) => `${left.kind}:${left.alias}`.localeCompare(`${right.kind}:${right.alias}`));
 }
 
+// 카탈로그 항목이 어느 클래스패스에 실리는지를 사용처로 판정한다. 플러그인 항목과
+// `build-logic/`·`settings.gradle.kts` 에서만 쓰는 라이브러리(kotlin-gradlePlugin 등)는 플러그인
+// 클래스패스, 모듈 빌드 스크립트에서 쓰는 라이브러리는 프로젝트 클래스패스다. 양쪽에서 쓰면
+// 둘 다. 사용처를 모르는 항목은 어느 쪽 보고서와도 견준다(누락보다 오탐이 낫다).
+export function classpathScopesOf(entry) {
+    if (entry.kind === "plugin") {
+        return new Set([CLASSPATH_SCOPES.build]);
+    }
+    const references = entry.references ?? [];
+    if (references.length === 0) {
+        return new Set([CLASSPATH_SCOPES.project, CLASSPATH_SCOPES.build]);
+    }
+    const scopes = new Set();
+    for (const reference of references) {
+        const filePath = reference.replace(/:\d+$/, "");
+        const onBuildClasspath =
+            filePath.startsWith("build-logic/") || filePath === "settings.gradle.kts";
+        scopes.add(onBuildClasspath ? CLASSPATH_SCOPES.build : CLASSPATH_SCOPES.project);
+    }
+    return scopes;
+}
+
+function sharesClasspath(entryScopes, dependency) {
+    const dependencyScopes = dependency.scopes ?? [dependency.scope ?? null];
+    // scope 를 모르는 해석 결과(옛 호출자)는 예전처럼 모든 항목과 견준다.
+    return dependencyScopes.some((scope) => scope === null || scope === undefined || entryScopes.has(scope));
+}
+
 export function consistencyFindings(entries, resolvedDependencies, catalog) {
     const findings = [];
     for (const entry of entries) {
@@ -783,8 +822,10 @@ export function consistencyFindings(entries, resolvedDependencies, catalog) {
         if (!entry.coordinate || !entry.currentVersion) {
             continue;
         }
+        const entryScopes = classpathScopesOf(entry);
         const selectedVersions = resolvedDependencies
             .filter((dependency) => dependency.coordinate === entry.coordinate)
+            .filter((dependency) => sharesClasspath(entryScopes, dependency))
             .map((dependency) => dependency.version)
             .filter((version) => version !== entry.currentVersion);
         for (const selectedVersion of [...new Set(selectedVersions)]) {
@@ -898,6 +939,7 @@ function parseArguments(argv) {
         output: "build/reports/dependency-audit/dependency-audit.json",
         summary: "build/reports/dependency-audit/dependency-audit.md",
         resolvedReports: [],
+        buildEnvironmentReports: [],
         resolutionStatus: null,
         compatibilityStatus: null,
         offline: false,
@@ -908,6 +950,8 @@ function parseArguments(argv) {
             options.offline = true;
         } else if (argument === "--resolved-report") {
             options.resolvedReports.push(argv[++index]);
+        } else if (argument === "--build-environment-report") {
+            options.buildEnvironmentReports.push(argv[++index]);
         } else if (argument === "--root") {
             options.root = argv[++index];
         } else if (argument === "--output") {
@@ -952,10 +996,14 @@ async function main() {
 
     const resolvedRaw = [];
     const missingResolvedReports = [];
-    for (const reportPath of options.resolvedReports) {
+    const reportInputs = [
+        ...options.resolvedReports.map((reportPath) => ({ reportPath, scope: CLASSPATH_SCOPES.project })),
+        ...options.buildEnvironmentReports.map((reportPath) => ({ reportPath, scope: CLASSPATH_SCOPES.build })),
+    ];
+    for (const { reportPath, scope } of reportInputs) {
         try {
             const content = await fs.readFile(reportPath, "utf8");
-            resolvedRaw.push(...parseResolvedDependencies(content, path.basename(reportPath)));
+            resolvedRaw.push(...parseResolvedDependencies(content, path.basename(reportPath), scope));
         } catch (error) {
             if (error?.code === "ENOENT") {
                 missingResolvedReports.push(reportPath);

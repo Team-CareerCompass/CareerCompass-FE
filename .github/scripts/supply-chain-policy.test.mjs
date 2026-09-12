@@ -428,10 +428,14 @@ test('dependency audit resolves and tests every domain module on its current pla
   const produced = [...source.matchAll(/^\s*run_report\s+(\S+)\s/gm)].map((match) => match[1]);
   assert.ok(produced.length > 0, 'run_report 선언을 하나도 못 찾았다 — 판정이 망가졌다');
 
+  // 플러그인 클래스패스 보고서는 --build-environment-report 로 넘긴다(#312). 어느 플래그든
+  // 수집 단계에 들어가야 한다는 판정은 같다.
   const collected = new Set(
-    [...source.matchAll(/--resolved-report "\$REPORT_DIR\/resolved\/([^"]+)\.txt"/g)].map(
-      (match) => match[1],
-    ),
+    [
+      ...source.matchAll(
+        /--(?:resolved|build-environment)-report "\$REPORT_DIR\/resolved\/([^"]+)\.txt"/g,
+      ),
+    ].map((match) => match[1]),
   );
   const missing = produced.filter((name) => !collected.has(name));
   assert.deepEqual(missing, [], `수집 단계에 넘어가지 않는 리포트가 있다: ${missing.join(', ')}`);

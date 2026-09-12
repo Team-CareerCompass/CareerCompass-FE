@@ -123,7 +123,7 @@ jobs:
         run: |
           node .github/scripts/collect-dependency-audit.mjs \
             --root . \
-            --resolved-report "$REPORT_DIR/resolved/root-build-environment.txt" \
+            --build-environment-report "$REPORT_DIR/resolved/root-build-environment.txt" \
             --resolved-report "$REPORT_DIR/resolved/app-debug-runtime.txt" \
             --resolved-report "$REPORT_DIR/resolved/konsist-test-runtime.txt" \
             --resolved-report "$REPORT_DIR/resolved/core-model-runtime.txt" \
