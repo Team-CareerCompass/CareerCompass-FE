@@ -20,6 +20,7 @@ import com.careercompass.core.model.experience.MAX_EXPERIENCE_CARDS
 import com.careercompass.core.model.experience.MAX_EXPERIENCE_LINK_LENGTH
 import com.careercompass.core.model.experience.MAX_EXPERIENCE_TECH_TAGS
 import com.careercompass.core.model.experience.MAX_EXPERIENCE_TECH_TAG_LENGTH
+import com.careercompass.core.model.paging.CursorPage
 import com.careercompass.core.model.user.JobInterest
 import com.careercompass.core.model.user.ProfileFieldViolation
 import com.careercompass.core.model.user.SchoolCatalog
@@ -1215,6 +1216,64 @@ class OnboardingViewModelTest {
     }
 
     @Test
+    fun `목록을 읽는 동안에는 다시 읽지 않고 카드 추가도 잠근다`() {
+        val gate = CompletableDeferred<Unit>()
+        var getCount = 0
+        experienceRepository.onGetExperiences = { _, _, _ ->
+            getCount++
+            gate.await()
+            Result.success(CursorPage(items = listOf(sampleExperience(id = 1L)), nextCursor = null))
+        }
+        progressRepository.progressState.value = OnboardingProgress.InProgress(OnboardingStep.Experience)
+        val viewModel = createViewModel()
+        assertTrue(viewModel.uiState.value.step3.isLoading)
+
+        // 아직 받지 못한 목록으로 상한을 판정하지 않는다.
+        viewModel.onStep3Event(OnboardingStep3Event.AddExperienceClicked)
+        assertNull(viewModel.uiState.value.experienceEditor)
+        // 같은 단계로 다시 들어와도 도는 조회에 하나를 더 걸지 않는다.
+        viewModel.onStep2Event(OnboardingStep2Event.NextClicked)
+        assertEquals(1, getCount)
+
+        gate.complete(Unit)
+        assertFalse(viewModel.uiState.value.step3.isLoading)
+        viewModel.onStep3Event(OnboardingStep3Event.AddExperienceClicked)
+        assertNotNull(viewModel.uiState.value.experienceEditor)
+    }
+
+    @Test
+    fun `조회 중 등록한 카드는 목록 응답이 와도 남는다`() {
+        var getCount = 0
+        experienceRepository.onGetExperiences = { _, _, _ ->
+            getCount++
+            // 첫 조회는 실패한다 — 실패한 조회는 추가를 잠그지 않으므로 목록 없이 카드를 등록할 수 있다.
+            if (getCount == 1) {
+                Result.failure(CoreDataFailure.NetworkUnavailable(IOException("offline")))
+            } else {
+                // 이 응답은 방금 등록한 카드(id 1)를 아직 모른다.
+                Result.success(CursorPage(items = listOf(sampleExperience(id = 5L)), nextCursor = null))
+            }
+        }
+        progressRepository.progressState.value = OnboardingProgress.InProgress(OnboardingStep.Experience)
+        val viewModel = createViewModel()
+        assertFalse(viewModel.uiState.value.step3.isLoaded)
+        assertFalse(viewModel.uiState.value.step3.isLoading)
+
+        viewModel.onStep3Event(OnboardingStep3Event.AddExperienceClicked)
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.TypeSelected(ExperienceType.Award))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.TitleChanged("공모전"))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.PrimaryChanged("대상"))
+        viewModel.onExperienceEditorEvent(ExperienceQuickAddEvent.Submitted)
+        assertEquals(listOf("공모전"), experienceTitles(viewModel))
+
+        // 다음 진입이 목록을 다시 읽는다.
+        viewModel.onStep2Event(OnboardingStep2Event.NextClicked)
+
+        assertEquals(2, getCount)
+        assertEquals(listOf("공모전", "CareerCompass"), experienceTitles(viewModel))
+    }
+
+    @Test
     fun `Step 3 다음은 진행 기록만 바꾸고 Step 4 로 이동하며 목록을 미리 읽는다`() {
         pastApplicationRepository.applications += samplePastApplication(id = 9L, itemCount = 3)
         val viewModel = createViewModel()
@@ -1353,6 +1412,29 @@ class OnboardingViewModelTest {
         // 두 번째 404 가 이미 지워진 문서에 배너와 계측 표본을 남기지 않는다.
         assertNull(viewModel.uiState.value.failure)
         assertEquals(emptyList<String>(), reporter.stages())
+    }
+
+    @Test
+    fun `조회 중 끝난 업로드는 목록 응답이 와도 남는다`() {
+        val gate = CompletableDeferred<Unit>()
+        pastApplicationRepository.applications += samplePastApplication(id = 9L, itemCount = 1)
+        pastApplicationRepository.onGetPastApplications = {
+            gate.await()
+            // 이 응답은 조회를 건 뒤에 올라간 문서를 아직 모른다.
+            Result.success(listOf(samplePastApplication(id = 9L, itemCount = 1)))
+        }
+        progressRepository.progressState.value = OnboardingProgress.InProgress(OnboardingStep.PastApplication)
+        val viewModel = createViewModel()
+        assertTrue(viewModel.uiState.value.step4.isLoading)
+
+        // 프로세스가 죽기 전에 고른 파일은 조회 중에도 복구돼 올라간다(#133) — 고른 파일을 버리지 않는다.
+        viewModel.confirmUpload(uploadFile("resume.pdf"))
+        assertEquals(listOf("local-1"), documentIds(viewModel))
+
+        gate.complete(Unit)
+
+        assertEquals(listOf("remote-9", "local-1"), documentIds(viewModel))
+        assertTrue(viewModel.uiState.value.step4.isLoaded)
     }
 
     @Test

@@ -86,6 +86,7 @@ private fun OnboardingStep3FormState.toUiState(isInputEnabled: Boolean): Onboard
         selectedExperienceTypeId = selectedType.wireValue,
         experiences = experiences.map { it.toUiModel() },
         isInputEnabled = isInputEnabled,
+        isListLoading = isLoading,
     )
 
 @Composable

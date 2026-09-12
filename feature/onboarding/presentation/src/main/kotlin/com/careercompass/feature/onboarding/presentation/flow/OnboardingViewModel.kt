@@ -623,19 +623,35 @@ public class OnboardingViewModel
             }
         }
 
+        /**
+         * Step 3 목록을 한 번 읽는다. 도는 동안 카드 추가를 잠그고, 응답은 갈아 끼우지 않고 병합한다(#356).
+         *
+         * 실패하면 [OnboardingStep3FormState.isLoading] 만 풀고 [OnboardingStep3FormState.isLoaded] 는 false 로
+         * 남긴다 — 다음 진입이 다시 읽고, 그 사이에도 추가는 열려 있다.
+         */
         private fun loadExperiences() {
-            if (currentState.step3.isLoaded) return
+            val form = currentState.step3
+            if (form.isLoaded || form.isLoading) return
+            updateStep3 { copy(isLoading = true) }
             viewModelScope.launch {
                 getOnboardingExperiences()
-                    .onSuccess { experiences -> updateStep3 { copy(experiences = experiences, isLoaded = true) } }
-                    .onFailure { throwable -> report(OnboardingFailureStage.LoadExperiences, throwable) }
+                    .onSuccess { experiences -> updateStep3 { merging(experiences) } }
+                    .onFailure { throwable ->
+                        updateStep3 { copy(isLoading = false) }
+                        report(OnboardingFailureStage.LoadExperiences, throwable)
+                    }
             }
         }
 
-        /** 신규 등록. 상한(F1-3, 30개)에 닿았으면 열지 않고 사유만 알린다 — 하나를 지우면 다시 열린다. */
+        /**
+         * 신규 등록. 상한(F1-3, 30개)에 닿았으면 열지 않고 사유만 알린다 — 하나를 지우면 다시 열린다.
+         *
+         * 목록을 읽는 중에는 열지 않는다(#356). 아직 빈 목록으로 상한을 판정하면 31번째 카드를 서버가 거절할
+         * 때까지 알 수 없다. 화면의 추가 버튼도 같은 조건으로 잠긴다.
+         */
         private fun openExperienceEditor() {
             val state = currentState
-            if (!state.isInputEnabled) return
+            if (!state.isInputEnabled || state.step3.isLoading) return
             if (state.step3.experiences.size >= MAX_EXPERIENCE_CARDS) {
                 dispatch(OnboardingReducerEvent.Failed(OnboardingFailureReason.LimitExceeded(FailureSurface.ExperienceCard)))
                 return
@@ -802,19 +818,18 @@ public class OnboardingViewModel
             }
         }
 
+        /** Step 4 목록을 한 번 읽는다. 규칙은 [loadExperiences] 와 같다(#356). */
         private fun loadPastApplications() {
-            if (currentState.step4.isLoaded) return
+            val form = currentState.step4
+            if (form.isLoaded || form.isLoading) return
+            updateStep4 { copy(isLoading = true) }
             viewModelScope.launch {
                 getOnboardingPastApplications()
-                    .onSuccess { applications ->
-                        val remote = applications.take(MAX_PAST_APPLICATIONS).map(::toRemoteDocument)
-                        val local = currentState.step4.documents.filter { it.remoteId == null }
-                        dispatch(
-                            OnboardingReducerEvent.Step4Updated(
-                                OnboardingStep4FormState(documents = (remote + local).take(MAX_PAST_APPLICATIONS), isLoaded = true),
-                            ),
-                        )
-                    }.onFailure { throwable -> report(OnboardingFailureStage.LoadPastApplications, throwable) }
+                    .onSuccess { applications -> updateStep4 { merging(applications.map(::toRemoteDocument)) } }
+                    .onFailure { throwable ->
+                        updateStep4 { copy(isLoading = false) }
+                        report(OnboardingFailureStage.LoadPastApplications, throwable)
+                    }
             }
         }
 
@@ -1030,7 +1045,7 @@ public class OnboardingViewModel
 
         /** 프로세스가 죽어 닫힌 시트는 저절로 다시 열지 않는다 — 대신 다시 열면 쓰던 글이 그대로 있다(#133). */
         private fun openDirectInput() {
-            if (!currentState.isInputEnabled) return
+            if (!currentState.isInputEnabled || currentState.step4.isLoading) return
             dispatch(OnboardingReducerEvent.DirectInputUpdated(draft.restoredDirectInput()))
         }
 
@@ -1239,6 +1254,19 @@ private fun OnboardingStep2FormState.prefill(profile: UserProfile?): OnboardingS
     )
 }
 
+/**
+ * 서버 목록에 그 사이 등록한 카드를 얹는다.
+ *
+ * 조회를 시작한 뒤에 만든 카드는 응답에 없다. 통째로 갈아 끼우면 방금 등록한 카드가 화면에서 사라지고,
+ * 사용자가 같은 카드를 다시 등록해 서버에 둘이 남는다(#356). 서버가 모르는 카드만 앞에 남긴다 — 목록이
+ * 최신 등록순이라 방금 만든 카드의 자리가 맨 앞이다.
+ */
+private fun OnboardingStep3FormState.merging(loaded: List<Experience>): OnboardingStep3FormState {
+    val loadedIds = loaded.mapTo(mutableSetOf(), Experience::id)
+    val pending = experiences.filterNot { it.id in loadedIds }
+    return copy(experiences = pending + loaded, isLoaded = true, isLoading = false)
+}
+
 /** 새 카드는 맨 앞(최신 등록순), 수정한 카드는 있던 자리에 그대로 둔다. */
 private fun OnboardingStep3FormState.upsert(
     saved: Experience,
@@ -1300,6 +1328,25 @@ private fun OnboardingStep4FormState.restore(
     } else {
         copy(documents = documents.toMutableList().apply { add(index.coerceAtMost(size), document) })
     }
+
+/**
+ * 서버 목록에 그 사이 올린 문서를 얹는다.
+ *
+ * 앞 규칙은 `remoteId == null` 인 문서만 남겨, 조회가 끝나기 전에 업로드까지 끝난 문서(그래서 remoteId 를
+ * 받은 문서)를 목록에서 지웠다(#356). 서버가 돌려준 id 로 가른다 — 서버가 이미 아는 문서는 서버 쪽을 쓰고,
+ * 모르는 문서(올리는 중이거나 방금 끝난 것)는 그대로 둔다.
+ */
+private fun OnboardingStep4FormState.merging(loaded: List<OnboardingUploadDocument>): OnboardingStep4FormState {
+    val loadedIds = loaded.mapNotNullTo(mutableSetOf(), OnboardingUploadDocument::remoteId)
+    val pending = documents.filterNot { it.remoteId != null && it.remoteId in loadedIds }
+    val merged = (loaded + pending).take(MAX_PAST_APPLICATIONS)
+    return copy(
+        documents = merged,
+        isLoaded = true,
+        isLoading = false,
+        expandedDocumentId = expandedDocumentId?.takeIf { id -> merged.any { it.id == id } },
+    )
+}
 
 private fun toRemoteDocument(application: PastApplication): OnboardingUploadDocument =
     OnboardingUploadDocument(
