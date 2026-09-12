@@ -73,6 +73,35 @@ class AppStateTest {
         assertEquals(listOf("Onboarding"), state.shape())
     }
 
+    /**
+     * 딥링크가 보관만 되고 적용되지 않던 경로(#337). 피드 host 는 루트 최상단이 피드일 때만 그려진다.
+     *
+     * 판정이 topKey 만 보는 게 아니라 바닥까지 보는 이유는 아래 「인증 흐름」 케이스에 있다.
+     */
+    @Test
+    fun `메인 모양에서 피드가 아닌 화면을 보고 있을 때만 딥링크 전에 피드로 내린다`() {
+        val state = stateOn(Route.Feed)
+        assertFalse(state.shouldDescendToFeedForDeepLink(state.topKey))
+
+        state.navigateToTab(CareerCompassBottomTab.My)
+        assertTrue(state.shouldDescendToFeedForDeepLink(state.topKey))
+
+        state.navigateToTab(CareerCompassBottomTab.Feed)
+        assertFalse(state.shouldDescendToFeedForDeepLink(state.topKey))
+
+        // 피드 위에 쌓인 다른 모듈 화면(지원서 문항 확인)도 같다. 그 위에서는 피드 host 가 없다.
+        state.navigateToApplicationSetup(postingId = 101)
+        assertTrue(state.shouldDescendToFeedForDeepLink(state.topKey))
+    }
+
+    /** 인증 흐름에서는 내리지 않는다. 내리면 로그인·온보딩 게이트를 건너뛴다. */
+    @Test
+    fun `인증 흐름에서는 딥링크 때문에 피드로 내리지 않는다`() {
+        val state = stateOn(Route.Onboarding)
+
+        assertFalse(state.shouldDescendToFeedForDeepLink(state.topKey))
+    }
+
     @Test
     fun `바텀바는 피드 홈과 자리표시자 탭에서만 보인다`() {
         val state = stateOn(Route.Feed)
