@@ -70,7 +70,7 @@
 
 ### PR별 QA 원천과 게이트
 
-구성 PR이 테스트 범위를 본문으로 선언하는 게이트는 `CI Test Plan` 하나다. [PR 템플릿](../../.github/pull_request_template.md)의 JSON 블록에 Android 계측 테스트를 `none`·`selected`·`full` 중 무엇으로 돌릴지 적으면, Repository Quality workflow의 `Validate CI Test Plan` 스텝이 [`validate-pr-ci-test-plan.mjs`](../../.github/scripts/validate-pr-ci-test-plan.mjs)로 변경 경계와 대조한다. `selected`는 그 revision에 실제로 존재하는 `FQCN#method`와 실행 lane이어야 한다.
+구성 PR이 테스트 범위를 본문으로 선언하는 게이트는 `CI Test Plan` 하나다. [PR 템플릿](../../.github/PULL_REQUEST_TEMPLATE.md)의 JSON 블록에 Android 계측 테스트를 `none`·`selected`·`full` 중 무엇으로 돌릴지 적으면, Repository Quality workflow의 `Validate CI Test Plan` 스텝이 [`validate-pr-ci-test-plan.mjs`](../../.github/scripts/validate-pr-ci-test-plan.mjs)로 변경 경계와 대조한다. `selected`는 그 revision에 실제로 존재하는 `FQCN#method`와 실행 lane이어야 한다.
 
 QA 문구 자체는 구성 PR에서 검증하지 않는다. 구성 PR 본문에 `## QA 포인트` 헤딩을 두면 [`render-release-scope.mjs`](../../.github/scripts/render-release-scope.mjs)가 그 목록을 릴리스 PR 초안으로 모으고, 없으면 릴리스 PR에서 사람이 직접 쓴다. 검사 지점은 배포 직전 릴리스 노트 렌더 단계 하나이며, 그 판정 기준은 아래 「일반 배포」에 있다.
 
