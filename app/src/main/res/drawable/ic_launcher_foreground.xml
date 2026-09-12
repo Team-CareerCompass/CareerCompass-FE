@@ -1,29 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  CareerCompass 나침반 마크 — Figma 10 Brand & Icons 의 원형 나침반 로고를 adaptive icon 안전 영역(66dp) 안에
-  단순화했다. 흰 링 + 북쪽 바늘(흰색)·남쪽 바늘(짙은 에메랄드 #047857) 구성이라 배경 에메랄드 위에서 대비가 난다.
+  CareerCompass 나침반 마크 — 링 위쪽을 북쪽 바늘이 뚫고 나가는 형태다. 남쪽 바늘을 두지 않아
+  색을 하나로 눌러도 위아래가 갈린다(테마 아이콘 대응, #417). 전체가 중심에서 반지름 33 안에 들어가
+  adaptive icon 안전 영역(66dp)을 지킨다. 배경 에메랄드(#10B981) 위 흰색.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 링: 반지름 24, 굵기 5 -->
+    <!-- 링: 반지름 23, 굵기 7.5 (바깥 반지름 26.75) -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="5"
-        android:pathData="M54,30 a24,24 0 1,1 -0.01,0 z" />
-    <!-- 북쪽 바늘 -->
+        android:strokeWidth="7.5"
+        android:pathData="M54,31 a23,23 0 1,1 -0.01,0 z" />
+    <!-- 북쪽 바늘: 끝 y=22 (중심에서 32), 밑변 y=69, 폭 26 -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,36 L60,54 L54,50.5 L48,54 Z" />
-    <!-- 남쪽 바늘 -->
-    <path
-        android:fillColor="#047857"
-        android:pathData="M54,72 L48,54 L54,57.5 L60,54 Z" />
-    <!-- 중심 축 -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,51.5 a2.5,2.5 0 1,1 -0.01,0 z" />
+        android:pathData="M54,22 L67,69 L54,58 L41,69 Z" />
 </vector>
