@@ -70,6 +70,7 @@
 | 지원 이력 응답의 공고 제목·기관 | 지원 이력 목록(F4-4)이 「어느 공고에 낸 것인가」를 못 쓴다. §6 의 지원서 스키마는 `id`·`status`·`items` 뿐이고, `postingId` 로 공고를 한 건씩 다시 읽는 우회는 목록 한 페이지에 20번의 왕복을 만든다 | [#188](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/188) |
 | 지원서 단건 조회(`GET /applications/{id}`) | 스트림이 끊긴 뒤 지금 상태를 다시 읽는 길. 지금은 `POST /applications` 가 「진행 중이면 기존 것을 돌려준다」는 규칙에 기대 복구한다 — 그 규칙이 서버에 들어가지 않으면 재시도가 초안을 하나 더 만든다 | [#182](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/182) |
 | `GET /notifications` 의 응답 스키마 | 알림 목록 화면 | [#195](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/195) |
+| 쓰기 응답의 형태 | API_SPEC §2 의 `PATCH /users/me`·`PUT /users/me/job-interests`·`PUT /users/me/tags` 와 §3·§4 의 쓰기에 **응답 예시가 없다.** 앱은 `PATCH /users/me` 가 `GET` 과 같은 전체 객체를 준다고 보고 `requireData()` 로 읽어 SESSION 캐시를 갈아 끼우고, `PUT job-interests`·`PUT tags` 는 `requireOk()` 로 `ok` 만 본다. 서버가 `{"ok":true}` 나 부분 객체를 주면 저장은 됐는데 앱은 `EMPTY_DATA` 로 「저장 실패」를 보고하고 캐시도 그대로여서, 온보딩 Step 1 이 「다음」에서 막힌다. 형태가 확정되면 앱이 맞춘다 | [#355](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/355) · [BE #3](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/3) · [BE #15](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/15) 확정 대기 |
 
 ## 지원서 스트림의 계약 (§6 의 빈 곳, #182 판정)
 

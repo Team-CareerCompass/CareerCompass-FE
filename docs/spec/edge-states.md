@@ -2,9 +2,9 @@
 
 Figma 09 Edge Cases 는 상태 화면을 **다섯 장**만 그려 두었다 — 연결 실패 · 분석 중 · 검색 결과 없음 · 알림 권한 꺼짐 · 서버 점검. 어느 화면에서 어떤 문구로 쓰는지는 시안에 없고, 그래서 FE 가 화면마다 문구를 스스로 지었다. 이 문서는 **지어낸 규칙이 아니라 이미 코드에 흩어져 있는 판정을 한자리에 모은 것**이다.
 
-- 기준 커밋: `develop` `4c4b472`(원문 보기·게시판 등록의 서버 점검 칸은 #212 가 채웠다). 표의 문구는 전부 실제 리소스에서 그대로 옮겼다 — 지어낸 문장은 하나도 없다.
+- 기준 커밋: `develop` `1ed5007`(#175~#183 으로 마이 홈·프로필 편집·경험 카드·과거 지원서·지원서 작성 첫 화면이 선 뒤다). 표의 문구는 전부 실제 리소스에서 그대로 옮겼다. 지어낸 문장은 하나도 없다.
 - 판정 이력: [#127](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/127)(빈 피드 사유 5종과 우선순위) · [#144](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/144)(조건 때문에 실패했을 때 조건을 되돌릴 길) · [#101](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/101)(서버 점검을 별도 사유로).
-- **진행 중인 이슈가 바꿀 칸은 표에 그렇게 적어 두었다** — #204(에러 코드 14종 → 문구 매핑) · #206(빈 피드에 「사라진 게시판」 사유 추가) · #197(알림 권한 동의 흐름) · #200(적합도 경계) · #205(색 대비). 그 칸의 지금 값은 곧 바뀐다.
+- **진행 중인 이슈가 바꿀 칸은 표에 그렇게 적어 두었다.** 지금 남은 것은 #197(알림 권한 동의 흐름) 하나이고, 그 칸의 값은 곧 바뀐다. #204(에러 코드 14종 → 문구 매핑) · #206(빈 피드의 「사라진 게시판」 사유) · #200(적합도 경계) · #205(색 대비)는 닫혔고 결과가 아래 표에 이미 들어와 있다.
 - 이 표를 채우다 드러난 결함은 [#211](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/211)(온보딩 세션 만료의 막다른 길) · [#212](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/212)(원문 보기·게시판 등록이 503 을 안 가른다)로 나갔다. **이 문서는 고치지 않고 기록만 한다.**
 
 ---
@@ -50,10 +50,11 @@ Figma 09 Edge Cases 는 상태 화면을 **다섯 장**만 그려 두었다 — 
 | 앱 시작(셸) | 없음 — 캐시로 판정 | 시스템 스플래시 | — | 없음 | 없음 — 캐시로 판정 | 로그인 화면 + 만료 배너 |
 | 로그인 | 인라인 오류 카드 | 인라인 진행 줄 | — | 없음 | 인라인 오류 카드(일반 문구) | 만료 배너(셸이 켠다) |
 | 지문 로그인 | 인라인 오류 카드 | 버튼 안 진행 표시 | — | 없음 | 인라인 오류 카드(일반 문구) | 로그인 화면으로 이동 |
+| 지문 등록 시트 | 인라인 오류 카드. 등록 실패는 **사유를 가르지 않는 한 갈래**다(§2.1) | 버튼 문구가 「등록하는 중」으로 바뀌고 두 버튼이 함께 잠긴다 | — | 없음. 쓸 수 없는 기기에는 시트를 띄우지 않는다 | 등록 실패와 같은 한 갈래 | 등록 실패와 같은 한 갈래. 셸에 알리지 않는다(§2.6) |
 | 온보딩 Step 1~4 | 하단 실패 배너 | 버튼 잠금(진행 표시 없음) | — | 없음 | 하단 실패 배너 | 셸에 알림 → 로그인(#211) |
 | 온보딩 학교 선택 시트 | — (로컬 목록) | — | 맨 `Text` + 직접 입력 버튼 | — | — | — |
 | 온보딩 완료 | 없음 | 없음 | — | 없음 | 없음 | 없음 |
-| 피드 홈 | `CareerCompassNetworkErrorState` | `FeedLoading` | `CareerCompassEmptyState` × 6사유 | 없음 | `FeedMaintenanceState` | 셸에 알림 → 로그인 |
+| 피드 홈 | `CareerCompassNetworkErrorState` | `FeedLoading` | `CareerCompassEmptyState` × 7사유 | 없음 | `FeedMaintenanceState` | 셸에 알림 → 로그인 |
 | 공고 상세 | `CareerCompassNetworkErrorState`(#222) | `FeedLoadingContent` · 적합도 카드는 `CareerCompassAnalyzingState(Inline)` → 소진 뒤 「다시 확인」(#221) | — | 없음 | `FeedMaintenanceState` | 셸에 알림 → 로그인 |
 | 원문 보기 | `CareerCompassNetworkErrorState` | `FeedLoadingContent` | 본문 자리 대체 문구 | 없음 | `FeedMaintenanceState` | 셸에 알림 → 로그인 |
 | 내 게시판(목록) | `CareerCompassNetworkErrorState` | `FeedLoadingContent` | `BoardListEmpty`(손으로 그림) | 없음 | `FeedMaintenanceState` | 셸에 알림 → 로그인 |
@@ -66,10 +67,12 @@ Figma 09 Edge Cases 는 상태 화면을 **다섯 장**만 그려 두었다 — 
 | 과거 지원서 목록 | 읽은 지원서가 없을 때만 `CareerCompassFailureState`(실패 표 #204 · `FailureSurface.Application`) · 분류 변경·삭제 실패는 스낵바 | 첫 조회만 화면 가운데 진행 표시 | `CareerCompassEmptyState` — 사유 하나(아직 안 올렸다) → 「첫 지원서 올리기」 | 없음 | 오프라인과 같은 길 | 셸에 알림 → 로그인 |
 | 지원서 작성(문항 확인) | 공고를 못 읽으면 `CareerCompassFailureState`(실패 표 #204 · `FailureSurface.Posting`) · 생성 실패는 문항을 그대로 두고 스낵바 `editor_setup_create_failed` | 첫 조회만 화면 가운데 진행 표시 · 생성 중에는 버튼 잠금 + 「초안을 준비하고 있어요…」 | **빈 결과가 실패가 아니다** — 인식된 문항이 0개면 「공고에서 항목을 찾지 못했어요」와 함께 직접 쓰는 자리를 연다(F4-1) | 없음 | 오프라인과 같은 길 · 생성 중 503(LLM 장애)은 스낵바 | 셸에 알림 → 로그인 |
 | 지원서 문항 편집 시트 | 없음 — 서버를 부르지 않는다 | 없음 | — | 없음 | 없음 | 없음 |
-| 분석·지원서·알림 탭 | 미구현 | 미구현 | `CareerCompassEmptyState`(자리표시자) | 미구현 | 미구현 | 미구현 |
+| 분석·지원서 탭 · 자리표시자 화면 4종 | 미구현 | 미구현 | `CareerCompassEmptyState`(자리표시자) | 미구현 | 미구현 | 미구현 |
 
-`feature/editor` · `feature/foryou` · `feature/notification` 은 **Kotlin 파일이 하나도 없다** — 빌드 스크립트만 있는 자리표시자다. 앱 셸이 `PlaceholderTabScreen` 으로 대신 그린다.
-`feature/profile` 은 마이 홈(#175) · 프로필 편집(#176 · #177) · 경험 카드 목록과 편집 시트(#178 · #179) · 과거 지원서 목록(#180)이 서 있고, 지원서 등록(#181)과 알림 설정(#196)만 셸의 `PlaceholderScreen` 이다.
+`feature/foryou` · `feature/notification` 은 **Kotlin 파일이 하나도 없다.** 빌드 스크립트만 있는 자리표시자다. `feature/editor` 는 지원서 작성 첫 화면(#183)이 서면서 domain·data·presentation 세 모듈에 코드가 들어왔지만 **탭 진입점은 아직 없다.** 그 화면을 여는 것은 공고 상세의 「지원서 초안 작성하기」다. 그래서 하단 탭 「분석」과 「지원서」 두 칸은 여전히 앱 셸의 `PlaceholderTabScreen` 이 그린다.
+`feature/profile` 은 마이 홈(#175) · 프로필 편집(#176 · #177) · 경험 카드 목록과 편집 시트(#178 · #179) · 과거 지원서 목록(#180)이 서 있다. 셸의 `PlaceholderScreen` 으로 남은 자리는 넷이다: 알림 목록(#195 · notification), 지원서 등록(#181 · profile), 초안 작성 진행(#184 · editor), 알림 설정(#196 · notification).
+
+지문 등록 시트는 **실패를 가르지 않는 자리**다. `BiometricEnrollViewModel` 이 `registerBiometric()` 의 실패를 사유와 무관하게 `RegistrationFailed(Registration)` 한 갈래로 접어, 네트워크 단절도 503 도 401 도 같은 한 줄(`onboarding_biometric_enroll_failure_registration`)로 보인다. 401 이어도 셸에 세션 종료를 알리지 않는다. 시트는 흐름을 막지 않기로 한 자리라 어느 실패로 끝나도 원래 이동을 이어 준다(§2.1 · §2.6).
 
 경험 카드 편집은 **저장 실패에 시트를 닫지 않는다.** 친 값을 버리면 다시 쳐야 하고, 전체 교체가 아니라 다시 누르면 되는 요청이다. 시트는 저장 중에만 잠긴다 — 숨긴 뒤 닫기를 무시하면 빈 창만 남는다.
 
@@ -105,6 +108,7 @@ Figma 09 Edge Cases 는 상태 화면을 **다섯 장**만 그려 두었다 — 
 | 게시판 등록 — 감지 타임아웃 | `BoardDetectionTimedOutBox`(경고 톤 상자) | `feed_board_detect_timeout_title` = 분석이 오래 걸려 멈췄어요 / `feed_board_detect_timeout_description` = 사이트 응답이 늦어 기다리기를 그만뒀어요. 지원되지 않는 게시판이라는 뜻은 아니니 잠시 후 다시 시도해 주세요 | 「다시 시도」(`feed_board_register_retry`) → `DetectClicked` |
 | 로그인 | `OnboardingErrorCard`(하단 인라인 배너) | `onboarding_login_failure_network` = 네트워크 연결을 확인한 뒤 다시 시도해 주세요 | 「닫기」만 — 재시도는 소셜 로그인 버튼이 그대로 살아 있어 그것이 대신한다 |
 | 지문 로그인 | `OnboardingErrorCard` | 지문 실패 사유별(`onboarding_biometric_failure_*`) | 「닫기」 · 「다른 방법으로 로그인」은 상시 |
+| 지문 등록 시트 | `OnboardingErrorCard` | `onboarding_biometric_enroll_failure_registration` = 지금은 지문 로그인을 켜지 못했어요. 다시 시도해 주세요 (**사유를 가르지 않는다.** 네트워크·503·401 이 같은 줄이다) | 「닫기」 · 「지문 등록하기」가 살아 있어 다시 누를 수 있고, 「나중에 하기」로 끝내도 원래 이동은 이어진다 |
 | 온보딩 Step 1~4 | `OnboardingFlowFailureHost` 의 하단 배너 | 실패 표의 `NoConnection` 행(#204, #236 에서 옮김) = 연결할 수 없어요. 인터넷 연결을 확인하고 다시 시도해 주세요 · 타임아웃은 `Timeout` 행 | 「닫기」만 — 재시도는 단계 하단의 「다음」이 대신한다 |
 | 온보딩 문서 업로드 카드 | 카드 상태 줄 | `onboarding_upload_failed_network` = 연결 실패 (`onboarding_step4_document_failed_retry` = `%1$s · 재시도` 틀에 끼워진다) | 「재시도」 → 그 문서만 다시 올린다 |
 
@@ -145,29 +149,31 @@ Figma 09 의 「분석 중」은 화면 한 장인데, **앱에는 화면을 통
 
 #### 피드 홈 — 우선순위와 사유별 문구
 
-겹칠 때는 **하나만** 고른다. 순서는 `OfflineSnapshot` > `NoBoards` > `MoreAvailable` > `Search` > `Filter` > `NotCollected` 이고, 기준은 「그 조건을 되돌리면 결과가 달라지는가」다(#127).
+겹칠 때는 **하나만** 고른다. 순서는 `OfflineSnapshot` > `NoBoards` > `MoreAvailable` > `MissingBoards` > `Search` > `Filter` > `NotCollected` 이고, 기준은 「그 조건을 되돌리면 결과가 달라지는가」다(#127 · #206).
 
 | 사유 | 판정 | 문구(리소스 = 값) | 버튼 → 동작 |
 |---|---|---|---|
 | `OfflineSnapshot` | `isOffline` | `feed_empty_offline_title` = 저장해 둔 목록에는 공고가 없어요 / `feed_empty_offline_description` = 연결되면 최신 공고를 다시 불러와요 | **없음(기다리는 상태)** — 되돌릴 조건이 없고, 조건을 되돌리는 행동은 곧 재조회라 오프라인에서 권하면 실패 화면으로 튄다 |
 | `NoBoards` | `boardsLoaded && boards.isEmpty()` | `feed_empty_no_boards_title` = 아직 등록한 게시판이 없어요 / `feed_empty_no_boards_description` = 학교 공지·채용 사이트를 등록하면 공고를 모아 여기에 보여 드려요 | 「게시판 등록하기」(`feed_empty_no_boards_action`) → `BoardRegisterSelected` → 게시판 등록 화면 |
 | `MoreAvailable` | `hasNext`(커서가 남았다) | `feed_empty_more_available_title` = 여기까지는 찾지 못했어요 / `feed_empty_more_available_description` = 최근 공고부터 차례로 훑어봤어요. 더 찾아보면 나올 수 있어요 | 「더 찾아보기」(`feed_load_more_action`) → `LoadMoreSelected` |
+| `MissingBoards` | `hasDeletedBoardFilter`(조건이 가리키는 게시판이 목록에 없다. **게시판 목록을 받아 본 뒤에만** 이 사유가 된다) | `feed_empty_missing_boards_title` = 고른 게시판 %1$d개가 지워졌어요 / `feed_empty_missing_boards_description` = 조건에서 빼면 다른 공고가 보여요 · 다른 조건이 함께 걸려 있으면 `feed_empty_missing_boards_description_partial` = 이 조건을 뺀 뒤에도 비면 남은 조건을 풀어 보세요 | 「사라진 게시판 조건 빼기」(`feed_empty_missing_boards_action`) → `MissingBoardsCleared`(시트를 열어 주는 것이 아니라 그 조건만 빼고 다시 조회한다) |
 | `Search` | `query.hasSearchQuery` | `feed_empty_search_title` = ‘%1$s’ 검색 결과가 없어요(조회에 실린 검색어) / `feed_empty_search_description` = 다른 낱말로 찾거나 검색어를 지워 보세요 | 「검색어 지우기」(`feed_empty_search_action`) → `SearchQueryChanged("")` |
 | `Filter` | `hasActiveFilter`(시트 조건 + 카테고리 칩) | `feed_empty_filter_title` = 필터에 맞는 공고가 없어요 / `feed_empty_filter_description` = 걸어 둔 조건을 풀면 더 많은 공고를 볼 수 있어요 | 「필터 초기화」(`feed_empty_filter_action`) → `FilterResetSelected` |
 | `NotCollected` | 나머지 | `feed_empty_not_collected_title` = 아직 모인 공고가 없어요 / `feed_empty_not_collected_description` = 등록한 게시판에 새 글이 올라오면 여기에 쌓여요. 수집이 도는 게시판이 있으면 `feed_empty_not_collected_description_with_notice` 로 한 줄을 덧붙인다 — `feed_empty_collect_notice` = 등록한 게시판을 %1$s 확인하고 있어요(주기가 갈리면 `feed_empty_collect_notice_mixed` = 가장 자주 보는 게시판을 %1$s 확인하고 있어요) | **없음(기다리는 상태)** — 눌러도 목록이 달라지지 않는 버튼은 기다리라는 안내와 모순된다 |
 
-> **#206 에서 정리 중** — 「선택한 게시판이 이미 삭제됐다」가 새 사유로 들어오고 `Filter` 보다 앞에 놓인다. 그때 이 표에 행 하나와 우선순위 한 자리가 바뀐다.
+> **#206 에서 채웠다.** 「선택한 게시판이 이미 삭제됐다」가 `MissingBoards` 로 들어왔고 `Search`·`Filter` 보다 앞에 놓인다. 나머지 조건은 사용자가 화면에서 볼 수 있는데 이것만 어디에도 보이지 않아서다.
 
 #### 그 밖의 화면
 
 | 화면 | 컴포넌트 | 문구(리소스 = 값) | 버튼 → 동작 |
 |---|---|---|---|
 | 내 게시판 | `BoardListEmpty` — **부품이 아니라 `BoardListContent.kt` 가 손으로 그린 `Column`**(삽화가 🗂 `feed_icon_board_empty` 라 🔍 고정인 부품을 못 썼다) | `feed_board_list_empty_title` = 등록된 게시판이 없어요 / `feed_board_list_empty_description` = 학교 공지·채용 사이트 URL 을 등록하면 자동으로 공고를 모아요 | 「게시판 등록하기」(`feed_board_list_empty_action`) → `AddBoardClicked` |
-| 학교 선택 시트 | 맨 `Text` | `onboarding_school_picker_empty` = 검색 결과가 없어요 | 「목록에 없어요. 직접 입력할게요」(`onboarding_school_picker_direct_action`) → 직접 입력 모드. **검색어를 친 뒤에만 뜬다**(`isDirectInputOffered`) |
+| 학교 선택 시트 | 맨 `Text` | `core_ui_school_picker_empty` = 검색 결과가 없어요 | 「목록에 없어요. 직접 입력할게요」(`core_ui_school_picker_direct_action`) → 직접 입력 모드. **검색어를 친 뒤에만 뜬다**(`SchoolPickerState.isDirectInputOffered`). 시트는 `core:ui` 의 것이라 리소스도 `core_ui_` 프리픽스다. 온보딩과 프로필 편집이 같은 시트를 쓴다 |
 | 원문 보기 — 본문이 빈 경우 | 본문 자리를 문구로 대체 | `feed_posting_raw_empty_content` = 본문을 가져오지 못했어요 | 없음 — 상단의 「원본 링크 열기」가 대신한다 |
 | 공고 상세 — 축별 점수가 없음 | 카드 안 캡션 | `feed_posting_detail_breakdown_unavailable` = 축별 세부 점수는 아직 없어요 | 없음 — 「모름」이지 「미충족」이 아니라 0점 축을 그리지 않는다 |
 | 공고 상세 — 지원서 항목 없음 | 섹션 안 문구 | `feed_posting_detail_form_questions_empty` = 자동 인식된 항목이 없어요 | 없음 |
-| 자리표시자 탭(분석·지원서·알림·마이) | `CareerCompassEmptyState` | `placeholder_analysis_title` = 분석 탭을 준비하고 있어요 등 / `placeholder_description` = 곧 이용할 수 있어요 | 없음 |
+| 자리표시자 탭(분석·지원서) | `CareerCompassEmptyState`(`PlaceholderTabScreen`) | `placeholder_analysis_title` = 분석 탭을 준비하고 있어요 · `placeholder_applications_title` = 지원서 탭을 준비하고 있어요 / `placeholder_description` = 곧 이용할 수 있어요 | 없음(상단 바가 없다) |
+| 자리표시자 화면(알림 목록·지원서 등록·초안 작성·알림 설정) | `CareerCompassEmptyState` + 상단 바(`PlaceholderScreen`) | 제목은 상단 바와 같은 값을 다시 쓴다: `placeholder_notifications_title` = 알림을 준비하고 있어요 · `placeholder_past_application_upload_title` = 지원서 등록 · `placeholder_application_progress_title` = 초안 작성 · `placeholder_notification_settings_title` = 알림 설정 / 본문은 모두 `placeholder_description` | 없음. 상단 바의 뒤로가기만 남는다 |
 
 ### 2.4 권한 거부
 
@@ -177,7 +183,7 @@ Figma 09 의 「분석 중」은 화면 한 장인데, **앱에는 화면을 통
 - 문구는 이미 있는데 아무도 안 읽는다 — `notification_permission_denied_message` = 알림이 꺼져 있어 새로운 소식을 받을 수 없어요 / `notification_permission_denied_action` = 설정. 참조하는 코드가 0곳이다.
 - 부품 `CareerCompassPermissionDeniedState` 도 호출처가 0곳이다.
 
-곧 붙을 자리는 `feature/notification` 모듈인데 그 모듈에는 Kotlin 파일이 아직 없다. 런타임 요청 자체는 앱 셸 몫이다.
+곧 붙을 자리는 `feature/notification` 모듈인데 그 모듈에는 Kotlin 파일이 아직 없다. 런타임 요청 자체는 앱 셸 몫이다. 마이 홈 메뉴의 「알림 설정」이 그 자리로 가는 길을 이미 열어 두었지만(`Route.NotificationSettingsPlaceholder`) 지금 도착하는 것은 자리표시자 화면이라, 권한을 묻는 손짓은 여전히 앱 어디에도 없다.
 
 > **#197 에서 정리 중** — FCM 수신과 권한 동의 흐름을 붙이는 이슈가 이 부품의 자리를 명시하고 있다(「앱을 켜자마자 묻지 않는다 — 알림이 왜 필요한지 아는 자리에서 묻는다」·거부 기록은 기기당이 아니라 **계정별**). 그때 이 절이 표로 채워진다.
 
@@ -208,6 +214,7 @@ Figma 09 의 「분석 중」은 화면 한 장인데, **앱에는 화면을 통
 | 피드 홈 · 공고 상세 · 원문 보기 · 내 게시판 · 게시판 등록 | `sessionEnded = true` → Screen 이 `onSessionEnded` 호출 → 앱 셸(`MainViewModel.onSessionEnded(Expired)`) → NavHost 를 새로 만들고 로그인 화면으로 | 이동 자체에는 문구가 없다 |
 | 앱 셸 자신(콜드 스타트 세션 판정 · 메인 뒤 백그라운드 확인) | `SessionEndCause.Expired` 를 실어 로그인으로 | — |
 | 지문 로그인 | 세션 검증이 만료를 알리면 그래프가 지문 화면을 걷어내고 로그인으로(`navigateToLoginAfterSessionExpiry`) | — |
+| 지문 등록 시트 | **아무 일도 일어나지 않는다.** `registerBiometric()` 이 401 을 물어도 등록 실패 한 갈래로 접혀 시트에 한 줄이 뜰 뿐이고, 셸에 세션 종료를 알리지 않는다. 이 시트는 로그인 성공·온보딩 완료 직후에만 뜨므로 세션이 방금 선 자리라 실제로 겪기 어렵고, 흐름을 막지 않는다는 규칙이 이동보다 앞선다 | `onboarding_biometric_enroll_failure_registration` = 지금은 지문 로그인을 켜지 못했어요. 다시 시도해 주세요 |
 | 로그인 화면 | 도착했을 때 **만료로 온 경우에만** 배너가 켜져 있다(`AppShellLaunch.sessionExpiryNotice`). 「닫기」를 누르거나 다시 로그인을 시도하면 꺼진다 | `onboarding_failure_session_expired` = 로그인이 만료됐어요. 다시 로그인해 주세요 |
 | 온보딩 Step 1~4 | 사용자가 시킨 저장·업로드·삭제가 401 을 물면 `sessionEnded = true` → Step Screen 이 `OnboardingNavActions.onSessionEnded` → 앱 셸(`Expired`) — 피드와 같은 길(#211). **화면 진입만으로 도는 자동 조회의 401 은 기록만 남긴다** — 세션 정리가 실패해 토큰이 남은 기기에서 「만료 → 재계산 → 다시 온보딩 → 같은 조회」가 손 없이 도는 고리를 막는다. 입력 초안은 NavHost 와 함께 버린다(다음 로그인이 같은 계정이라는 보장이 없다) | 이동 자체에는 문구가 없다 — 배너를 그리지 않는다(로그인 화면이 켠다) |
 | 온보딩 문서 업로드 카드 | 카드를 실패로 칠하지 않는다 — 화면을 떠나므로 읽힐 자리가 없고, 「재시도」는 같은 401 을 다시 무는 막다른 행동이다(#211) | — (`onboarding_upload_failed_session_expired` 는 지웠다) |
