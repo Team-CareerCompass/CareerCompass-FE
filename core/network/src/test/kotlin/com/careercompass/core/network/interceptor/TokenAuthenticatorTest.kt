@@ -92,15 +92,38 @@ class TokenAuthenticatorTest {
 
     @Test
     fun `일시 실패는 현재 요청만 IOException 으로 실패시킨다`() {
+        val transportFailure = java.net.SocketTimeoutException("timeout")
         val repository =
             FakeAuthRepository(accessToken = "old", refreshToken = "refresh").apply {
-                onRotateToken = { Result.failure(java.net.SocketTimeoutException("timeout")) }
+                onRotateToken = { Result.failure(transportFailure) }
             }
 
-        assertThrows(TokenReissueFailureException::class.java) {
-            authenticator(repository).authenticate(null, unauthorized("old"))
-        }
+        val thrown =
+            assertThrows(TokenReissueFailureException::class.java) {
+                authenticator(repository).authenticate(null, unauthorized("old"))
+            }
+
+        // 타입은 IOException 으로 고정이라 사유는 여기에 실려야 소비처가 문구를 가를 수 있다.
+        assertEquals(TokenReissueFailureException.Reason.Transport, thrown.reason)
+        assertEquals(transportFailure, thrown.cause)
         assertEquals(0, repository.clearSessionCalls)
+    }
+
+    @Test
+    fun `재발급이 5xx 로 끝나면 서버 응답을 사유로 실어 보낸다`() {
+        val serverFailure = ApiException("LLM_UNAVAILABLE", null, "점검 중", status = 503)
+        val repository =
+            FakeAuthRepository(accessToken = "old", refreshToken = "refresh").apply {
+                onRotateToken = { Result.failure(serverFailure) }
+            }
+
+        val thrown =
+            assertThrows(TokenReissueFailureException::class.java) {
+                authenticator(repository).authenticate(null, unauthorized("old"))
+            }
+
+        assertEquals(TokenReissueFailureException.Reason.Server, thrown.reason)
+        assertEquals(serverFailure, thrown.cause)
     }
 
     @Test
