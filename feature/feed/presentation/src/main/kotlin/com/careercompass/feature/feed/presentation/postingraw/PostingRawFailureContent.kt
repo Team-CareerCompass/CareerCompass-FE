@@ -46,7 +46,7 @@ internal fun PostingRawFailureContent(
             )
         }
 
-        FeedFailureReason.Generic -> {
+        is FeedFailureReason.Generic -> {
             // 「원문」이라는 명사는 실패 표에 문맥이 없어 이 화면의 문구를 쓴다. 부품은 실패 전용이다(#222).
             CareerCompassFailureState(
                 title = stringResource(R.string.feed_posting_raw_error_title),

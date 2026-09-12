@@ -38,12 +38,14 @@ internal fun BoardListFailureContent(
             )
         }
 
-        FeedFailureReason.Generic -> {
+        is FeedFailureReason.Generic -> {
             // 문구는 실패 표에서 읽는다(#204). 같은 사유라도 「게시판」이라는 명사는 문맥이 채우고, 버튼은 표의
             // 행동이 있을 때만 붙는다. 실패 전용 부품이라 「검색 결과 없음」과 삽화부터 갈린다(#222).
+            // 목록이 열 수 있는 길은 재조회뿐이므로 표가 다른 행동을 가리키면 콜백을 넘기지 않는다(#342).
+            val display = reason.failureKind.display(FailureSurface.Board)
             CareerCompassFailureState(
-                display = reason.failureKind.display(FailureSurface.Board),
-                onActionClick = onRetryClick,
+                display = display,
+                onActionClick = onRetryClick.takeIf { display.isRetryable },
                 modifier = modifier,
             )
         }

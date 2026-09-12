@@ -722,7 +722,7 @@ public class FeedViewModel
                             val reason = throwable.toFeedFailureReason()
                             dispatch(FeedReducerEvent.LoadFailed(reason))
                             // 점검 중에도 스냅샷은 유효하다 — 서버가 살아나기를 기다리는 동안 마지막 목록을 열어 둔다.
-                            if (reason != FeedFailureReason.Generic) loadSnapshotForOfflineOffer()
+                            if (reason !is FeedFailureReason.Generic) loadSnapshotForOfflineOffer()
                         }
                 }
         }

@@ -8,6 +8,7 @@ import com.careercompass.core.model.posting.PostingDetail
 import com.careercompass.core.model.posting.Suitability
 import com.careercompass.core.model.posting.SuitabilityLabel
 import com.careercompass.core.model.user.UserProfile
+import com.careercompass.core.ui.failure.FailureKind
 import com.careercompass.feature.feed.domain.usecase.OpenPostingDetailUseCase
 import com.careercompass.feature.feed.domain.usecase.TogglePostingBookmarkUseCase
 import com.careercompass.feature.feed.presentation.FIXED_CLOCK
@@ -202,8 +203,33 @@ class PostingDetailViewModelTest {
         val repository = repositoryWith(postingDetail(id = POSTING_ID))
         repository.onGetPostingDetail = { Result.failure(CoreDataFailure.ServerError("INTERNAL_ERROR", RuntimeException())) }
 
-        assertEquals(PostingDetailLoadState.Failed(FeedFailureReason.Generic), viewModel(repository).state.value.loadState)
+        assertEquals(
+            PostingDetailLoadState.Failed(FeedFailureReason.Generic(FailureKind.Unexpected)),
+            viewModel(repository).state.value.loadState,
+        )
         assertEquals(listOf("posting_detail"), reporter.stages)
+    }
+
+    /**
+     * 삭제된 공고에 딥링크로 들어간 자리다. 다시 눌러도 같은 404 가 돌아온다(#342).
+     *
+     * 전에는 404 가 「사유 미확인」으로 접혀 [FailureKind.Unexpected] 한 행으로 나갔고, 화면은 「문제가
+     * 생겼어요 / 잠시 후 다시 시도해 주세요」와 재시도 버튼을 그렸다. 표(`docs/spec/error-copy.md`)가
+     * 정한 문구는 「공고를 찾을 수 없어요」이고 할 수 있는 일은 없다.
+     */
+    @Test
+    fun `404 는 공고를 찾을 수 없다고 말하고 재시도를 주지 않는다`() {
+        val repository = repositoryWith(postingDetail(id = POSTING_ID))
+        repository.onGetPostingDetail = { Result.failure(CoreDataFailure.NotFound("POSTING_NOT_FOUND", RuntimeException())) }
+
+        val state = viewModel(repository).state.value
+
+        assertEquals(PostingDetailLoadState.Failed(FeedFailureReason.Generic(FailureKind.NotFound)), state.loadState)
+
+        val content = state.toUiState(RuntimeEnvironment.getApplication().resources, FIXED_CLOCK).content as PostingDetailContentState.Error
+        assertEquals("공고를 찾을 수 없어요", content.title)
+        assertEquals("삭제됐거나 마감돼 내려간 공고예요", content.description)
+        assertFalse(content.isRetryable)
     }
 
     @Test

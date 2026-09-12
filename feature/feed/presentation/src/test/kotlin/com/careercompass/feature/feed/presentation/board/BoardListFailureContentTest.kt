@@ -9,6 +9,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.careercompass.core.ui.failure.FailureKind
 import com.careercompass.core.ui.theme.CareerCompassTheme
 import com.careercompass.feature.feed.presentation.shared.model.FeedFailureReason
 import org.junit.Assert.assertEquals
@@ -53,7 +54,7 @@ class BoardListFailureContentTest {
     fun generic_showsBoardRetryNotice() {
         var retryCount = 0
         composeRule.setFailureContent(
-            reason = FeedFailureReason.Generic,
+            reason = FeedFailureReason.Generic(FailureKind.Unexpected),
             onRetryClick = { retryCount += 1 },
         )
 
@@ -61,6 +62,19 @@ class BoardListFailureContentTest {
         composeRule.onNode(hasText("다시 시도") and hasClickAction()).performClick()
 
         composeRule.runOnIdle { assertEquals(1, retryCount) }
+    }
+
+    /**
+     * 404 는 지워진 게시판이다. 다시 물어도 같은 답이 온다(#342).
+     *
+     * 전에는 사유가 [FailureKind.Unexpected] 로 뭉개져 「게시판을 불러오지 못했어요 + 다시 시도」가 나갔다.
+     */
+    @Test
+    fun notFound_namesTheBoardAndDropsRetry() {
+        composeRule.setFailureContent(reason = FeedFailureReason.Generic(FailureKind.NotFound))
+
+        composeRule.onNodeWithText("게시판을 찾을 수 없어요").assertIsDisplayed()
+        composeRule.onAllNodesWithText("다시 시도").assertCountEquals(0)
     }
 }
 

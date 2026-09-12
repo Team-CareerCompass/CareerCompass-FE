@@ -11,6 +11,7 @@ import com.careercompass.core.model.posting.Posting
 import com.careercompass.core.model.posting.PostingQuery
 import com.careercompass.core.model.posting.PostingSort
 import com.careercompass.core.model.posting.PostingType
+import com.careercompass.core.ui.failure.FailureKind
 import com.careercompass.feature.feed.domain.model.FeedDeadlineFilter
 import com.careercompass.feature.feed.domain.model.FeedSnapshot
 import com.careercompass.feature.feed.domain.testing.FakeFeedSnapshotRepository
@@ -746,7 +747,10 @@ class FeedViewModelTest {
         val repository = FakePostingRepository()
         repository.onGetPostings = { Result.failure(CoreDataFailure.ServerError("INTERNAL_ERROR", RuntimeException())) }
 
-        assertEquals(FeedLoadState.Failed(FeedFailureReason.Generic), viewModel(postingRepository = repository).state.value.loadState)
+        assertEquals(
+            FeedLoadState.Failed(FeedFailureReason.Generic(FailureKind.Unexpected)),
+            viewModel(postingRepository = repository).state.value.loadState,
+        )
         assertTrue(reporter.stages.contains("feed_load"))
     }
 
@@ -1211,7 +1215,7 @@ class FeedViewModelTest {
         viewModel.onSortEvent(FeedSortMenuEvent.SortSelected(FeedSortOption.ScoreDesc))
 
         val state = viewModel.state.value
-        assertEquals(FeedLoadState.Failed(FeedFailureReason.Generic), state.loadState)
+        assertEquals(FeedLoadState.Failed(FeedFailureReason.Generic(FailureKind.Unexpected)), state.loadState)
         assertTrue(state.canResetFailedQuery)
     }
 
