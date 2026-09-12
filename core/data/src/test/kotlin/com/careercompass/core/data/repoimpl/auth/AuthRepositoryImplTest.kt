@@ -8,6 +8,7 @@ import com.careercompass.core.datastore.DeviceDataSource
 import com.careercompass.core.datastore.ProfileDataSource
 import com.careercompass.core.datastore.StoreScope
 import com.careercompass.core.datastore.TokenDataSource
+import com.careercompass.core.domain.auth.SocialSessionCleaner
 import com.careercompass.core.domain.error.CoreAuthFailure
 import com.careercompass.core.domain.error.SessionEndedException
 import com.careercompass.core.model.auth.Session
@@ -69,6 +70,18 @@ class AuthRepositoryImplTest {
         }
     }
 
+    /** 소셜 SDK 정리 포트의 대역 — 호출 횟수만 세고, 실패가 로그아웃을 물고 들어가는지도 여기서 만든다. */
+    private class FakeSocialSessionCleaner : SocialSessionCleaner {
+        var calls = 0
+            private set
+        var throws: Throwable? = null
+
+        override suspend fun clearSocialSession() {
+            calls++
+            throws?.let { throw it }
+        }
+    }
+
     private class FakeTokenApi : TokenApiService {
         var response: suspend () -> BaseResponse<RefreshDto> = { BaseResponse(ok = true, data = RefreshDto("access-2", "refresh-2", 1800)) }
 
@@ -77,6 +90,7 @@ class AuthRepositoryImplTest {
 
     private val authApi = FakeAuthApi()
     private val tokenApi = FakeTokenApi()
+    private val socialSessionCleaner = FakeSocialSessionCleaner()
     private val registry = FakeLocalStoreRegistry()
     private val tokenDataSource = TokenDataSource(registry.store("Token", StoreScope.SESSION))
     private val deviceDataSource = DeviceDataSource(InMemoryPreferencesDataStore())
@@ -92,6 +106,7 @@ class AuthRepositoryImplTest {
             expiryTracker = tracker,
             localStoreRegistry = registry,
             profileDataSource = profileDataSource,
+            socialSessionCleaner = socialSessionCleaner,
         )
 
     @Test
@@ -201,6 +216,38 @@ class AuthRepositoryImplTest {
         }
 
     @Test
+    fun `로그아웃은 소셜 SDK 가 기기에 둔 세션도 비운다`() =
+        runTest {
+            tokenDataSource.saveTokens("access", "refresh")
+
+            repository.logout().getOrThrow()
+
+            assertEquals(1, socialSessionCleaner.calls)
+        }
+
+    @Test
+    fun `서버 호출 없는 세션 정리도 소셜 SDK 세션을 비운다`() =
+        runTest {
+            tokenDataSource.saveTokens("access", "refresh")
+
+            repository.clearSession().getOrThrow()
+
+            assertEquals(1, socialSessionCleaner.calls)
+        }
+
+    /** 소셜 정리는 best-effort 다 — 여기서 실패가 새면 이미 로그아웃된 사용자에게 실패가 보인다. */
+    @Test
+    fun `소셜 세션 정리가 실패해도 로그아웃은 성공한다`() =
+        runTest {
+            tokenDataSource.saveTokens("access", "refresh")
+            socialSessionCleaner.throws = IllegalStateException("Kakao SDK is not initialized")
+
+            repository.logout().getOrThrow()
+
+            assertFalse(repository.isLoggedIn.first())
+        }
+
+    @Test
     fun `회전 도중 로그아웃이 끝나면 회전 결과를 버리고 세션 종료로 실패한다`() =
         runTest {
             tokenDataSource.saveTokens("access", "refresh")
@@ -257,6 +304,8 @@ class AuthRepositoryImplTest {
             assertEquals("refresh", authApi.logoutRequests.single().refreshToken)
             // 비우기는 새 세션 저장이 한 번 한 것뿐이다 — 늦게 끝난 로그아웃은 그 위에 손대지 않는다.
             assertEquals(listOf(StoreScope.SESSION), registry.clearedScopes)
+            // 소셜 SDK 토큰도 마찬가지다. 지금 남은 것은 새 세션이 받아 온 토큰이라 지우면 그 세션이 다친다.
+            assertEquals(0, socialSessionCleaner.calls)
             assertEquals("access-2", tokenDataSource.getAccessToken())
             assertEquals("refresh-2", tokenDataSource.getRefreshToken())
             assertTrue(repository.isLoggedIn.first())
