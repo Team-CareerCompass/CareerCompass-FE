@@ -44,4 +44,14 @@ public interface LocalStoreRegistry {
      * 프로세스에서 안 연" 저장소가 새는 구멍이 있다.
      */
     public suspend fun clearScope(scope: StoreScope)
+
+    public companion object {
+        /**
+         * 세션 정리에서 가장 먼저 비우는 저장소 이름.
+         *
+         * 정리가 중간에 끊겨 한 저장소만 비우게 되더라도 그 하나는 토큰이어야 한다. 토큰이 남으면 화면은
+         * 로그아웃됐는데 시작 판정이 남은 토큰으로 세션을 다시 세운다(#367).
+         */
+        public const val TOKEN_STORE_NAME: String = "Token"
+    }
 }

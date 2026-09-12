@@ -101,6 +101,10 @@ internal class LocalStoreRegistryImpl(
      * 세대는 비우기 전에 올린다 — 그래야 이 시점 이후에 커밋되는 앞 세션의 쓰기가
      * [editWithinSession] 의 대조에서 전부 걸린다. 뒤에 올리면 비운 직후부터 세대를 올리기 전까지가
      * 그대로 구멍이 된다.
+     *
+     * 비우기는 저장소마다 따로 시도한다. 한 저장소가 [IOException] 으로 실패했다고 나머지를 건너뛰면 앞
+     * 계정의 프로필·공고 스냅샷이 그대로 남아 다음 계정에 넘어가고, 호출부의 뒷정리도 실행되지 않는다.
+     * 실패는 모아 두었다가 마지막에 첫 예외로 던진다(나머지는 suppressed).
      */
     override suspend fun clearScope(scope: StoreScope) {
         if (scope == StoreScope.SESSION) generation.update { it + 1 }
@@ -116,11 +120,11 @@ internal class LocalStoreRegistryImpl(
                             // 이번 프로세스에서 아직 획득되지 않은 저장소 — 매니페스트 기록으로 연다.
                             val created = createStore(name)
                             entries[name] = Entry(scope, created, registeredByCode = false)
-                            created
+                            name to created
                         }
 
                         entry.scope == scope -> {
-                            entry.dataStore
+                            name to entry.dataStore
                         }
 
                         // 코드에서 scope 가 바뀐 저장소 — 매니페스트가 낡았다. 지우지 않는다.
@@ -130,7 +134,24 @@ internal class LocalStoreRegistryImpl(
                     }
                 }
             }
-        targets.forEach { store -> store.edit { it.clear() } }
+        clearAll(targets)
+    }
+
+    /** 토큰을 먼저 비우고([LocalStoreRegistry.TOKEN_STORE_NAME]) 나머지를 잇는다 — 중간에 끊겨도 토큰만은 비어 있게. */
+    private suspend fun clearAll(targets: List<Pair<String, DataStore<Preferences>>>) {
+        var failure: IOException? = null
+        targets
+            .sortedBy { (name, _) -> if (name == LocalStoreRegistry.TOKEN_STORE_NAME) 0 else 1 }
+            .forEach { (name, store) ->
+                try {
+                    store.edit { it.clear() }
+                } catch (exception: IOException) {
+                    Log.e(TAG, "저장소 비우기 실패($name): ${exception.javaClass.name}")
+                    val first = failure
+                    if (first == null) failure = exception else first.addSuppressed(exception)
+                }
+            }
+        failure?.let { throw it }
     }
 
     /** 아직 디스크에 안 간 매니페스트 기록을 기다린다 — [clearScope] 선행 단계이자 재기동 테스트의 flush 지점. */

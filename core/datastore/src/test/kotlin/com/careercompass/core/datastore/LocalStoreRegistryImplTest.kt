@@ -13,6 +13,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -20,6 +21,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
+import java.io.IOException
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -99,6 +101,44 @@ class LocalStoreRegistryImplTest {
             assertEquals(0L, registry.sessionGeneration.value)
         }
 
+    /**
+     * #367 — 순차로 비우다 첫 예외에서 멈추면 남은 저장소가 그대로 다음 계정에 넘어가고, 호출부의 뒷정리도
+     * 실행되지 않는다. 토큰을 가장 먼저 비우고 나머지는 각각 시도한 뒤 실패를 마지막에 던진다.
+     */
+    @Test
+    fun `한 저장소가 실패해도 나머지를 비우고 마지막에 던진다`() =
+        runBlocking {
+            val brokenParent = File(folder.root, "broken").apply { mkdirs() }
+            val registry =
+                LocalStoreRegistryImpl(
+                    produceFile = { name ->
+                        val parent = if (name in BROKEN_NAMES) brokenParent else folder.root
+                        File(parent, "$name.preferences_pb")
+                    },
+                    registryScope = scope,
+                )
+            val token = registry.store(LocalStoreRegistry.TOKEN_STORE_NAME, StoreScope.SESSION)
+            val profile = registry.store("Profile", StoreScope.SESSION)
+            val broken = BROKEN_NAMES.map { registry.store(it, StoreScope.SESSION) }
+            token.edit { it[key] = "access" }
+            profile.edit { it[key] = "cached" }
+            broken.forEach { store -> store.edit { it[key] = "지워지지 않는다" } }
+            // 디렉터리에 쓸 수 없게 만들어 이 둘만 비우기가 IOException 으로 끝나게 한다.
+            check(brokenParent.setWritable(false))
+
+            try {
+                val thrown = runCatching { registry.clearScope(StoreScope.SESSION) }.exceptionOrNull()
+
+                assertTrue(thrown is IOException)
+                // 실패한 저장소가 둘이면 실패도 둘이다 — 첫 예외에서 멈췄다면 suppressed 가 비어 있다.
+                assertEquals(BROKEN_NAMES.size - 1, thrown?.suppressed?.size)
+                assertNull(token.data.first()[key])
+                assertNull(profile.data.first()[key])
+            } finally {
+                brokenParent.setWritable(true)
+            }
+        }
+
     @Test
     fun `이전 프로세스에서 등록된 저장소도 매니페스트로 찾아 비운다`() =
         runBlocking {
@@ -121,4 +161,9 @@ class LocalStoreRegistryImplTest {
                 restartedScope.cancel()
             }
         }
+
+    private companion object {
+        /** 비우기가 실패하는 저장소 이름 — 이 저장소들의 파일만 쓸 수 없는 디렉터리에 둔다. */
+        val BROKEN_NAMES = listOf("BrokenA", "BrokenB")
+    }
 }

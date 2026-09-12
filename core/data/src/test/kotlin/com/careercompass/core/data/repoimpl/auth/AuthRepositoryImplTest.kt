@@ -175,6 +175,26 @@ class AuthRepositoryImplTest {
             assertNull(tokenDataSource.getAccessToken())
         }
 
+    /**
+     * #367 — 정리가 실패해도 토큰과 만료 기록은 비워져야 한다. 토큰이 남으면 시작 판정이 남은 토큰으로
+     * 세션을 다시 세우고, 만료 기록이 남으면 다음 세션이 앞 세션 기준 deadline 으로 선제 재발급을 판단한다.
+     */
+    @Test
+    fun `로그아웃 중 한 저장소가 실패해도 토큰과 만료 기록은 비워진다`() =
+        runTest {
+            tokenDataSource.saveTokens("access", "refresh")
+            profileDataSource.saveProfile(profileJson(userId = 1L), userId = 1L)
+            tracker.record(30)
+            registry.failWrites("Profile")
+
+            val result = repository.logout()
+
+            assertTrue(result.exceptionOrNull() is IOException)
+            assertNull(tokenDataSource.getAccessToken())
+            assertFalse(repository.isLoggedIn.first())
+            assertFalse(tracker.isExpiringSoon())
+        }
+
     @Test
     fun `세션 저장은 신규 여부를 온보딩 완료 힌트로 남긴다`() =
         runTest {

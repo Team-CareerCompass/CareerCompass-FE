@@ -177,9 +177,13 @@ internal class AuthRepositoryImpl
         private suspend fun clearLocalSession(expectedGeneration: Long? = null) {
             sessionMutex.withLock {
                 if (expectedGeneration != null && currentGeneration != expectedGeneration) return
-                localStoreRegistry.clearScope(StoreScope.SESSION)
-                // tracker 는 network 계층 in-memory 상태라 레지스트리 관할 밖. 남기면 재로그인 후 이전 토큰 기준 deadline 으로 오판한다.
-                expiryTracker.clear()
+                try {
+                    localStoreRegistry.clearScope(StoreScope.SESSION)
+                } finally {
+                    // tracker 는 network 계층 in-memory 상태라 레지스트리 관할 밖. 남기면 재로그인 후 이전 토큰 기준 deadline 으로 오판한다.
+                    // 저장소 비우기가 실패해도 비운다 — 실패를 이유로 남겨 두면 앞 세션 기준 deadline 이 다음 세션까지 간다(#367).
+                    expiryTracker.clear()
+                }
             }
         }
 
