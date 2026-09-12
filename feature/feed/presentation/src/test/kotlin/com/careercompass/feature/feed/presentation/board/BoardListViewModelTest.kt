@@ -108,7 +108,7 @@ class BoardListViewModelTest {
                     .first { it.id == 1L }
             assertTrue(reverted.isActive)
             assertEquals(DomainBoardStatus.Active, reverted.status)
-            assertEquals(BoardListMessage.ToggleFailed, viewModel.state.value.message)
+            assertEquals(BoardListMessage.Failed(BoardListAction.Toggle, FailureKind.NoConnection), viewModel.state.value.message)
             // 일시적 전송 실패는 (원인, 단계) 조합의 세션 첫 건만 표본으로 남는다.
             assertEquals(listOf("board_toggle"), reporter.stages)
         }
@@ -148,7 +148,7 @@ class BoardListViewModelTest {
             assertEquals("새 이름", board.name)
             assertTrue(board.isActive)
             assertEquals(DomainBoardStatus.Active, board.status)
-            assertEquals(BoardListMessage.ToggleFailed, viewModel.state.value.message)
+            assertEquals(BoardListMessage.Failed(BoardListAction.Toggle, FailureKind.NoConnection), viewModel.state.value.message)
         }
 
     @Test
@@ -188,8 +188,9 @@ class BoardListViewModelTest {
         assertEquals(BoardStatus.Failing, toggled.toUiBoardStatus())
     }
 
+    /** 실패 사유를 접지 않고 표의 행으로 실어 보낸다(#360). 문구가 되는 자리는 BoardListScreenTest 가 본다. */
     @Test
-    fun `재시도 실패는 스낵바로 알린다`() {
+    fun `재시도 실패는 사유를 실어 스낵바로 알린다`() {
         val repository =
             repository().apply {
                 onRetry =
@@ -199,14 +200,91 @@ class BoardListViewModelTest {
 
         viewModel.onEvent(BoardListEvent.RetryClicked("2"))
 
-        assertEquals(BoardListMessage.RetryFailed, viewModel.state.value.message)
+        assertEquals(BoardListMessage.Failed(BoardListAction.Retry, FailureKind.BoardBlocked), viewModel.state.value.message)
         assertEquals(
             DomainBoardStatus.Failed,
             viewModel.state.value.boards
                 .first { it.id == 2L }
                 .status,
         )
+        // 실패해도 잠금은 풀린다. 사유가 바뀔 수 있는 실패에서 버튼이 영영 죽어 있으면 빠져나갈 길이 없다.
+        assertTrue(
+            viewModel.state.value.retryingBoardIds
+                .isEmpty(),
+        )
     }
+
+    /**
+     * 재시도 성공이 요청 전 스냅샷으로 카드를 통째로 덮던 자리(#341).
+     *
+     * 응답을 기다리는 사이 수정 시트가 이름을 저장했는데도, 성공 처리가 요청 직전에 읽어 둔 `board` 를
+     * 그대로 놓아 이름이 옛 값으로 되돌아갔다. 이제 손대는 것은 재시도가 되살린 세 필드뿐이다.
+     */
+    @Test
+    fun `재시도 성공은 응답이 늦어도 그 사이 저장한 이름을 지우지 않는다`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val gate = CompletableDeferred<Unit>()
+            val repository =
+                repository().apply {
+                    onRetry = {
+                        gate.await()
+                        Result.success(Unit)
+                    }
+                }
+            val viewModel = viewModel(repository)
+
+            viewModel.onEvent(BoardListEvent.RetryClicked("2"))
+            viewModel.onEvent(BoardListEvent.BoardSelected("2"))
+            viewModel.onEditEvent(BoardEditEvent.NameChanged("새 이름"))
+            viewModel.onEditEvent(BoardEditEvent.SaveClicked)
+            assertEquals(
+                "새 이름",
+                viewModel.state.value.boards
+                    .first { it.id == 2L }
+                    .name,
+            )
+
+            gate.complete(Unit)
+
+            val board =
+                viewModel.state.value.boards
+                    .first { it.id == 2L }
+            assertEquals("새 이름", board.name)
+            assertEquals(DomainBoardStatus.Active, board.status)
+            assertEquals(0, board.failCount)
+            assertTrue(board.isActive)
+            assertEquals(BoardListMessage.RetryRequested, viewModel.state.value.message)
+        }
+
+    /** 응답이 오기 전의 연타는 요청을 한 번만 보낸다(#341). 화면은 [BoardListViewState.retryingBoardIds] 로 버튼을 잠근다. */
+    @Test
+    fun `재시도 연타는 한 번만 보낸다`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val gate = CompletableDeferred<Unit>()
+            val repository =
+                repository().apply {
+                    onRetry = {
+                        gate.await()
+                        Result.success(Unit)
+                    }
+                }
+            val viewModel = viewModel(repository)
+
+            viewModel.onEvent(BoardListEvent.RetryClicked("2"))
+            viewModel.onEvent(BoardListEvent.RetryClicked("2"))
+            // 두 번째 누름은 요청까지 가지 못한다. fake 는 위임받은 즉시 id 를 적으므로 응답 전에도 횟수가 보인다.
+            assertEquals(listOf(2L), repository.retries.toList())
+            assertEquals(setOf(2L), viewModel.state.value.retryingBoardIds)
+
+            gate.complete(Unit)
+
+            assertEquals(listOf(2L), repository.retries.toList())
+            assertTrue(
+                viewModel.state.value.retryingBoardIds
+                    .isEmpty(),
+            )
+            assertEquals(BoardListMessage.RetryRequested, viewModel.state.value.message)
+        }
 
     @Test
     fun `삭제는 확인 다이얼로그를 거쳐야 보낸다`() {
@@ -252,7 +330,7 @@ class BoardListViewModelTest {
             viewModel.state.value.boards
                 .map { it.id },
         )
-        assertEquals(BoardListMessage.DeleteFailed, viewModel.state.value.message)
+        assertEquals(BoardListMessage.Failed(BoardListAction.Delete, FailureKind.Unexpected), viewModel.state.value.message)
     }
 
     @Test
@@ -405,7 +483,7 @@ class BoardListViewModelTest {
         val draft = checkNotNull(viewModel.state.value.editDraft)
         assertEquals("새 이름", draft.name)
         assertFalse(draft.isSaving)
-        assertEquals(BoardListMessage.UpdateFailed, viewModel.state.value.message)
+        assertEquals(BoardListMessage.Failed(BoardListAction.Update, FailureKind.Unexpected), viewModel.state.value.message)
         assertEquals(listOf("board_update"), reporter.stages)
         assertEquals(
             "게시판 1",
@@ -429,7 +507,7 @@ class BoardListViewModelTest {
         viewModel.onEditEvent(BoardEditEvent.SaveClicked)
 
         assertTrue(viewModel.state.value.sessionEnded)
-        assertEquals(BoardListMessage.UpdateFailed, viewModel.state.value.message)
+        assertEquals(BoardListMessage.Failed(BoardListAction.Update, FailureKind.AuthExpired), viewModel.state.value.message)
     }
 
     @Test

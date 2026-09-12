@@ -234,7 +234,8 @@ Figma 09 의 「분석 중」은 화면 한 장인데, **앱에는 화면을 통
 | 공고 상세 | `CareerCompassFailureState`(#222 — 전에는 손으로 그린 `Column` 에 한 줄 문장) | 실패 표의 `kind`×`Posting` 행(#204·#342), 피드 홈과 같은 행 | 「다시 시도」(`feed_posting_detail_retry`) — 표의 `isRetryable` 이 거짓이면 버튼 없음 |
 | 원문 보기 | `CareerCompassFailureState` | `feed_posting_raw_error_title` = 원문을 불러오지 못했어요 / `feed_posting_raw_error_description` = 잠시 후 다시 시도해 주세요 (표에 「원문」 문맥이 없어 화면 고유 문구를 쓴다 — 갈래를 싣고도 문구는 그대로다) | 「다시 시도」(`feed_posting_raw_error_retry`) |
 | 온보딩 Step 1~4 | 하단 배너 | 실패 표의 `Unexpected` 행(#204·#236) = 문제가 생겼어요. 잠시 후 다시 시도해 주세요 — 사유가 좁혀지면 그 행(입력값·상한은 단계가 아는 문맥으로) | 「닫기」 |
-| 게시판 등록 | 스낵바 | `feed_board_register_detect_failed` / `feed_board_register_failed` (503 은 #212 에서 빠져나갔다) | 없음 |
+| 게시판 등록 | 스낵바 | 사유를 확인하지 못한 실패만 `feed_board_register_detect_failed` / `feed_board_register_failed` (503 은 #212 에서 빠져나갔다). 사유가 좁혀진 실패는 표의 `kind`×`Board` 행으로 나간다(#360). 422 `BOARD_BLOCKED` = 자동 수집이 허용되지 않는 사이트예요 | 없음 |
+| 내 게시판 카드의 수집 토글·재시도·삭제·수정 | 스낵바 | 같은 규칙이다(#360). 사유를 확인하지 못한 실패만 `feed_board_toggle_failed` / `feed_board_retry_failed` / `feed_board_delete_failed` / `feed_board_update_failed` 로 무엇을 하다 실패했는지를 말한다. 표의 `Unexpected`×`Board` 행은 「게시판을 불러오지 못했어요」라 조회를 가리키는 문장이어서 이 자리에 쓰지 않는다 | 없음 |
 
 세 화면 모두 **열 수 있는 길이 재조회 하나뿐**이라, 표가 그 밖의 행동(프로필 입력하기·정리하러 가기·다시 로그인)을 가리키면 콜백을 넘기지 않아 버튼이 그려지지 않는다. 「프로필 입력하기」라고 적힌 버튼이 재조회를 하는 것보다는 버튼이 없는 쪽이 맞다.
 
