@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -183,6 +184,28 @@ class FeedContentTest {
         composeRule
             .onNode(hasText("채용") and hasStateDescription("선택 안 됨"))
             .assertIsOff()
+    }
+
+    /**
+     * 인사말 뒤의 손 흔드는 이모지는 장식이다. 제목과 한 Text 로 이어 붙으면 스크린 리더가
+     * 「안녕하세요, 일혁님」 뒤에 이모지 이름까지 읽는다. 제목 노드는 인사말만 지녀야 하고,
+     * 이모지는 배너들과 같게 접근성 트리에서 빠져 있어야 한다.
+     */
+    @Test
+    fun greetingHeading_readsTheGreetingWithoutTheWaveEmoji() {
+        composeRule.setFeedContent(state = sampleState(userName = "일혁"))
+
+        val headingText =
+            composeRule
+                .onNode(isHeading())
+                .fetchSemanticsNode()
+                .config[SemanticsProperties.Text]
+                .joinToString(separator = "") { it.text }
+
+        assertEquals("안녕하세요, 일혁님", headingText)
+        composeRule
+            .onAllNodesWithText(WAVE_EMOJI, substring = true, useUnmergedTree = true)
+            .assertCountEquals(0)
     }
 
     @Test
@@ -543,3 +566,4 @@ private fun sampleListing(
 private const val SAMPLE_COLLECTED_LABEL = "오늘 수집"
 private const val SAMPLE_LISTING_ID = "listing-1"
 private const val SAMPLE_LISTING_TITLE = "2026 카카오 SW 인턴십 모집"
+private const val WAVE_EMOJI = "👋"
