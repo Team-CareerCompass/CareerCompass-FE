@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
     collectModuleSourceKeys,
@@ -18,6 +19,9 @@ import {
     selectChangedModules,
     validateCoveragePolicy,
 } from "./render-kover-summary.mjs";
+
+const COMMITTED_POLICY_PATH = new URL("../kover-coverage-policy.json", import.meta.url);
+const REPOSITORY_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
 const REPORT = `<?xml version="1.0" encoding="UTF-8"?>
 <report name="sample">
@@ -210,24 +214,87 @@ test("sums only source files owned by a changed module", () => {
     assert.equal(coverage.declaredSources, 2);
 });
 
-test("loads the committed warning-only baseline with exact develop provenance", async () => {
-    const policy = await loadCoveragePolicy(
-        new URL("../kover-coverage-policy.json", import.meta.url),
-    );
+test("pins the committed baseline to the develop revision it was measured at", async () => {
+    const policy = await loadCoveragePolicy(COMMITTED_POLICY_PATH);
 
     assert.equal(policy.mode, "warn");
-    assert.equal(policy.source.sha, "7670b842a4955ca610a898bd70c1c28a6ba866f4");
+    assert.equal(policy.source.ref, "develop");
+    assert.equal(policy.source.sha, "1ed5007a526ba91abe5af4473b83d998dd00a4d3");
     assert.equal(
         policy.source.runUrl,
-        "https://github.com/Team-CareerCompass/CareerCompass-FE/actions/runs/33353737467",
+        "https://github.com/Team-CareerCompass/CareerCompass-FE/actions/runs/34664218494",
     );
-    // 아직 측정 전이라 모든 모듈이 null 기준선이다 — 하나라도 숫자가 들어오면 첫 측정이
-    // 반영됐다는 뜻이므로, 그때 이 단언을 실제 기준선 검증으로 바꾼다.
-    assert.deepEqual(policy.modules["feature/onboarding/data"], {
-        line: null,
-        branch: null,
+
+    // 그 커밋 트리에서 모듈별 :koverXmlReportCi 가 낸 집계 counter 그대로다. PR 레인이
+    // 모듈 리포트를 읽어 비교하므로 기준선도 같은 단위로 잰다. 측정 없이 손으로 숫자를
+    // 고치면 여기서 걸린다.
+    assert.deepEqual(policy.modules["core/common"], {
+        line: { missed: 2, covered: 71 },
+        branch: { missed: 10, covered: 68 },
     });
-    assert.ok(Object.values(policy.modules).every((m) => m.line === null && m.branch === null));
+    assert.deepEqual(policy.modules["feature/onboarding/data"], {
+        line: { missed: 3, covered: 34 },
+        branch: { missed: 2, covered: 6 },
+    });
+});
+
+test("leaves a module unmeasured only while it ships no production source", async () => {
+    const policy = await loadCoveragePolicy(COMMITTED_POLICY_PATH);
+
+    const unmeasured = [];
+    const sourceless = [];
+    for (const [module, baseline] of Object.entries(policy.modules)) {
+        if (baseline.line === null) {
+            unmeasured.push(module);
+            assert.equal(baseline.branch, null, `${module} has a branch baseline without a line one`);
+        }
+        if ((await collectModuleSourceKeys(REPOSITORY_ROOT, module)).size === 0) {
+            sourceless.push(module);
+        }
+    }
+
+    // 골격만 있는 모듈은 잴 것이 없어 null 이다. 소스가 들어왔는데도 null 로 남아 있으면
+    // 기준선 갱신이 밀린 것이므로 그 모듈 이름이 여기서 드러난다.
+    assert.deepEqual(unmeasured.sort(), sourceless.sort());
+    assert.ok(unmeasured.length < Object.keys(policy.modules).length / 2);
+});
+
+test("compares changed modules against the committed baseline instead of calling them new", async () => {
+    const policy = await loadCoveragePolicy(COMMITTED_POLICY_PATH);
+    const measured = Object.entries(policy.modules).filter(([, baseline]) => baseline.line !== null);
+    const atBaseline = measured.map(([name, baseline]) =>
+        moduleCoverage(name, { ...baseline.line }, { ...baseline.branch }),
+    );
+
+    const evaluation = evaluateCoveragePolicy({ policy, modules: atBaseline });
+    assert.deepEqual(evaluation.regressions, []);
+    assert.deepEqual(
+        [...new Set(evaluation.modules.flatMap((module) => [
+            module.metrics.LINE.status,
+            module.metrics.BRANCH.status,
+        ]))],
+        ["pass"],
+    );
+
+    const summary = renderSummary({
+        aggregate: { LINE: { missed: 0, covered: 1 }, BRANCH: { missed: 0, covered: 1 } },
+        modules: atBaseline,
+        artifactUrl: "https://example.invalid/artifact",
+        policyEvaluation: evaluation,
+    });
+    assert.doesNotMatch(summary, /\(new\)/);
+    assert.match(summary, /\| `core\/common` \| 97\.26% vs 97\.26% \(\+0\.00 pp\) \|/);
+
+    const dropped = evaluateCoveragePolicy({
+        policy,
+        modules: [
+            moduleCoverage("feature/feed/domain", { missed: 22, covered: 192 }, { missed: 13, covered: 129 }),
+        ],
+    });
+    assert.deepEqual(
+        dropped.regressions.map(({ module, type, status }) => ({ module, type, status })),
+        [{ module: "feature/feed/domain", type: "LINE", status: "regression" }],
+    );
 });
 
 test("rejects missing metrics and zero-total baseline counters", () => {
