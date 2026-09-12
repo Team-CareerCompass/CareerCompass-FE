@@ -183,18 +183,25 @@ internal class AuthRepositoryImpl
          * 들어온 새 세션의 SDK 토큰을 지우고, 자물쇠 안에서 부르면 SDK 호출이 끝날 때까지 토큰 쓰기가 줄을 선다.
          */
         private suspend fun clearLocalSession(expectedGeneration: Long? = null) {
-            val cleared =
+            // 세대가 어긋나면 아무것도 건드리지 않는다. 그 밖에는 비우기를 시도한 것으로 보고, 저장소가
+            // 실패해도 소셜 SDK 토큰까지는 비운다(#367 · #370). 남겨 두면 그 토큰 하나로 서버 세션을
+            // 다시 열 수 있어, 「로그아웃했는데 다시 들어가진다」가 된다.
+            var attempted = false
+            try {
                 sessionMutex.withLock {
-                    if (expectedGeneration != null && currentGeneration != expectedGeneration) {
-                        false
-                    } else {
+                    if (expectedGeneration != null && currentGeneration != expectedGeneration) return@withLock
+                    attempted = true
+                    try {
                         localStoreRegistry.clearScope(StoreScope.SESSION)
-                        // tracker 는 network 계층 in-memory 상태라 레지스트리 관할 밖. 남기면 재로그인 후 이전 토큰 기준 deadline 으로 오판한다.
+                    } finally {
+                        // tracker 는 network 계층 in-memory 상태라 레지스트리 관할 밖. 남기면 재로그인 후 이전
+                        // 토큰 기준 deadline 으로 오판한다. 저장소 비우기가 실패해도 비운다(#367).
                         expiryTracker.clear()
-                        true
                     }
                 }
-            if (cleared) runCatchingCancellable { socialSessionCleaner.clearSocialSession() }
+            } finally {
+                if (attempted) runCatchingCancellable { socialSessionCleaner.clearSocialSession() }
+            }
         }
 
         private fun recordIssuedExpiresIn(expiresInSeconds: Long?) {

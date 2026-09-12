@@ -25,7 +25,7 @@ internal abstract class LocalStoreRegistryModule {
         @Singleton
         @TokenDataStore
         fun provideTokenDataStore(registry: LocalStoreRegistry): DataStore<Preferences> =
-            registry.store(name = "Token", scope = StoreScope.SESSION)
+            registry.store(name = LocalStoreRegistry.TOKEN_STORE_NAME, scope = StoreScope.SESSION)
 
         @Provides
         @Singleton
