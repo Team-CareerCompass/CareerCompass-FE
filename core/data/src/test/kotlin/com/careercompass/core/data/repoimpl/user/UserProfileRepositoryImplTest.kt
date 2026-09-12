@@ -99,6 +99,18 @@ class UserProfileRepositoryImplTest {
             assertNull(profileDataSource.userId.first())
         }
 
+    /** #362 — 저장에 실패한 프로필을 성공으로 돌려주면 화면은 캐시가 선 줄 알고 다음 시작을 그 값으로 판정한다. */
+    @Test
+    fun `프로필 저장이 실패하면 조회도 실패로 끝난다`() =
+        runTest {
+            registry.failWrites("Profile")
+
+            val result = repository.refreshProfile()
+
+            assertTrue(result.exceptionOrNull() is CoreDataFailure.NetworkUnavailable)
+            assertNull(repository.profile.first())
+        }
+
     @Test
     fun `빈 수정은 요청 없이 현재 프로필을 돌려준다`() =
         runTest {

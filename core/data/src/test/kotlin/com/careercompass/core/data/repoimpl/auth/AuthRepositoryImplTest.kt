@@ -35,6 +35,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 import java.net.UnknownHostException
 
 class AuthRepositoryImplTest {
@@ -83,9 +84,11 @@ class AuthRepositoryImplTest {
     private val profileDataSource = ProfileDataSource(registry.store("Profile", StoreScope.SESSION), registry)
     private var now = 0L
     private val tracker = AccessTokenExpiryTracker { now }
-    private val repository =
+    private val repository = repositoryWith(tokenDataSource)
+
+    private fun repositoryWith(tokens: TokenDataSource) =
         AuthRepositoryImpl(
-            tokenDataSource = tokenDataSource,
+            tokenDataSource = tokens,
             deviceDataSource = deviceDataSource,
             authApiService = authApi,
             tokenApiService = tokenApi,
@@ -139,6 +142,37 @@ class AuthRepositoryImplTest {
             assertEquals("access-2", tokenDataSource.getAccessToken())
             assertEquals("refresh-2", tokenDataSource.getRefreshToken())
             assertEquals(false, profileDataSource.onboardingDoneHint.first())
+        }
+
+    /**
+     * #362 — 토큰 쓰기가 실패했는데 성공을 돌려주면 화면은 피드로 넘어가고 다음 요청은 토큰 없이 나간다.
+     * 레지스트리에 등록되지 않은 저장소를 쓰는 것은 세션 정리는 성공시키고 토큰 쓰기만 실패시키기 위함이다.
+     */
+    @Test
+    fun `토큰 저장이 실패하면 세션 저장은 실패로 끝난다`() =
+        runTest {
+            val failingTokens = InMemoryPreferencesDataStore().apply { failOnWrite = true }
+            val repository = repositoryWith(TokenDataSource(failingTokens))
+
+            val result = repository.saveSession(Session("access", "refresh", isNewUser = false, expiresInSeconds = 3600))
+
+            assertTrue(result.exceptionOrNull() is IOException)
+            assertFalse(repository.isLoggedIn.first())
+        }
+
+    /** #362 — 정리 실패를 성공으로 돌려주면 화면은 로그아웃됐다고 믿고 남은 세션 데이터 위에 다음 계정이 올라탄다. */
+    @Test
+    fun `로그아웃 중 세션 정리가 실패하면 실패로 끝난다`() =
+        runTest {
+            tokenDataSource.saveTokens("access", "refresh")
+            profileDataSource.saveProfile(profileJson(userId = 1L), userId = 1L)
+            registry.failWrites("Profile")
+
+            val result = repository.logout()
+
+            assertTrue(result.exceptionOrNull() is IOException)
+            assertEquals(listOf(StoreScope.SESSION), registry.clearedScopes)
+            assertNull(tokenDataSource.getAccessToken())
         }
 
     @Test
