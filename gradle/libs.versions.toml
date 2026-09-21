@@ -49,9 +49,9 @@ konsist = "0.17.3"
 kover = "0.9.9"
 baselineProfile = "1.5.0-rc02"
 profileInstaller = "1.4.1"
-# 빌드·테스트 클래스패스 전용 보안 하한 — GHSA-574f-3g2m-x479(critical) 등 3건이 1.84 에서 패치(#921).
+# 빌드·테스트 클래스패스 전용 보안 하한. GHSA-9pwp-9qqc-pr26·GHSA-qp49-qgx5-5m26 2건이 1.85 에서 패치(#427).
 # 루트 build.gradle.kts 의 buildscript 블록은 카탈로그 accessor 를 못 써 같은 값을 리터럴로 둔다.
-bouncycastle = "1.84"
+bouncycastle = "1.85"
 netty = "4.1.137.Final"
 commonsLang3 = "3.18.0"
 jose4j = "0.9.6"
