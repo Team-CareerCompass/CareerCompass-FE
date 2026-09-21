@@ -1,6 +1,6 @@
 # CareerCompass 개인정보처리방침 (초안)
 
-이 문서는 초안이다. 두 곳이 비어 있고, 그것을 채우기 전에는 공개하지 않는다. 하나는 문의처(팀 공용 이메일)이고 다른 하나는 LLM 전송 범위다. 전송 범위는 [BE #48](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/48) 이 정한다. 선언과 실제가 다르면 스토어 정책 위반이므로, 서버가 실제로 무엇을 보내는지 확정된 뒤에 이 문서를 확정한다.
+이 문서는 초안이다. LLM 전송 범위가 비어 있어, 이를 채우기 전에는 공개하지 않는다. 전송 범위는 [BE #48](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/48) 이 정한다. 선언과 실제가 다르면 스토어 정책 위반이므로, 서버가 실제로 무엇을 보내는지 확정된 뒤에 이 문서를 확정한다.
 
 게시처와 절차는 [`privacy-policy-hosting.md`](privacy-policy-hosting.md) 에 정해 뒀다. FE 저장소의 GitHub Pages 에 이 파일 한 장을 페이지로 올리고, 그 주소를 Play Console 의 앱 콘텐츠 선언과 앱에 함께 건다.
 
@@ -63,7 +63,7 @@ LLM 제공자에게 무엇을 보내는지는 서버가 정한다. 항목과 마
 
 ## 8. 문의
 
-(팀 공용 이메일 주소를 만들어 넣는다. 개인 메일을 공개하지 않는다.)
+이메일: [careercompass-support@googlegroups.com](mailto:careercompass-support@googlegroups.com)
 
 ## 9. 바뀔 때
 
