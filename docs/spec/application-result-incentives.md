@@ -15,7 +15,7 @@
 
 구현 근거의 우선순위는 [정본 안내](canon.md)를 따른다. 아래는 2026-09-21에 직접 확인한 계약과 연결 이슈다.
 
-- [API_SPEC §6](https://github.com/Team-CareerCompass/CareerCompass-BE/blob/main/docs/API_SPEC_v0.1.md): `PATCH /applications/{id}/result`의 값은 `pending`·`pass`·`fail`·`none`이다. 미입력은 `none`이며 `null`을 새 값으로 보내지 않는다. `GET /applications`는 지원 이력 목록이다.
+- [API_SPEC §6](https://github.com/Team-CareerCompass/CareerCompass-BE/blob/main/docs/API_SPEC_v0.1.md): `PATCH /applications/{id}/result`의 값은 `pending`·`pass`·`fail`·`none`이다. 미입력은 `none`이며 `null`을 새 값으로 보내지 않는다. `POST /applications/{id}/save`로 최종 저장할 때 이력이 생성되고, `GET /applications`는 지원 이력 목록이다.
 - [FE #189](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/189)가 참조하는 F4-4: 결과 입력은 선택 사항이며 나중에 입력하거나 수정할 수 있다. 모델 개선 활용은 사용자 동의 기반이다.
 - [FE #188](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/188): 목록에서 저장한 지원서, 공고, 분석 당시 적합도 점수 스냅샷과 결과를 확인한다. 목록 응답의 공고 정보 등 미확정 계약은 이 이슈의 기존 경계에 남는다.
 - [API_SPEC §7](https://github.com/Team-CareerCompass/CareerCompass-BE/blob/main/docs/API_SPEC_v0.1.md)과 [BE #42](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/42): `peer`·`senior`·`me_only` 코호트, `sampleSize`·`metrics`·`suggestions`가 있다. `senior`의 원천은 지원 이력의 `pass`이며 동의 기반 활용과 최소 표본 규칙이 필요하다.
@@ -63,7 +63,7 @@
 
 | 실제 상태 | 사용자에게 보여 줄 것 | 다음 행동 |
 | --- | --- | --- |
-| 개인 지원 이력 0개 | "공고에서 초안을 만들면 지원 이력이 여기에 쌓여요." | 기존 공고·초안 작성 흐름으로 안내한다. 결과 입력을 먼저 요구하지 않는다. |
+| 개인 지원 이력 0개 | "공고에서 지원서를 만들고 저장하면 이력이 여기에 쌓여요." | 기존 공고·초안 작성 흐름으로 안내한다. 결과 입력을 먼저 요구하지 않는다. |
 | 개인 이력 있음, 결과 미입력 | 저장된 지원서와 현재 결과 상태, 위 개인 기록 안내 | 기존 결과 입력 화면에서 선택적으로 기록한다. |
 | `peer` 또는 `senior` 비교 표본 없음·최소 기준 미달 | "비교할 데이터가 아직 충분하지 않아요. 내 기록을 먼저 확인해 보세요." | 지원 이력 또는 기존 개인 기록 경로로 이동한다. 평균 막대를 0으로 그리거나 합성 평균으로 채우지 않는다. |
 | 비교 가능한 실제 코호트 | 서버가 공개를 허용한 비교 값, `sampleSize`, 자기보고 출처 안내 | 개인 기록과 코호트 비교를 구분해 본다. |
@@ -85,7 +85,7 @@
 발표 순서는 다음과 같다.
 
 1. 실제 데이터로 운영 중인 버전과 확인 날짜를 밝힌다. 표본을 확보하지 못했다면 그대로 말한다.
-2. 개인 지원 이력이 없는 상태를 보여 주고, 공고에서 초안을 만들고 이력에서 다시 찾는 경로를 설명한다.
+2. 개인 지원 이력이 없는 상태를 보여 주고, 공고에서 지원서를 만들고 저장한 뒤 이력에서 다시 찾는 경로를 설명한다.
 3. 기존 결과 입력 화면이 준비되면 합격·불합격·대기·미입력과 나중에 수정하는 흐름을 보여 준다. 아직 구현 전이면 해당 화면도 목업이라고 밝힌다.
 4. 실제 비교의 표본 부족 화면을 보여 주고, 최소 표본 규칙 때문에 평균을 감춘다는 원칙을 설명한다. 구현 전이라면 표본 부족 화면 역시 정적 목업으로 표시한다.
 5. 별도 합성 비교 예시로 `peer`와 `senior`의 두 막대, 표본 표시, 제안의 읽는 방법을 설명한다. 합성 예시를 실제 사용자가 축적한 데이터로 소개하지 않는다.
