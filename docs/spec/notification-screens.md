@@ -135,6 +135,7 @@ Android 13+ 는 `POST_NOTIFICATIONS` 런타임 권한이다. 꺼져 있으면 **
 | 빈 곳 | 누가 정하는가 |
 | --- | --- |
 | `GET /notifications` 응답 스키마 | 서버 (BE) |
-| 주간 리포트 발송 조건·시각 | 기획 + 서버 |
+| 주간 리포트 발송 조건·시각 | 기획 + 서버 — [BE #62](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/62) |
 | 알림 보관 기간(오래된 것을 지우는가) | 서버 |
+| 알림 설정에 남은 삭제된 게시판의 처분(서버가 지우는가, 앱이 지우게 두는가) | 서버 — [BE #63](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/63) |
 | 딥링크 대상 표기 방식(`type` + `targetId` 인지 URL 문자열인지) | 서버 — FE 는 이미 `careercompass://postings/{id}` 를 처리한다 |
