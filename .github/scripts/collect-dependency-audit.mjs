@@ -85,11 +85,38 @@ function stripTomlComment(line) {
     return line;
 }
 
+function quotedTomlString(value, start) {
+    if (value[start] !== '"') return null;
+    for (let index = start + 1; index < value.length; index += 1) {
+        if (value[index] === "\\") {
+            index += 1;
+        } else if (value[index] === '"') {
+            return { value: value.slice(start + 1, index), end: index + 1 };
+        }
+    }
+    return null;
+}
+
 function parseInlineTable(value) {
     const fields = {};
-    const matcher = /([A-Za-z0-9_.-]+)\s*=\s*"((?:\\.|[^"])*)"/g;
-    for (const match of value.matchAll(matcher)) {
-        fields[match[1]] = match[2].replaceAll('\\"', '"').replaceAll("\\\\", "\\");
+    let index = 0;
+    while (index < value.length) {
+        if (!/[A-Za-z0-9_.-]/.test(value[index])) {
+            index += 1;
+            continue;
+        }
+        const start = index;
+        while (index < value.length && /[A-Za-z0-9_.-]/.test(value[index])) index += 1;
+        const key = value.slice(start, index);
+        while (index < value.length && /\s/.test(value[index])) index += 1;
+        if (value[index] !== "=") continue;
+        index += 1;
+        while (index < value.length && /\s/.test(value[index])) index += 1;
+        if (value[index] !== '"') continue;
+        const quoted = quotedTomlString(value, index);
+        if (quoted === null) break;
+        fields[key] = quoted.value.replaceAll('\\"', '"').replaceAll("\\\\", "\\");
+        index = quoted.end;
     }
     return fields;
 }
@@ -118,7 +145,8 @@ export function parseVersionCatalog(content) {
         }
         const [, alias, rawValue] = assignment;
         if (section === "versions") {
-            const version = /^"((?:\\.|[^"])*)"$/.exec(rawValue)?.[1];
+            const quoted = quotedTomlString(rawValue, 0);
+            const version = quoted?.end === rawValue.length ? quoted.value : undefined;
             if (version !== undefined) {
                 catalog.versions[alias] = version;
             }
@@ -383,12 +411,8 @@ async function fetchCoordinateFile(entry, suffix, fetchImpl) {
 }
 
 function decodeXml(value) {
-    return String(value)
-        .replaceAll("&lt;", "<")
-        .replaceAll("&gt;", ">")
-        .replaceAll("&amp;", "&")
-        .replaceAll("&quot;", '"')
-        .replaceAll("&apos;", "'");
+    const entities = { lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" };
+    return String(value).replace(/&(lt|gt|amp|quot|apos);/g, (_, entity) => entities[entity]);
 }
 
 export function parseBomPom(content) {
