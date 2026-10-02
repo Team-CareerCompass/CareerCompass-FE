@@ -20,6 +20,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -43,6 +45,7 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -197,6 +200,7 @@ class AppNavigationAndroidTest {
         scrollMyHomeTo(hasText("지문 로그인"))
         composeRule.onNodeWithText("지문 로그인").assertIsDisplayed()
         composeRule.onNodeWithTag(BIOMETRIC_SWITCH_TAG, useUnmergedTree = true).assertIsOff().assertIsNotEnabled()
+        scrollMyHomeTo(hasText(BIOMETRIC_UNAVAILABLE_TEXT))
         composeRule.onNodeWithText(BIOMETRIC_UNAVAILABLE_TEXT).assertIsDisplayed()
     }
 
@@ -298,6 +302,57 @@ class AppNavigationAndroidTest {
     }
 
     // ── 인셋 (#145) ──────────────────────────────────────────────────────────
+
+    /** 자체 인셋이 없는 마이 앱바도 셸 안에서는 상태 표시줄 아래에 놓인다. */
+    @Test
+    fun myTabTitle_isBelowStatusBar() {
+        fakeAuthRepository.loggedIn = true
+        fakeUserProfileRepository.profileState.value = profile(onboardingDone = true)
+
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        composeRule.onNodeWithText("마이").performClick()
+        composeRule.onNodeWithText("프로필 완성도").assertIsDisplayed()
+
+        val title =
+            composeRule
+                .onAllNodesWithText("마이", useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .minBy { it.boundsInRoot.top }
+                .boundsInRoot
+        val statusBarBottom = statusBarTopInsetPx()
+
+        assertTrue("상태 표시줄 인셋이 있는 기기에서 검증해야 한다", statusBarBottom > 0f)
+        assertTrue("마이 제목 $title 이 상태 표시줄 아래 $statusBarBottom 에 있어야 한다", title.top >= statusBarBottom)
+    }
+
+    /** statusBarsPadding을 쓰는 온보딩도 셸이 소비한 상단 여백을 다시 적용하지 않는다. */
+    @Test
+    fun onboardingTopBar_appliesStatusBarInsetOnce() {
+        fakeAuthRepository.loggedIn = true
+        fakeUserProfileRepository.profileState.value = profile(onboardingDone = false)
+
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        composeRule.onNodeWithText("기본 정보를 알려주세요").assertIsDisplayed()
+
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val backDescription = context.getString(com.careercompass.feature.onboarding.presentation.R.string.onboarding_back)
+        val back = composeRule.onNodeWithContentDescription(backDescription).fetchSemanticsNode().boundsInRoot
+        // 56dp 앱바 중앙의 48dp 터치 영역은 안전 영역 시작점에서 4dp 아래다.
+        val topBarButtonMargin = 4f * context.resources.displayMetrics.density
+
+        assertEquals(statusBarTopInsetPx() + topBarButtonMargin, back.top, 1f)
+    }
+
+    private fun statusBarTopInsetPx(): Float {
+        var top = 0
+        requireNotNull(scenario).onActivity { activity ->
+            top =
+                requireNotNull(ViewCompat.getRootWindowInsets(activity.window.decorView))
+                    .getInsets(WindowInsetsCompat.Type.statusBars())
+                    .top
+        }
+        return top.toFloat()
+    }
 
     /**
      * 시스템 바 인셋이 한 번만 들어가는지 — 콘텐츠의 아래끝과 탭 바의 위끝이 맞닿아야 한다.

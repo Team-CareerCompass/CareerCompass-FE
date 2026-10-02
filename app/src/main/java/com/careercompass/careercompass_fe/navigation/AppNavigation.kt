@@ -1,9 +1,7 @@
 package com.careercompass.careercompass_fe.navigation
 
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.Scaffold
@@ -151,7 +149,7 @@ public fun AppNavigation(
     ) {
         Scaffold(
             containerColor = CareerCompassTheme.colors.subtleSurface,
-            contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
+            contentWindowInsets = WindowInsets.systemBars,
             bottomBar = {
                 if (showBottomBar) {
                     CareerCompassBottomBar(selectedTab = currentTab, onTabClick = appState::navigateToTab)
@@ -160,11 +158,9 @@ public fun AppNavigation(
         ) { innerPadding ->
             NavDisplay(
                 backStack = appState.backStack,
-                // `padding` 은 인셋을 **소비하지 않는다** — 자리만 비울 뿐이라, 아래 화면들이 다시 읽는
-                // `WindowInsets.safeDrawing` 에는 여기서 이미 비운 시스템 바가 그대로 남아 있었다. 그래서 모든
-                // 화면 아래에 내비게이션 바 높이만큼(3버튼 48dp) 죽은 여백이 생겼다(#145). 소비를 먼저 선언해
-                // 자식이 「남은 인셋」만 보게 한다 — 인셋의 주인은 이 셸이고, 화면들은 셸 밖에서 단독으로 그려질
-                // 때(스크린샷 골든)도 스스로를 지키도록 safeDrawing 을 그대로 둔다.
+                // 셸이 상하좌우 시스템 바를 피하고 이미 적용한 인셋을 소비한다(#145, #438).
+                // 자식의 safeDrawing·statusBarsPadding에는 남은 인셋만 전달되어 여백이 중복되지 않는다.
+                // 화면은 셸 밖에서 단독으로 그릴 때도 안전 영역을 지킬 수 있다.
                 modifier = Modifier.consumeWindowInsets(innerPadding).padding(innerPadding),
                 // 루트 바닥(크기 1)에서는 NavDisplay 가 back 핸들러를 끄므로 시스템 back 이 액티비티로 흘러 앱을 나간다.
                 onBack = { appState.popBack() },
