@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 import {
@@ -37,6 +38,62 @@ test("parses version catalog coordinates and refs", () => {
     assert.equal(catalog.versions.kotlin, "2.4.0");
     assert.equal(catalog.libraries["androidx-compose-runtime"].coordinate, "androidx.compose.runtime:runtime");
     assert.equal(catalog.plugins["kotlin-compose"].id, "org.jetbrains.kotlin.plugin.compose");
+});
+
+test("reads escaped quotes, backslashes and # inside TOML strings", () => {
+    const catalog = parseVersionCatalog(String.raw`
+[versions]
+hash = "1.0#2" # comment
+quoted = "1.0\"rc\\"
+
+[libraries]
+escaped = { module = "g:a\"b#c", version = "1\\2", version.ref = "hash" } # "comment"
+split = { group = "g", name = "n\\" }
+
+[plugins]
+escaped = { id = "x.y", version = "3\"4" }
+`);
+    assert.deepEqual(catalog.versions, { hash: "1.0#2", quoted: String.raw`1.0\"rc\\` });
+    assert.deepEqual(catalog.libraries.escaped, {
+        alias: "escaped",
+        coordinate: 'g:a"b#c',
+        version: "1\\2",
+        versionRef: "hash",
+    });
+    assert.equal(catalog.libraries.split.coordinate, "g:n\\");
+    assert.equal(catalog.plugins.escaped.version, '3"4');
+});
+
+// 정규식 역추적은 이벤트 루프를 막아 node:test 시간 제한이 듣지 않는다. 자식 프로세스를 OS가 끊게 한다.
+function importInChild(moduleName, body, timeout = 10_000) {
+    const moduleUrl = new URL(moduleName, import.meta.url).href;
+    const execution = spawnSync(
+        process.execPath,
+        ["--input-type=module", "--eval", `import * as target from ${JSON.stringify(moduleUrl)};\n${body}`],
+        { encoding: "utf8", timeout, killSignal: "SIGKILL" },
+    );
+    assert.equal(execution.signal, null, `${timeout}ms 안에 끝나지 않았습니다.`);
+    assert.equal(execution.status, 0, execution.stderr);
+    return JSON.parse(execution.stdout);
+}
+
+test("#2218: unterminated TOML strings finish in bounded time without becoming values", () => {
+    const unterminated = "\\!".repeat(48);
+    const parsed = importInChild(
+        "./collect-dependency-audit.mjs",
+        `const [libraries, versions] = ${JSON.stringify([
+            `[libraries]\na = { module = "${unterminated}`,
+            `[versions]\na = "${unterminated}`,
+        ])};
+        console.log(JSON.stringify({
+            library: target.parseVersionCatalog(libraries).libraries.a,
+            versions: target.parseVersionCatalog(versions).versions,
+        }));`,
+    );
+    assert.deepEqual(parsed, {
+        library: { alias: "a", coordinate: null, version: null, versionRef: null },
+        versions: {},
+    });
 });
 
 test("finds generated accessors and convention-plugin string aliases only", () => {
@@ -81,6 +138,28 @@ test("extracts BOM-managed versions", () => {
         </project>
     `);
     assert.equal(managed["androidx.compose.runtime:runtime"], "1.11.4");
+});
+
+test("decodes BOM property entities once and keeps unknown entities", () => {
+    const managed = parseBomPom(`
+        <project>
+          <properties>
+            <escaped.version>1.0&amp;quot;&amp;apos;&amp;lt;</escaped.version>
+            <basic.version>&lt;&gt;&amp;&quot;&apos;</basic.version>
+            <unknown.version>1&nbsp;2&#38;3&amp;amp;</unknown.version>
+          </properties>
+          <dependencyManagement><dependencies>
+            <dependency><groupId>g</groupId><artifactId>escaped</artifactId><version>\${escaped.version}</version></dependency>
+            <dependency><groupId>g</groupId><artifactId>basic</artifactId><version>\${basic.version}</version></dependency>
+            <dependency><groupId>g</groupId><artifactId>unknown</artifactId><version>\${unknown.version}</version></dependency>
+          </dependencies></dependencyManagement>
+        </project>
+    `);
+    assert.deepEqual(managed, {
+        "g:escaped": "1.0&quot;&apos;&lt;",
+        "g:basic": "<>&\"'",
+        "g:unknown": "1&nbsp;2&#38;3&amp;",
+    });
 });
 
 test("extracts selected Gradle versions after conflict resolution", () => {
