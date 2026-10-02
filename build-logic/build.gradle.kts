@@ -26,7 +26,7 @@ dependencies {
     constraints {
         listOf("bcprov-jdk18on", "bcpkix-jdk18on", "bcutil-jdk18on").forEach { artifact ->
             implementation("org.bouncycastle:$artifact:${libs.versions.bouncycastle.get()}") {
-                because("GHSA-574f-3g2m-x479 등 1.84 미만 취약 — #921")
+                because("GHSA-9pwp-9qqc-pr26·GHSA-qp49-qgx5-5m26 2건, 1.85 미만 취약 (#427)")
             }
         }
         implementation("org.apache.commons:commons-lang3:${libs.versions.commonsLang3.get()}") {
