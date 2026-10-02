@@ -639,7 +639,7 @@ jobs:
           deadline=$(( $(date +%s) + GRADLE_TIMEOUT_MINUTES * 60 ))
 
           run_gradle() {  # $1: selector 목록(빈 문자열 = 필터 없음), $2: 로그 라벨
-            local selectors="$1" label="$2" remaining rc
+            local selectors="$1" label="$2" remaining rc=0
             local test_arguments=()
             if [[ -n "$selectors" ]]; then
               test_arguments+=("-Pandroid.testInstrumentationRunnerArguments.class=$selectors")
@@ -652,14 +652,13 @@ jobs:
               echo "Managed-device Gradle budget exhausted before: $label" >> "$gradle_log"
               return 124
             fi
-            set +e
+            # errexit 를 함수 안에서 켜고 끄지 않는다. 여기서 set -e 를 되살리면 호출부의 set +e 가
+            # 무너져 Gradle 이 실패하는 순간 스텝이 exit_code 를 쓰기 전에 빠진다(#432).
             timeout --signal=TERM --kill-after=30s "${remaining}s" \
               ./gradlew "$DEVICE_TASK" "${test_arguments[@]}" \
               -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect \
               --console=plain \
-              --stacktrace >> "$gradle_log" 2>&1
-            rc=$?
-            set -e
+              --stacktrace >> "$gradle_log" 2>&1 || rc=$?
             return "$rc"
           }
 
@@ -679,20 +678,16 @@ jobs:
           }
 
           if [[ -z "$TEST_SELECTORS_JSON" || "$TEST_SELECTORS_JSON" == "[]" ]]; then
-            set +e
-            run_gradle "" ""
-            status=$?
-            set -e
+            status=0
+            run_gradle "" "" || status=$?
           else
             declared=()
             while IFS= read -r entry; do
               declared+=("$entry")
             done < <(jq -r '.[]' <<< "$TEST_SELECTORS_JSON")
             joined="$(jq -r 'join(",")' <<< "$TEST_SELECTORS_JSON")"
-            set +e
-            run_gradle "$joined" "selected invocation: 전체 목록 ${#declared[@]}개"
-            status=$?
-            set -e
+            status=0
+            run_gradle "$joined" "selected invocation: 전체 목록 ${#declared[@]}개" || status=$?
 
             # 누락 판정은 1차 런의 live 결과에 대해 한 번만 한다 — 재실행이 시작되면
             # live 는 마지막 invocation 결과로 바뀌기 때문이다.
@@ -709,11 +704,13 @@ jobs:
             retried=0
             for selector in ${missing[@]+"${missing[@]}"}; do
               preserve_results "invocation-$retried"
+              # 재실행이 테스트 태스크 전에 실패하면 live 가 이전 XML 을 그대로 들고 있어 합본에서
+              # 두 번 집계된다. 보존한 뒤 비워 live 가 이번 invocation 결과만 갖게 한다.
+              rm -rf "$results_root"
               retried=$(( retried + 1 ))
-              set +e
-              run_gradle "$selector" "selected retry $retried/${#missing[@]}: $selector (목록 실행에서 누락 — #1378)"
-              status=$?
-              set -e
+              status=0
+              run_gradle "$selector" "selected retry $retried/${#missing[@]}: $selector (목록 실행에서 누락 — #1378)" \
+                || status=$?
               if (( status != 0 )); then
                 break
               fi

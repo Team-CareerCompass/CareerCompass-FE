@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { execFileSync, spawnSync } from "node:child_process";
+import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -336,6 +336,124 @@ test("managed device fails fast per lane and preserves only bounded infrastructu
     assert.match(source, /android-managed-device-retry-\$\{\{ matrix\.device \}\}-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}/);
     assert.match(source, /exit 124/);
 });
+
+const MANAGED_DEVICE_LANES = {
+    api30: { artifact: "api30", task: "pixel2Api30DebugAndroidTest" },
+    api34: { artifact: "accessibility-api34", task: "pixel2Api34DebugAndroidTest" },
+};
+
+// bash 4.4 미만(macOS 기본 3.2)은 set -u 에서 빈 배열 확장을 unbound 로 본다. 러너는 bash 5 라
+// 인자 배열이 비는 API 30 full invocation 은 거기서만 돌려 볼 수 있다.
+const [bashMajor, bashMinor] = spawnSync(
+    "bash",
+    ["-c", 'echo "${BASH_VERSINFO[0]} ${BASH_VERSINFO[1]}"'],
+    { encoding: "utf8" },
+).stdout.trim().split(" ").map(Number);
+const bashExpandsEmptyArrays = bashMajor > 4 || (bashMajor === 4 && bashMinor >= 4);
+
+function managedDeviceGradleScript(source) {
+    const start = source.indexOf("      - name: Run managed-device androidTest\n");
+    assert.ok(start >= 0, "managed-device Gradle step must stay extractable for policy tests");
+    const run = source.indexOf("        run: |\n", start) + "        run: |\n".length;
+    const body = [];
+    for (const line of source.slice(run).split("\n")) {
+        if (line && !line.startsWith("          ")) break;
+        body.push(line.slice(10));
+    }
+    return body.join("\n");
+}
+
+// 스텝 스크립트를 가짜 gradlew 로 그대로 돌린다. GNU timeout 이 없는 macOS 에서도 돌도록
+// timeout 은 옵션과 시간만 벗기고 나머지 명령을 실행하는 가짜로 바꾼다.
+async function runManagedDeviceGradleStep({ gradlew, device = "api34", selectors = [] }) {
+    const script = managedDeviceGradleScript(await readWorkflow("android-managed-device.yml"));
+    const { artifact, task } = MANAGED_DEVICE_LANES[device];
+    const directory = await mkdtemp(path.join(tmpdir(), "managed-device-gradle-"));
+    try {
+        const bin = path.join(directory, "bin");
+        await mkdir(bin);
+        await writeFile(
+            path.join(bin, "timeout"),
+            '#!/usr/bin/env bash\nwhile [[ "$1" == --* ]]; do shift; done\nshift\nexec "$@"\n',
+            { mode: 0o755 },
+        );
+        await writeFile(path.join(directory, "gradlew"), `#!/usr/bin/env bash\n${gradlew}\n`, { mode: 0o755 });
+        const outputPath = path.join(directory, "github-output");
+        await writeFile(outputPath, "");
+        const result = spawnSync("bash", ["-c", script], {
+            cwd: directory,
+            encoding: "utf8",
+            env: {
+                ...process.env,
+                PATH: `${bin}${path.delimiter}${process.env.PATH}`,
+                RUNNER_TEMP: directory,
+                GITHUB_OUTPUT: outputPath,
+                ARTIFACT_KEY: artifact,
+                DEVICE_TASK: task,
+                GRADLE_TIMEOUT_MINUTES: "12",
+                TEST_SELECTORS_JSON: JSON.stringify(selectors),
+            },
+        });
+        const resultsRoot = path.join(directory, "app/build/outputs/androidTest-results/managedDevice");
+        const resultXml = await readdir(resultsRoot, { recursive: true })
+            .then((files) => files.filter((file) => file.endsWith(".xml")).sort())
+            .catch(() => []);
+        return {
+            ...result,
+            resultXml,
+            outputs: await readFile(outputPath, "utf8"),
+            gradleLog: await readFile(path.join(directory, "android-test-logs", `${artifact}.log`), "utf8"),
+        };
+    } finally {
+        await rm(directory, { recursive: true, force: true });
+    }
+}
+
+// #432: run_gradle 이 함수 안에서 set -e 를 되살리면 호출부의 set +e 가 무너져, Gradle 이
+// 실패하는 순간 스텝이 exit_code 를 쓰기 전에 빠지고 Restore 가 그 실패를 124 로 바꾼다.
+test("managed-device Gradle step records a failing selected invocation instead of aborting", async () => {
+    const result = await runManagedDeviceGradleStep({
+        gradlew: 'echo "FAILURE: Build failed with an exception."; exit 1',
+        selectors: ["com.example.SmokeTest#first", "com.example.SmokeTest#second"],
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.outputs, /^exit_code=1$/m);
+    assert.match(result.stdout, /Managed-device Gradle exit code: 1/);
+    assert.doesNotMatch(result.gradleLog, /selected retry/);
+});
+
+test("managed-device Gradle step records a failing retry of a dropped selector", async () => {
+    const result = await runManagedDeviceGradleStep({
+        gradlew: [
+            "results=app/build/outputs/androidTest-results/managedDevice",
+            'if [[ "$*" == *"class=com.example.SmokeTest#first,com.example.SmokeTest#second"* ]]; then',
+            '  mkdir -p "$results"',
+            "  echo '<testsuite><testcase name=\"first\" classname=\"com.example.SmokeTest\"/></testsuite>' > \"$results/first.xml\"",
+            "  exit 0",
+            "fi",
+            "exit 1",
+        ].join("\n"),
+        selectors: ["com.example.SmokeTest#first", "com.example.SmokeTest#second"],
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.gradleLog, /selected retry 1\/1: com\.example\.SmokeTest#second/);
+    assert.match(result.outputs, /^exit_code=1$/m);
+    // 재실행이 XML 없이 실패해도 1차 결과는 합본에 한 번만 남는다.
+    assert.deepEqual(result.resultXml, [path.join("chunks", "invocation-0", "first.xml")]);
+});
+
+test(
+    "managed-device Gradle step records a failing full invocation",
+    { skip: !bashExpandsEmptyArrays && "bash 4.4 미만은 빈 인자 배열에서 set -u 로 멈춘다" },
+    async () => {
+        const result = await runManagedDeviceGradleStep({ gradlew: "exit 1", device: "api30" });
+
+        assert.equal(result.status, 0, result.stderr);
+        assert.match(result.outputs, /^exit_code=1$/m);
+    },
+);
 
 test("managed-device recovery reruns only one validated first-attempt infrastructure failure", async () => {
     const source = await readWorkflow("android-managed-device-retry.yml");
