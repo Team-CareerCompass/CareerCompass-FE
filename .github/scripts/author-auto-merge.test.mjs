@@ -14,6 +14,7 @@ function fixture(overrides = {}) {
         ...overrides,
     };
     const calls = [];
+    const issues = {};
     const rules = [
         { type: "pull_request" },
         { type: "required_status_checks", parameters: {
@@ -27,6 +28,9 @@ function fixture(overrides = {}) {
             get: async () => ({ data: pr }),
             list: async () => ({ data: [pr] }),
             merge: async args => { calls.push({ type: "merge", args }); return { data: { merged: true } }; },
+        }, issues: {
+            get: async ({ issue_number }) => ({ data: { state: "open", assignees: [{ login: "1hyok" }], ...issues[issue_number] } }),
+            update: async args => { calls.push({ type: "close", args }); },
         } },
         paginate: async () => [pr],
         request: async () => ({ data: rules }),
@@ -36,7 +40,7 @@ function fixture(overrides = {}) {
         },
     };
     const context = { repo: { owner: "Team-CareerCompass", repo: "CareerCompass-FE" }, payload: { pull_request: { number: 1 } } };
-    return { pr, calls, rules, live, github, context, run: () => execute(github, context, { info() {} }) };
+    return { pr, calls, issues, rules, live, github, context, run: () => execute(github, context, { info() {} }) };
 }
 
 test("only the current API author can receive automatic merge", async () => {
@@ -111,4 +115,39 @@ test("the privileged workflow never checks out or executes PR files", () => {
     assert.match(source, /pull_request_target:/);
     assert.match(source, /workflow_run:/);
     assert.doesNotMatch(source, /actions\/checkout|\n\s+run:|\$\{\{.*pull_request.*(?:title|body)/);
+});
+
+
+test("successful merge closes only own assigned same-repository closing references", async () => {
+    const f = fixture({ title: "Fixes #42", body: "Closes #42, resolves Team-CareerCompass/CareerCompass-FE#43. Fixes other/repo#44. Fixes #45. Closes #46. Resolves #47." });
+    f.live.mergeStateStatus = "CLEAN";
+    f.issues[43] = { assignees: [{ login: "other" }] };
+    f.issues[45] = { pull_request: {} };
+    f.issues[46] = { state: "closed" };
+    f.issues[47] = { assignees: [] };
+    await f.run();
+    assert.deepEqual(f.calls.map(c => c.type), ["merge", "close"]);
+    assert.equal(f.calls[1].args.issue_number, 42);
+    assert.equal(f.calls[1].args.state_reason, "completed");
+});
+
+test("confirmed merged PRs reconcile issues without another merge", async () => {
+    const f = fixture({ state: "closed", merged: true, title: "Closes #42" });
+    await f.run();
+    assert.deepEqual(f.calls.map(c => c.type), ["close"]);
+});
+
+test("dispatch can reconcile recently merged PRs", async () => {
+    const f = fixture({ state: "closed", merged: true, merged_at: "now", title: "Fixes #42" });
+    f.context.payload = {};
+    f.github.paginate = async () => [];
+    await f.run();
+    assert.deepEqual(f.calls.map(c => c.type), ["close"]);
+});
+
+test("failed merge cannot close its issues", async () => {
+    const f = fixture({ title: "Fixes #42" }); f.live.mergeStateStatus = "CLEAN";
+    f.github.rest.pulls.merge = async () => ({ data: { merged: false } });
+    await assert.rejects(f.run(), /merge was not completed/);
+    assert.deepEqual(f.calls, []);
 });
