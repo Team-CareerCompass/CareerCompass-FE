@@ -4,6 +4,8 @@ import android.app.Activity
 import com.careercompass.core.common.result.runCatchingCancellable
 import com.careercompass.core.domain.error.CoreAuthFailure
 import com.kakao.sdk.auth.model.OAuthToken
+import com.kakao.sdk.common.model.AuthError
+import com.kakao.sdk.common.model.AuthErrorCause
 import com.kakao.sdk.common.model.ClientError
 import com.kakao.sdk.common.model.ClientErrorCause
 import com.kakao.sdk.user.UserApiClient
@@ -43,7 +45,7 @@ internal object KakaoLoginHelper {
         }
     }
 
-    private fun toResult(
+    internal fun toResult(
         token: OAuthToken?,
         error: Throwable?,
     ): Result<String> =
@@ -53,5 +55,19 @@ internal object KakaoLoginHelper {
             else -> Result.failure(IllegalStateException("Kakao SDK returned neither a token nor an error"))
         }
 
-    private fun Throwable.isUserCancelled(): Boolean = this is ClientError && reason == ClientErrorCause.Cancelled
+    /**
+     * SDK 는 사용자 취소를 두 모양으로 돌려준다. 스스로 감지한 취소는 [ClientError] 로, 동의 화면의 취소가
+     * redirect URL 에 실려 오면 `access_denied` [AuthError] 로 온다.
+     *
+     * redirect 의 `access_denied` 는 만 14세 미만 정책 거부에도 쓰이므로 설명이 사용자
+     * 취소 문구일 때만 취소다. 정책 거부까지 취소로 보면 왜 로그인이 안 되는지 안내가 사라진다.
+     */
+    private fun Throwable.isUserCancelled(): Boolean =
+        when (this) {
+            is ClientError -> reason == ClientErrorCause.Cancelled
+            is AuthError -> reason == AuthErrorCause.AccessDenied && response.errorDescription == USER_DENIED_ACCESS
+            else -> false
+        }
+
+    private const val USER_DENIED_ACCESS = "User denied access"
 }
