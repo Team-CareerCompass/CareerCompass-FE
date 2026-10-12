@@ -126,11 +126,11 @@ test("keeps pull request validation secretless and release credentials isolated"
     }
 
     // pull_request_target은 default branch 정의에 쓰기 권한을 줄 수 있어 원칙적으로 금지한다.
-    // 예외는 PR code/artifact/cache를 실행하지 않고 default branch 정책과 API JSON만 읽는 좁은
-    // bridge 둘뿐이다 — 닫힌 스택 멤버 알림과 merge queue 방출 처리(#1892). 그 불변식을 둘 다에
-    // 함께 고정한다.
+    // 허용한 bridge에도 PR code/artifact/cache를 실행하지 않는 경계를 고정한다.
+    // 정책 파일을 읽는 bridge와 체크아웃 없이 API만 사용하는 자동 병합을 각각 검사한다.
     const narrowBridges = ["merge-queue-dequeue.yml", "stack-integrity-notify.yml"];
-    assert.deepEqual([...pullRequestTargetWorkflows].sort(), narrowBridges);
+    const apiOnlyBridges = ["author-auto-merge.yml"];
+    assert.deepEqual([...pullRequestTargetWorkflows].sort(), [...narrowBridges, ...apiOnlyBridges].sort());
     for (const bridgeName of narrowBridges) {
         const bridge = workflows.get(bridgeName);
         assert.match(bridge, /^permissions: \{\}$/m, bridgeName);
@@ -139,6 +139,14 @@ test("keeps pull request validation secretless and release credentials isolated"
         assert.doesNotMatch(bridge, /github\.event\.pull_request\.head\.(sha|ref)/, bridgeName);
         assert.doesNotMatch(bridge, /actions\/(download-artifact|cache)@/, bridgeName);
         assert.doesNotMatch(bridge, /\bsecrets(?:\.|\[)/, bridgeName);
+    }
+    for (const bridgeName of apiOnlyBridges) {
+        const bridge = workflows.get(bridgeName);
+        assert.match(bridge, /^permissions: \{\}$/m, bridgeName);
+        assert.doesNotMatch(bridge, /actions\/(checkout|download-artifact|cache)@/, bridgeName);
+        assert.doesNotMatch(bridge, /^\s+run:/m, bridgeName);
+        assert.doesNotMatch(bridge, /\bsecrets(?:\.|\[)/, bridgeName);
+        assert.doesNotMatch(bridge, /\$\{\{[^}]*github\.event\.pull_request\.(head|body|title)/, bridgeName);
     }
 
     const actionReference = "uses: ./.github/actions/setup-ci-config";
