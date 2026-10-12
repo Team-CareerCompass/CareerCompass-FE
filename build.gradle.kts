@@ -6,8 +6,8 @@ buildscript {
     dependencies {
         constraints {
             listOf("bcprov-jdk18on", "bcpkix-jdk18on", "bcutil-jdk18on").forEach { artifact ->
-                add("classpath", "org.bouncycastle:$artifact:1.84") {
-                    because("GHSA-574f-3g2m-x479 등 1.84 미만 취약 — #921")
+                add("classpath", "org.bouncycastle:$artifact:1.85") {
+                    because("GHSA-9pwp-9qqc-pr26·GHSA-qp49-qgx5-5m26 2건, 1.85 미만 취약 (#427)")
                 }
             }
             add("classpath", "org.apache.commons:commons-lang3:3.18.0") {
@@ -66,7 +66,7 @@ val securityFloors =
         SecurityFloor(
             module = "org.bouncycastle:$artifact",
             version = libs.versions.bouncycastle.get(),
-            because = "GHSA-574f-3g2m-x479 등 1.84 미만 취약 — #921",
+            because = "GHSA-9pwp-9qqc-pr26·GHSA-qp49-qgx5-5m26 2건, 1.85 미만 취약 (#427)",
         )
     } +
         listOf(
