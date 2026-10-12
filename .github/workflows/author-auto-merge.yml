@@ -1,0 +1,110 @@
+name: Author Auto Merge
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft, edited]
+  workflow_run:
+    workflows: [PR Validation, CodeQL, Android Managed Device Test, merge-order-guard]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: author-auto-merge-${{ github.event.pull_request.number || github.event.workflow_run.head_branch || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  enable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # 권한 있는 토큰으로 PR 파일을 실행하지 않고 현재 GitHub 메타데이터만 조회한다.
+      - name: Enable protected auto merge for 1hyok
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const repo = context.repo;
+            const repository = `${repo.owner}/${repo.repo}`;
+            const run = context.payload.workflow_run;
+            let numbers;
+            if (context.payload.pull_request) {
+              numbers = [context.payload.pull_request.number];
+            } else {
+              const open = await github.paginate(github.rest.pulls.list, {
+                ...repo, state: 'open', per_page: 100,
+              });
+              numbers = open
+                .filter(pr => pr.user.login === '1hyok' && (!run || pr.head.sha === run.head_sha))
+                .map(pr => pr.number);
+            }
+
+            for (const pull_number of numbers) {
+              const { data: pr } = await github.rest.pulls.get({ ...repo, pull_number });
+              if (pr.user.login !== '1hyok' || pr.state !== 'open') {
+                core.info(`#${pull_number}: author or state is outside the automatic merge scope`);
+                continue;
+              }
+              const eligible = !pr.draft && ['develop', 'main'].includes(pr.base.ref) &&
+                pr.head.repo?.full_name === repository && pr.base.repo.full_name === repository;
+              if (!eligible) {
+                if (pr.auto_merge) {
+                  await github.graphql(`mutation($id: ID!) {
+                    disablePullRequestAutoMerge(input: {pullRequestId: $id}) {
+                      pullRequest { number }
+                    }
+                  }`, { id: pr.node_id });
+                }
+                core.info(`#${pull_number}: draft, fork, or unsupported base`);
+                continue;
+              }
+              if (run && pr.head.sha !== run.head_sha) {
+                core.info(`#${pull_number}: completed workflow belongs to an older commit`);
+                continue;
+              }
+
+              const { data: rules } = await github.request(
+                'GET /repos/{owner}/{repo}/rules/branches/{branch}',
+                { ...repo, branch: pr.base.ref },
+              );
+              const checks = rules.filter(rule => rule.type === 'required_status_checks');
+              const protectedBase = rules.some(rule => rule.type === 'pull_request') &&
+                checks.some(rule => rule.parameters.strict_required_status_checks_policy) &&
+                checks.some(rule => rule.parameters.required_status_checks.some(
+                  check => check.context === 'guard' && check.integration_id === 15368,
+                ));
+              if (!protectedBase) {
+                throw new Error(`#${pull_number}: required CI, strict base, or trusted guard protection is missing`);
+              }
+
+              const result = await github.graphql(`query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) { headRefOid baseRefName mergeStateStatus autoMergeRequest { enabledAt } }
+                }
+              }`, { ...repo, number: pull_number });
+              const live = result.repository.pullRequest;
+              if (live.headRefOid !== pr.head.sha || live.baseRefName !== pr.base.ref) {
+                core.info(`#${pull_number}: head or base changed while checking protection`);
+                continue;
+              }
+              if (live.mergeStateStatus === 'CLEAN') {
+                // 이미 모든 규칙을 충족한 PR에는 네이티브 자동 병합 예약을 걸 수 없다.
+                // 이 API도 보호 규칙을 적용하며 sha로 조회 이후의 새 커밋을 차단한다.
+                const merged = await github.rest.pulls.merge({
+                  ...repo, pull_number, sha: pr.head.sha, merge_method: 'merge',
+                });
+                if (!merged.data.merged) throw new Error(`#${pull_number}: merge was not completed`);
+                core.info(`#${pull_number}: merged after required checks passed`);
+              } else if (!live.autoMergeRequest) {
+                await github.graphql(`mutation($id: ID!) {
+                  enablePullRequestAutoMerge(input: {pullRequestId: $id, mergeMethod: MERGE}) {
+                    pullRequest { number }
+                  }
+                }`, { id: pr.node_id });
+                core.info(`#${pull_number}: native auto merge enabled; branch rules remain enforced`);
+              } else {
+                core.info(`#${pull_number}: native auto merge is already enabled`);
+              }
+            }
