@@ -2,7 +2,7 @@ name: Author Auto Merge
 
 on:
   pull_request_target:
-    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft, edited]
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft, edited, closed]
   workflow_run:
     workflows: [PR Validation, CodeQL, Android Managed Device Test, merge-order-guard]
     types: [completed]
@@ -21,6 +21,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      issues: write
     steps:
       # 권한 있는 토큰으로 PR 파일을 실행하지 않고 현재 GitHub 메타데이터만 조회한다.
       - name: Enable protected auto merge for 1hyok
@@ -30,6 +31,21 @@ jobs:
             const repo = context.repo;
             const repository = `${repo.owner}/${repo.repo}`;
             const run = context.payload.workflow_run;
+            // GITHUB_TOKEN 병합은 PR closed 후속 워크플로를 실행하지 않는다.
+            const closeOwnedIssues = async pr => {
+              const refs = new Set();
+              const pattern = /\b(?:close[ds]?|fix(?:e[ds])?|resolve[ds]?)\s+(?:([\w.-]+\/[\w.-]+))?#(\d+)/gi;
+              for (const match of `${pr.title ?? ''}\n${pr.body ?? ''}`.matchAll(pattern)) {
+                if (!match[1] || match[1].toLowerCase() === repository.toLowerCase()) refs.add(Number(match[2]));
+              }
+              for (const issue_number of refs) {
+                const { data: issue } = await github.rest.issues.get({ ...repo, issue_number });
+                if (issue.pull_request || issue.state !== 'open' ||
+                    !issue.assignees.some(user => user.login === '1hyok')) continue;
+                await github.rest.issues.update({ ...repo, issue_number, state: 'closed', state_reason: 'completed' });
+                core.info(`#${pr.number}: closed assigned issue #${issue_number} after confirmed merge`);
+              }
+            };
             let numbers;
             if (context.payload.pull_request) {
               numbers = [context.payload.pull_request.number];
@@ -37,14 +53,17 @@ jobs:
               const open = await github.paginate(github.rest.pulls.list, {
                 ...repo, state: 'open', per_page: 100,
               });
-              numbers = open
+              const { data: recent } = await github.rest.pulls.list({
+                ...repo, state: 'closed', sort: 'updated', direction: 'desc', per_page: 100,
+              });
+              numbers = [...open, ...recent.filter(pr => pr.merged_at)]
                 .filter(pr => pr.user.login === '1hyok' && (!run || pr.head.sha === run.head_sha))
                 .map(pr => pr.number);
             }
 
             for (const pull_number of numbers) {
               const { data: pr } = await github.rest.pulls.get({ ...repo, pull_number });
-              if (pr.user.login !== '1hyok' || pr.state !== 'open') {
+              if (pr.user.login !== '1hyok' || (pr.state !== 'open' && !pr.merged)) {
                 core.info(`#${pull_number}: author or state is outside the automatic merge scope`);
                 continue;
               }
@@ -63,6 +82,11 @@ jobs:
               }
               if (run && pr.head.sha !== run.head_sha) {
                 core.info(`#${pull_number}: completed workflow belongs to an older commit`);
+                continue;
+              }
+
+              if (pr.merged) {
+                await closeOwnedIssues(pr);
                 continue;
               }
 
@@ -97,6 +121,7 @@ jobs:
                   ...repo, pull_number, sha: pr.head.sha, merge_method: 'merge',
                 });
                 if (!merged.data.merged) throw new Error(`#${pull_number}: merge was not completed`);
+                await closeOwnedIssues(pr);
                 core.info(`#${pull_number}: merged after required checks passed`);
               } else if (!live.autoMergeRequest) {
                 await github.graphql(`mutation($id: ID!) {
