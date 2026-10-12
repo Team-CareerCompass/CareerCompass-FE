@@ -8,9 +8,7 @@ on:
     types: [completed]
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 concurrency:
   group: author-auto-merge-${{ github.event.pull_request.number || github.event.workflow_run.head_branch || github.run_id }}
@@ -20,6 +18,9 @@ jobs:
   enable:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       # 권한 있는 토큰으로 PR 파일을 실행하지 않고 현재 GitHub 메타데이터만 조회한다.
       - name: Enable protected auto merge for 1hyok
