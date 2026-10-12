@@ -9,6 +9,20 @@ const INFRASTRUCTURE_PATTERNS = [
     ["managed-device-unavailable", /managed[ -]device[^\n]*(?:failed|timeout|timed out|unavailable)/i],
 ];
 
+// 저장소가 429 로 거절해 설정 단계 의존성 해석이 실패했고 :app 태스크가 하나도 돌지 않았다면
+// PR 코드가 실행되기 전에 끝난 인프라 실패다(#432). 429 없는 해석 실패는 없는 좌표일 수 있어
+// 재실행으로 풀리지 않으므로 넣지 않는다.
+const DEPENDENCY_RESOLUTION_FAILURE = /Could not resolve all files for configuration/;
+const DEPENDENCY_REPOSITORY_RATE_LIMIT = /Received status code 429 from server/;
+const APP_TASK_EXECUTED = /^> Task :app:/m;
+
+function dependencyResolutionSignals(log) {
+    const rateLimitedBeforeAppTasks = DEPENDENCY_RESOLUTION_FAILURE.test(log) &&
+        DEPENDENCY_REPOSITORY_RATE_LIMIT.test(log) &&
+        !APP_TASK_EXECUTED.test(log);
+    return rateLimitedBeforeAppTasks ? ["dependency-repository-rate-limited"] : [];
+}
+
 const BOOT_PHASE_PATTERNS = [
     ["managed-device-setup-task", /> Task [^\n]*:pixel2Api(?:30|34)(?:Setup|Check)\b/im],
     ["api34-managed-device-task", /> Task [^\n]*:pixel2Api34DebugAndroidTest\b/im],
@@ -36,7 +50,10 @@ export function classifyAndroidManagedDeviceFailure({
     const normalizedDevice = String(device ?? "").trim().toLowerCase();
     const normalizedExitCode = String(exitCode ?? "").trim();
     const normalizedOutcome = String(outcome ?? "").trim().toLowerCase();
-    const infrastructureSignals = matchingSignals(log, INFRASTRUCTURE_PATTERNS);
+    const infrastructureSignals = [
+        ...matchingSignals(log, INFRASTRUCTURE_PATTERNS),
+        ...dependencyResolutionSignals(log),
+    ];
     const bootPhaseSignals = matchingSignals(log, BOOT_PHASE_PATTERNS);
     const testExecutionSignals = matchingSignals(log, TEST_EXECUTION_PATTERNS);
     const timedOut = normalizedExitCode === "124" ||
