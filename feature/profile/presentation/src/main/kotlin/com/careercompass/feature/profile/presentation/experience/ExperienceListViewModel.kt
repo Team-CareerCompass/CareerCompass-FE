@@ -210,7 +210,15 @@ public class ExperienceListViewModel
             when (event) {
                 is ExperienceListReducerEvent.LoadStarted -> {
                     // 필터를 바꾸면 커서도 처음으로 돌아간다 — 이전 필터의 페이지를 이어 붙이면 목록이 섞인다.
-                    state.copy(filter = event.filter, cards = emptyList(), nextCursor = null, isLoading = true, loadFailure = null)
+                    // load() 가 이전 이어 읽기를 취소했으므로 그 진행 상태도 함께 끝낸다.
+                    state.copy(
+                        filter = event.filter,
+                        cards = emptyList(),
+                        nextCursor = null,
+                        isLoading = true,
+                        isLoadingMore = false,
+                        loadFailure = null,
+                    )
                 }
 
                 is ExperienceListReducerEvent.Loaded -> {
