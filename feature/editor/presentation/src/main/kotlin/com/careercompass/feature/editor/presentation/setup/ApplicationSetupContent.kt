@@ -98,6 +98,20 @@ public fun ApplicationSetupContent(
                     verticalArrangement = Arrangement.spacedBy(spacing.medium),
                 ) {
                     item(key = "heading") { SetupHeading(isEmptyRecognition = state.isEmptyRecognition) }
+                    if (state.isOverItemLimit) {
+                        item(key = "item-limit") {
+                            Text(
+                                text =
+                                    stringResource(
+                                        R.string.editor_setup_item_limit_notice,
+                                        state.items.size,
+                                        ApplicationItemRules.MAX_ITEMS,
+                                    ),
+                                color = CareerCompassTheme.colors.error,
+                                style = CareerCompassTheme.typography.bodyMedium,
+                            )
+                        }
+                    }
                     items(items = state.items, key = { it.order }) { item ->
                         ApplicationItemRow(item = item, onEvent = onEvent)
                     }
@@ -207,7 +221,12 @@ private fun AddItemRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = stringResource(R.string.editor_setup_item_count, state.items.size, ApplicationItemRules.MAX_ITEMS),
+            text =
+                if (state.isOverItemLimit) {
+                    stringResource(R.string.editor_setup_item_count_over_limit, state.items.size)
+                } else {
+                    stringResource(R.string.editor_setup_item_count, state.items.size, ApplicationItemRules.MAX_ITEMS)
+                },
             style = CareerCompassTheme.typography.caption,
             color = CareerCompassTheme.colors.onSurfaceVariant,
         )

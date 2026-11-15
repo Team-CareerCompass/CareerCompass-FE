@@ -52,10 +52,12 @@ public data class ApplicationSetupUiState(
     /** 공고에서 문항을 하나도 못 찾았다 — 실패가 아니라 직접 쓰는 자리다(F4-1). */
     val isEmptyRecognition: Boolean get() = !isInitialLoading && loadFailure == null && recognizedItems.isEmpty()
 
-    /** 문항이 하나도 없으면 초안을 만들 수 없다. */
-    val canStart: Boolean get() = items.isNotEmpty() && !isCreating
+    /** 인식 결과도 상한 안으로 확정한 뒤에만 생성한다. 초과 문항은 사용자가 골라 지운다. */
+    val canStart: Boolean get() = items.isNotEmpty() && !isOverItemLimit && !isCreating
 
     val isLimitReached: Boolean get() = items.size >= ApplicationItemRules.MAX_ITEMS
+
+    val isOverItemLimit: Boolean get() = items.size > ApplicationItemRules.MAX_ITEMS
 
     /** 글자 수 제한을 못 찾은 문항이 있는가 — 있으면 기본 길이 안내를 미리 보인다(F4-2). */
     val hasUnboundedItem: Boolean get() = items.any { it.maxChars == null }
@@ -418,7 +420,11 @@ public class ApplicationSetupViewModel
                             inputDraft.clear()
                             dispatch(ApplicationSetupReducerEvent.SessionEnded)
                         } else {
-                            dispatch(ApplicationSetupReducerEvent.MessageRaised(ApplicationSetupMessage.CreateFailed))
+                            dispatch(
+                                ApplicationSetupReducerEvent.MessageRaised(
+                                    ApplicationSetupMessage.CreateFailed(throwable.toFailureKind()),
+                                ),
+                            )
                         }
                     }
                 }
