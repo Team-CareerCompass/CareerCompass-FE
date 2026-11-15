@@ -8,4 +8,8 @@ dependencies {
     implementation(libs.coroutines.core)
 
     testFixturesImplementation(libs.coroutines.core)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.coroutines.test)
+    testImplementation(testFixtures(projects.feature.foryou.domain))
 }
