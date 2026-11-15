@@ -18,6 +18,7 @@ import com.careercompass.feature.profile.domain.usecase.UpdateExperienceUseCase
 import com.careercompass.feature.profile.presentation.home.ProfileSessionEnd
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -153,6 +154,56 @@ class ExperienceListViewModelTest {
 
         assertEquals(24, viewModel.state.value.cards.size)
         assertEquals(24, viewModel.state.value.totalCount)
+        assertNull(viewModel.state.value.nextCursor)
+    }
+
+    @Test
+    fun `이어 읽기 대기 중 새로고침하면 취소 뒤 다시 2페이지를 읽을 수 있다`() {
+        assertPaginationRecoversAfter(ExperienceListIntent.Refresh)
+    }
+
+    @Test
+    fun `이어 읽기 대기 중 필터를 바꾸면 새 필터의 2페이지를 읽을 수 있다`() {
+        assertPaginationRecoversAfter(
+            ExperienceListIntent.Screen(ExperienceListEvent.FilterSelected(ExperienceTypeFilter(ExperienceType.Award))),
+        )
+    }
+
+    private fun assertPaginationRecoversAfter(intent: ExperienceListIntent) {
+        var moreCalls = 0
+        var cancelled = false
+        val queries = mutableListOf<Pair<ExperienceType?, String?>>()
+        experienceRepository.onGetExperiences = { type, cursor, _ ->
+            queries += type to cursor
+            if (cursor != null && ++moreCalls == 1) {
+                try {
+                    awaitCancellation()
+                } finally {
+                    cancelled = true
+                }
+            }
+            Result.success(
+                if (cursor == null) {
+                    CursorPage(items = List(20) { card(it + 1L) }, nextCursor = "c1")
+                } else {
+                    CursorPage(items = listOf(card(21L)), nextCursor = null)
+                },
+            )
+        }
+        val viewModel = viewModel()
+        viewModel.onEvent(ExperienceListEvent.LoadMore)
+        assertTrue(viewModel.state.value.isLoadingMore)
+
+        viewModel.onIntent(intent)
+
+        assertTrue(cancelled)
+        assertFalse(viewModel.state.value.isLoadingMore)
+        assertTrue(viewModel.state.value.canLoadMore)
+        assertNull(viewModel.state.value.message)
+        viewModel.onEvent(ExperienceListEvent.LoadMore)
+        assertEquals(2, moreCalls)
+        assertEquals(21, viewModel.state.value.cards.size)
+        assertEquals(viewModel.state.value.filter.type to "c1", queries.last())
         assertNull(viewModel.state.value.nextCursor)
     }
 
