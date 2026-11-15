@@ -21,6 +21,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 
 class ApplicationSetupViewModelTest {
@@ -229,7 +230,7 @@ class ApplicationSetupViewModelTest {
 
             viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.StartClicked))
 
-            assertEquals(ApplicationSetupMessage.CreateFailed, viewModel.uiState.value.message)
+            assertEquals(ApplicationSetupMessage.CreateFailed(FailureKind.ServiceUnavailable), viewModel.uiState.value.message)
             assertEquals(2, viewModel.uiState.value.items.size)
             assertFalse(viewModel.uiState.value.isCreating)
             assertNull(viewModel.uiState.value.draftStarted)
@@ -249,8 +250,50 @@ class ApplicationSetupViewModelTest {
 
             viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.StartClicked))
 
-            assertEquals(ApplicationSetupMessage.CreateFailed, viewModel.uiState.value.message)
+            assertEquals(ApplicationSetupMessage.CreateFailed(FailureKind.Unexpected), viewModel.uiState.value.message)
             assertEquals(1, recordedFailures.size)
+        }
+
+    @Test
+    fun `생성 실패의 사유를 공통 실패 표로 전달한다`() =
+        runTest(dispatcher) {
+            val failures =
+                listOf(
+                    CoreDataFailure.NetworkUnavailable(UnknownHostException()) to FailureKind.NoConnection,
+                    CoreDataFailure.NetworkUnavailable(SocketTimeoutException()) to FailureKind.Timeout,
+                    CoreDataFailure.RateLimited("RATE_LIMITED", RuntimeException()) to FailureKind.RateLimited,
+                    CoreDataFailure.InvalidInput("INVALID_INPUT", null, RuntimeException()) to FailureKind.InvalidInput,
+                    CoreDataFailure.LimitExceeded("LIMIT_EXCEEDED", RuntimeException()) to FailureKind.LimitExceeded,
+                    CoreDataFailure.ProfileIncomplete("PROFILE_INCOMPLETE", RuntimeException()) to FailureKind.ProfileIncomplete,
+                    CoreDataFailure.NotFound("POSTING_NOT_FOUND", RuntimeException()) to FailureKind.NotFound,
+                    CoreDataFailure.Forbidden("PERMISSION_DENIED", RuntimeException()) to FailureKind.PermissionDenied,
+                    CoreDataFailure.ParsingFailed("PARSING_FAILED", RuntimeException()) to FailureKind.ParsingFailed,
+                )
+            failures.forEach { (failure, kind) ->
+                val viewModel = loadedViewModel()
+                applicationRepository.onCreateDraft = { _, _, _ -> Result.failure(failure) }
+
+                viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.StartClicked))
+
+                assertEquals(ApplicationSetupMessage.CreateFailed(kind), viewModel.uiState.value.message)
+                assertEquals(2, viewModel.uiState.value.items.size)
+                assertFalse(viewModel.uiState.value.isCreating)
+            }
+        }
+
+    @Test
+    fun `생성 중 401 은 실패 스낵바 없이 세션을 종료한다`() =
+        runTest(dispatcher) {
+            val viewModel = loadedViewModel()
+            applicationRepository.onCreateDraft = { _, _, _ ->
+                Result.failure(CoreDataFailure.Unauthorized("AUTH_REQUIRED", RuntimeException()))
+            }
+
+            viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.StartClicked))
+
+            assertNotNull(viewModel.uiState.value.sessionEnd)
+            assertNull(viewModel.uiState.value.message)
+            assertFalse(viewModel.uiState.value.isCreating)
         }
 
     @Test
