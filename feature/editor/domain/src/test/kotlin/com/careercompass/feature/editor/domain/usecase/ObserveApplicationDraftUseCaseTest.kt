@@ -61,6 +61,32 @@ class ObserveApplicationDraftUseCaseTest {
             )
         }
 
+    @Test
+    fun `항목 완료와 partial_failed 사건 뒤 닫히면 미완 항목이 실패한 마지막 값을 낸다`() =
+        runTest {
+            repository.onStreamEvents = {
+                flowOf(
+                    ApplicationStreamEvent.ItemDone(itemId = 1L, answer = "첫 답"),
+                    ApplicationStreamEvent.StatusChanged(ApplicationStatus.PartialFailed),
+                )
+            }
+
+            val emissions = observeApplicationDraft(draft()).toList()
+
+            assertEquals(4, emissions.size)
+            assertEquals(ApplicationStatus.PartialFailed, emissions.last().status)
+            assertEquals(listOf(ApplicationItemStatus.Done, ApplicationItemStatus.Failed), emissions.last().items.map { it.status })
+            assertEquals(
+                "첫 답",
+                emissions
+                    .last()
+                    .items
+                    .first()
+                    .answer,
+            )
+            assertEquals(false, emissions.last().hasLoadingItem)
+        }
+
     /** 굳혀도 달라진 것이 없으면 같은 값을 두 번 내지 않는다 — 화면이 같은 상태로 두 번 다시 그린다. */
     @Test
     fun `굳힌 값이 그대로면 다시 내지 않는다`() =

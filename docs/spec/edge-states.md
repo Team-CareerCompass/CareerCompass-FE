@@ -65,7 +65,7 @@ Figma 09 Edge Cases 는 상태 화면을 **다섯 장**만 그려 두었다 — 
 | 경험 카드 편집 시트 | 저장 실패는 시트를 열어 둔 채 스낵바 `profile_experience_save_failed` (상한 거부는 `profile_experience_limit_reached`) | 저장 중 시트 잠금(닫기 무시) | — | 없음 | 오프라인과 같은 길 | 셸에 알림 → 로그인 |
 | 경험 카드 목록 | 읽은 카드가 없을 때만 `CareerCompassFailureState`(실패 표 #204 · `FailureSurface.ExperienceCard`) · 이어 읽기 실패는 스낵바 `profile_experience_load_more_failed` | 첫 조회만 화면 가운데 진행 표시 | `CareerCompassEmptyState` × 2사유(미등록 → 「첫 카드 만들기」 · 필터 → 「전체 보기」) | 없음 | 오프라인과 같은 길 | 셸에 알림 → 로그인 |
 | 과거 지원서 목록 | 읽은 지원서가 없을 때만 `CareerCompassFailureState`(실패 표 #204 · `FailureSurface.Application`) · 분류 변경·삭제 실패는 스낵바 | 첫 조회만 화면 가운데 진행 표시 | `CareerCompassEmptyState` — 사유 하나(아직 안 올렸다) → 「첫 지원서 올리기」 | 없음 | 오프라인과 같은 길 | 셸에 알림 → 로그인 |
-| 지원서 작성(문항 확인) | 공고를 못 읽으면 `CareerCompassFailureState`(실패 표 #204 · `FailureSurface.Posting`) · 생성 실패는 문항을 그대로 두고 스낵바 `editor_setup_create_failed` | 첫 조회만 화면 가운데 진행 표시 · 생성 중에는 버튼 잠금 + 「초안을 준비하고 있어요…」 | **빈 결과가 실패가 아니다** — 인식된 문항이 0개면 「공고에서 항목을 찾지 못했어요」와 함께 직접 쓰는 자리를 연다(F4-1) | 없음 | 오프라인과 같은 길 · 생성 중 503(LLM 장애)은 스낵바 | 셸에 알림 → 로그인 |
+| 지원서 작성(문항 확인) | 공고를 못 읽으면 `CareerCompassFailureState`(실패 표 #204 · `FailureSurface.Posting`) · 생성 실패는 문항을 그대로 두고 실패 표의 사유별 문장으로 스낵바(생성 문맥은 `Unspecified`, #414) | 첫 조회만 화면 가운데 진행 표시 · 생성 중에는 버튼 잠금 + 「초안을 준비하고 있어요…」 | **빈 결과가 실패가 아니다** — 인식된 문항이 0개면 「공고에서 항목을 찾지 못했어요」와 함께 직접 쓰는 자리를 연다(F4-1) | 없음 | 오프라인과 같은 길 · 생성 중 503(LLM 장애)은 스낵바 | 셸에 알림 → 로그인 |
 | 지원서 문항 편집 시트 | 없음 — 서버를 부르지 않는다 | 없음 | — | 없음 | 없음 | 없음 |
 | 분석·지원서 탭 · 자리표시자 화면 4종 | 미구현 | 미구현 | `CareerCompassEmptyState`(자리표시자) | 미구현 | 미구현 | 미구현 |
 

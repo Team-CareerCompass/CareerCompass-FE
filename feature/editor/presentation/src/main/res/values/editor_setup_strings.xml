@@ -12,6 +12,8 @@
     <string name="editor_setup_item_delete">삭제</string>
     <string name="editor_setup_item_add">항목 추가</string>
     <string name="editor_setup_item_count">%1$d / %2$d개</string>
+    <string name="editor_setup_item_count_over_limit">문항 %1$d개</string>
+    <string name="editor_setup_item_limit_notice">문항이 %1$d개예요. 초안 작성을 시작하려면 %2$d개 이하로 줄여 주세요.</string>
     <string name="editor_setup_default_length_notice">글자 수 제한이 없는 항목은 %1$d~%2$d자로 작성해 드려요.</string>
     <string name="editor_setup_tone_label">문체</string>
     <string name="editor_setup_tone_formal">격식체</string>
@@ -21,7 +23,6 @@
     <string name="editor_setup_loading">공고를 읽고 있어요…</string>
     <string name="editor_setup_limit_reached">항목은 최대 %1$d개까지 넣을 수 있어요</string>
     <string name="editor_setup_last_item_kept">마지막 항목은 지울 수 없어요. 내용을 고쳐 주세요</string>
-    <string name="editor_setup_create_failed">초안 작성을 시작하지 못했어요. 잠시 후 다시 시도해 주세요</string>
 
     <string name="editor_item_editor_add_title">항목 추가</string>
     <string name="editor_item_editor_edit_title">항목 고치기</string>

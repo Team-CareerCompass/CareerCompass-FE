@@ -21,6 +21,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 
 class ApplicationSetupViewModelTest {
@@ -185,6 +186,43 @@ class ApplicationSetupViewModelTest {
             assertEquals(ApplicationSetupMessage.LimitReached, viewModel.uiState.value.message)
         }
 
+    @Test
+    fun `인식 문항이 상한을 넘으면 모두 보존하고 시작 요청을 막는다`() =
+        runTest(dispatcher) {
+            val questions =
+                (1..12).map {
+                    com.careercompass.core.model.posting
+                        .PostingFormQuestion(order = it, question = "문항 $it", maxChars = 300)
+                }
+            postingRepository.onGetPostingDetail = { Result.success(postingDetail(questions = questions)) }
+            val viewModel = viewModel()
+
+            assertEquals(12, viewModel.uiState.value.items.size)
+            assertTrue(viewModel.uiState.value.isOverItemLimit)
+            assertFalse(viewModel.uiState.value.canStart)
+            viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.StartClicked))
+            assertTrue(applicationRepository.createDraftCalls.isEmpty())
+
+            // 편집한 문항도 상한을 넘는 동안 전송할 수 없다.
+            viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.ItemEditClicked(1)))
+            viewModel.editor(ApplicationItemEditorEvent.QuestionChanged("고친 문항"))
+            viewModel.editor(ApplicationItemEditorEvent.Submitted)
+            viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.StartClicked))
+            assertTrue(applicationRepository.createDraftCalls.isEmpty())
+
+            viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.ItemDeleteClicked(12)))
+            viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.ItemDeleteClicked(11)))
+            assertFalse(viewModel.uiState.value.isOverItemLimit)
+            assertTrue(viewModel.uiState.value.canStart)
+            applicationRepository.onCreateDraft = { _, _, _ -> Result.success(createdDraft()) }
+            viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.StartClicked))
+
+            val sent = applicationRepository.createDraftCalls.single().items!!
+            assertEquals(10, sent.size)
+            assertEquals("고친 문항", sent.first().question)
+            assertEquals((1..10).toList(), sent.map { it.order })
+        }
+
     /** 계약에 없는 필드라, 보낼 이유가 없을 때 보내면 그 필드를 모르는 서버가 거절할 여지만 만든다. */
     @Test
     fun `손보지 않고 시작하면 문항을 보내지 않는다`() =
@@ -229,7 +267,7 @@ class ApplicationSetupViewModelTest {
 
             viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.StartClicked))
 
-            assertEquals(ApplicationSetupMessage.CreateFailed, viewModel.uiState.value.message)
+            assertEquals(ApplicationSetupMessage.CreateFailed(FailureKind.ServiceUnavailable), viewModel.uiState.value.message)
             assertEquals(2, viewModel.uiState.value.items.size)
             assertFalse(viewModel.uiState.value.isCreating)
             assertNull(viewModel.uiState.value.draftStarted)
@@ -249,8 +287,50 @@ class ApplicationSetupViewModelTest {
 
             viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.StartClicked))
 
-            assertEquals(ApplicationSetupMessage.CreateFailed, viewModel.uiState.value.message)
+            assertEquals(ApplicationSetupMessage.CreateFailed(FailureKind.Unexpected), viewModel.uiState.value.message)
             assertEquals(1, recordedFailures.size)
+        }
+
+    @Test
+    fun `생성 실패의 사유를 공통 실패 표로 전달한다`() =
+        runTest(dispatcher) {
+            val failures =
+                listOf(
+                    CoreDataFailure.NetworkUnavailable(UnknownHostException()) to FailureKind.NoConnection,
+                    CoreDataFailure.NetworkUnavailable(SocketTimeoutException()) to FailureKind.Timeout,
+                    CoreDataFailure.RateLimited("RATE_LIMITED", RuntimeException()) to FailureKind.RateLimited,
+                    CoreDataFailure.InvalidInput("INVALID_INPUT", null, RuntimeException()) to FailureKind.InvalidInput,
+                    CoreDataFailure.LimitExceeded("LIMIT_EXCEEDED", RuntimeException()) to FailureKind.LimitExceeded,
+                    CoreDataFailure.ProfileIncomplete("PROFILE_INCOMPLETE", RuntimeException()) to FailureKind.ProfileIncomplete,
+                    CoreDataFailure.NotFound("POSTING_NOT_FOUND", RuntimeException()) to FailureKind.NotFound,
+                    CoreDataFailure.Forbidden("PERMISSION_DENIED", RuntimeException()) to FailureKind.PermissionDenied,
+                    CoreDataFailure.ParsingFailed("PARSING_FAILED", RuntimeException()) to FailureKind.ParsingFailed,
+                )
+            failures.forEach { (failure, kind) ->
+                val viewModel = loadedViewModel()
+                applicationRepository.onCreateDraft = { _, _, _ -> Result.failure(failure) }
+
+                viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.StartClicked))
+
+                assertEquals(ApplicationSetupMessage.CreateFailed(kind), viewModel.uiState.value.message)
+                assertEquals(2, viewModel.uiState.value.items.size)
+                assertFalse(viewModel.uiState.value.isCreating)
+            }
+        }
+
+    @Test
+    fun `생성 중 401 은 실패 스낵바 없이 세션을 종료한다`() =
+        runTest(dispatcher) {
+            val viewModel = loadedViewModel()
+            applicationRepository.onCreateDraft = { _, _, _ ->
+                Result.failure(CoreDataFailure.Unauthorized("AUTH_REQUIRED", RuntimeException()))
+            }
+
+            viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.StartClicked))
+
+            assertNotNull(viewModel.uiState.value.sessionEnd)
+            assertNull(viewModel.uiState.value.message)
+            assertFalse(viewModel.uiState.value.isCreating)
         }
 
     @Test

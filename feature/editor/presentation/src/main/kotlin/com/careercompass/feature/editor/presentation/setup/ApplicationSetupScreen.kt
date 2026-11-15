@@ -16,6 +16,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.careercompass.core.ui.failure.FailureSurface
+import com.careercompass.core.ui.failure.display
+import com.careercompass.core.ui.failure.sentence
 import com.careercompass.core.ui.mvi.ObserveSignal
 import com.careercompass.core.ui.theme.CareerCompassTheme
 import com.careercompass.feature.editor.domain.model.ApplicationItemRules
@@ -90,7 +93,7 @@ public fun ApplicationSetupScreen(
     }
 }
 
-private fun ApplicationSetupMessage.text(resources: Resources): String =
+internal fun ApplicationSetupMessage.text(resources: Resources): String =
     when (this) {
         ApplicationSetupMessage.LimitReached -> {
             resources.getString(R.string.editor_setup_limit_reached, ApplicationItemRules.MAX_ITEMS)
@@ -100,7 +103,8 @@ private fun ApplicationSetupMessage.text(resources: Resources): String =
             resources.getString(R.string.editor_setup_last_item_kept)
         }
 
-        ApplicationSetupMessage.CreateFailed -> {
-            resources.getString(R.string.editor_setup_create_failed)
+        is ApplicationSetupMessage.CreateFailed -> {
+            // Application 문맥은 조회 실패·과거 지원서 저장 상한을 말한다. 생성 실패에 그 명사를 붙이지 않는다.
+            kind.display(FailureSurface.Unspecified).sentence(resources)
         }
     }
