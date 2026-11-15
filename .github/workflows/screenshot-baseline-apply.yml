@@ -106,6 +106,7 @@ jobs:
               'feature/feed/presentation/src/screenshotTestDebug/reference/',
               'feature/editor/presentation/src/screenshotTestDebug/reference/',
               'feature/foryou/presentation/src/screenshotTestDebug/reference/',
+              'feature/profile/presentation/src/screenshotTestDebug/reference/',
               'feature/notification/presentation/src/screenshotTestDebug/reference/',
             ];
             const artifact = path.resolve(process.env.ARTIFACT_DIR);
