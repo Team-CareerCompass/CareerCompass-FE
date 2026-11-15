@@ -146,7 +146,7 @@ class AppNavigationAndroidTest {
             assertEquals(content, clip?.getItemAt(0)?.text?.toString())
             assertEquals(true, clip?.description?.extras?.getBoolean("android.content.extra.IS_SENSITIVE"))
         }
-        composeRule.onNodeWithContentDescription("뒤로 가기").performClick()
+        composeRule.onNodeWithContentDescription("뒤로가기").performClick()
         composeRule.onNodeWithText("나를 위한 분석").assertIsDisplayed()
     }
 
