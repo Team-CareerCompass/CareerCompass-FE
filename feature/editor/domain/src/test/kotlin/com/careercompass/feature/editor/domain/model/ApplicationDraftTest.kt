@@ -74,7 +74,44 @@ class ApplicationDraftTest {
         assertEquals(ApplicationStatus.Ready, settled.status)
     }
 
-    /** 서버가 상태를 말해 줬거나 이미 저장된 초안은 스트림이 닫혔다고 손댈 것이 없다. */
+    @Test
+    fun `partial_failed 사건 뒤에도 남은 loading 항목을 실패로 굳힌다`() {
+        val settled =
+            draft(items = listOf(item(1L, status = ApplicationItemStatus.Done, answer = "받은 답"), item(2L)))
+                .applying(ApplicationStreamEvent.StatusChanged(ApplicationStatus.PartialFailed))
+                .settled()
+
+        assertEquals(ApplicationStatus.PartialFailed, settled.status)
+        assertEquals(listOf(ApplicationItemStatus.Done, ApplicationItemStatus.Failed), settled.items.map { it.status })
+        assertEquals("받은 답", settled.items.first().answer)
+        assertEquals(false, settled.hasLoadingItem)
+        assertEquals(settled, settled.settled())
+    }
+
+    @Test
+    fun `ready 사건 뒤 답이 없는 항목이 남으면 partial_failed 로 내려 재생성을 허용한다`() {
+        val settled =
+            draft(items = listOf(item(1L, status = ApplicationItemStatus.Done, answer = "답"), item(2L)))
+                .applying(ApplicationStreamEvent.StatusChanged(ApplicationStatus.Ready))
+                .settled()
+
+        assertEquals(ApplicationStatus.PartialFailed, settled.status)
+        assertEquals(listOf(ApplicationItemStatus.Done, ApplicationItemStatus.Failed), settled.items.map { it.status })
+        assertEquals(false, settled.hasLoadingItem)
+    }
+
+    @Test
+    fun `항목이 모두 완료돼도 서버가 알린 partial_failed 는 지우지 않는다`() {
+        val original =
+            draft(
+                status = ApplicationStatus.PartialFailed,
+                items = listOf(item(1L, status = ApplicationItemStatus.Done, answer = "답")),
+            )
+
+        assertEquals(original, original.settled())
+    }
+
+    /** 저장된 초안은 스트림이 닫혔다고 손댈 것이 없다. */
     @Test
     fun `generating 이 아니면 굳히지 않는다`() {
         val saved = draft(status = ApplicationStatus.Saved, items = listOf(item(1L)))
