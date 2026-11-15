@@ -1,13 +1,18 @@
 package com.careercompass.feature.editor.presentation.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
+import com.careercompass.core.ui.mvi.ObserveSignal
 import com.careercompass.core.ui.navigation.FeatureNavDisplay
 import com.careercompass.core.ui.navigation.FeatureStackBoundary
+import com.careercompass.feature.editor.presentation.editor.ApplicationEditorScreen
 import com.careercompass.feature.editor.presentation.progress.ApplicationProgressIntent
 import com.careercompass.feature.editor.presentation.progress.ApplicationProgressScreen
 import com.careercompass.feature.editor.presentation.progress.ApplicationProgressViewModel
@@ -26,6 +31,17 @@ public fun EditorNavHost(
     // 초안은 Setup entry를 지워도 유지하고, editor host를 떠날 때 정리한다.
     val progress =
         hiltViewModel<ApplicationProgressViewModel, ApplicationProgressViewModel.Factory>(creationCallback = { it.create(postingId) })
+    val state by progress.uiState.collectAsStateWithLifecycle()
+    // Progress와 Editor를 오갈 때는 연결을 유지하고 host가 멈출 때만 구독을 닫는다.
+    LifecycleResumeEffect(progress) {
+        progress.onIntent(ApplicationProgressIntent.Resumed)
+        onPauseOrDispose { progress.onIntent(ApplicationProgressIntent.Paused) }
+    }
+    ObserveSignal(
+        signal = state.sessionEnded.takeIf { it },
+        consumed = ApplicationProgressIntent.ConsumeSessionEnded,
+        onIntent = progress::onIntent,
+    ) { actions.endSession() }
     FeatureNavDisplay(
         backStack = stack,
         boundary = boundary,
@@ -47,7 +63,18 @@ public fun EditorNavHost(
                     )
                 }
                 entry<EditorRoute.Progress> {
-                    ApplicationProgressScreen(progress, actions::popBack, actions::completeProfile, actions::endSession)
+                    ApplicationProgressScreen(
+                        progress,
+                        actions::popBack,
+                        actions::completeProfile,
+                        onEditItem = { id ->
+                            progress.onIntent(ApplicationProgressIntent.SelectItem(id))
+                            actions.showEditor()
+                        },
+                    )
+                }
+                entry<EditorRoute.Editor> {
+                    ApplicationEditorScreen(progress, actions::popBack)
                 }
             },
     )
