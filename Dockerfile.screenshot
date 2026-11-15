@@ -16,6 +16,7 @@
 #               :feature:feed:presentation:updateScreenshotTest \
 #               :feature:editor:presentation:updateScreenshotTest \
 #               :feature:foryou:presentation:updateScreenshotTest \
+#               :feature:profile:presentation:updateScreenshotTest \
 #               :feature:notification:presentation:updateScreenshotTest \
 #               --rerun
 #
@@ -26,6 +27,7 @@
 #               :feature:feed:presentation:validateScreenshotTest \
 #               :feature:editor:presentation:validateScreenshotTest \
 #               :feature:foryou:presentation:validateScreenshotTest \
+#               :feature:profile:presentation:validateScreenshotTest \
 #               :feature:notification:presentation:validateScreenshotTest
 
 FROM ubuntu:26.04
