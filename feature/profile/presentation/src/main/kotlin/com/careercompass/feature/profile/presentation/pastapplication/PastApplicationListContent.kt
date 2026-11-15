@@ -112,6 +112,7 @@ public fun PastApplicationListContent(
                         PastApplicationCard(
                             application = application,
                             isExpanded = application.id == state.expandedId,
+                            canEditCategory = !state.isUpdatingCategory,
                             onEvent = onEvent,
                         )
                     }
@@ -160,6 +161,7 @@ private fun PastApplicationHeader(
 private fun PastApplicationCard(
     application: PastApplication,
     isExpanded: Boolean,
+    canEditCategory: Boolean,
     onEvent: (PastApplicationListEvent) -> Unit,
 ) {
     val colors = CareerCompassTheme.colors
@@ -210,6 +212,7 @@ private fun PastApplicationCard(
                 PastApplicationItemRow(
                     applicationId = application.id,
                     item = item,
+                    canEditCategory = canEditCategory,
                     onEvent = onEvent,
                 )
             }
@@ -227,6 +230,7 @@ private fun PastApplicationCard(
 private fun PastApplicationItemRow(
     applicationId: Long,
     item: PastApplicationItem,
+    canEditCategory: Boolean,
     onEvent: (PastApplicationListEvent) -> Unit,
 ) {
     val colors = CareerCompassTheme.colors
@@ -243,6 +247,7 @@ private fun PastApplicationItemRow(
             selected = !item.confident,
             onClick = { onEvent(PastApplicationListEvent.ItemCategoryClicked(applicationId, item.id)) },
             modifier = Modifier.heightIn(min = TAG_MIN_TOUCH_HEIGHT),
+            enabled = canEditCategory,
         )
         if (!item.confident) {
             CareerCompassBadge(

@@ -2,6 +2,7 @@ package com.careercompass.feature.profile.presentation.pastapplication
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
@@ -75,6 +76,20 @@ class PastApplicationListContentTest {
         composeRule.runOnIdle {
             assertEquals(listOf(PastApplicationListEvent.ItemCategoryClicked(1L, 11L)), events)
         }
+    }
+
+    @Test
+    fun `분류를 저장하는 동안 목록의 분류 칩으로 다시 편집하지 못한다`() {
+        val events = mutableListOf<PastApplicationListEvent>()
+        composeRule.setContent(
+            PastApplicationListUiState(applications = listOf(application(1L)), expandedId = 1L, isUpdatingCategory = true),
+            onEvent = { events += it },
+        )
+
+        composeRule.onNodeWithText("기타").assertIsNotEnabled().performClick()
+        composeRule.onNodeWithText("지원 동기").assertIsNotEnabled().performClick()
+
+        composeRule.runOnIdle { assertEquals(emptyList<PastApplicationListEvent>(), events) }
     }
 
     @Test
