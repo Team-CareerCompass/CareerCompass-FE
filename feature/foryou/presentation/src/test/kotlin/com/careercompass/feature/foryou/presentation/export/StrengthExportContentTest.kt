@@ -1,5 +1,6 @@
 package com.careercompass.feature.foryou.presentation.export
 
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasScrollAction
@@ -8,6 +9,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.unit.dp
 import com.careercompass.core.ui.theme.CareerCompassTheme
 import com.careercompass.feature.foryou.domain.model.ExportFormat
 import com.careercompass.feature.foryou.domain.model.ExportSection
@@ -27,7 +29,7 @@ class StrengthExportContentTest {
     @Test fun `체크박스와 네 형식은 선택 의도를 보낸다`() {
         val intents = mutableListOf<StrengthExportIntent>()
         show(StrengthExportUiState(), onIntent = { intents += it })
-        composeRule.onNodeWithText("기본 정보").performClick()
+        composeRule.onNodeWithText("기본 정보").assertHeightIsAtLeast(48.dp).performClick()
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("HTML"))
         composeRule.onNodeWithText("HTML").performClick()
         assertEquals(
