@@ -16,6 +16,7 @@ import com.careercompass.feature.profile.domain.usecase.DeleteExperienceUseCase
 import com.careercompass.feature.profile.domain.usecase.GetExperiencesUseCase
 import com.careercompass.feature.profile.domain.usecase.UpdateExperienceUseCase
 import com.careercompass.feature.profile.presentation.home.ProfileSessionEnd
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
@@ -376,6 +377,40 @@ class ExperienceListViewModelTest {
 
         assertEquals(1, experienceRepository.experiences.size)
         assertNull(viewModel.state.value.pendingDeletion)
+    }
+
+    @Test
+    fun `삭제 중 닫기와 재확인은 기존 대상을 유지하고 요청을 겹치지 않는다`() {
+        experienceRepository.experiences += listOf(card(3L), card(4L))
+        val server = CompletableDeferred<Unit>()
+        var calls = 0
+        experienceRepository.onDeleteExperience = {
+            calls++
+            server.await()
+            Result.failure(IOException("offline"))
+        }
+        val viewModel = viewModel()
+        viewModel.onEvent(ExperienceListEvent.DeleteClicked(3L))
+        viewModel.onIntent(ExperienceListIntent.ConfirmDelete)
+        assertTrue(viewModel.state.value.isDeleting)
+
+        viewModel.onIntent(ExperienceListIntent.DismissDelete)
+        viewModel.onEvent(ExperienceListEvent.DeleteClicked(4L))
+        viewModel.onIntent(ExperienceListIntent.ConfirmDelete)
+        assertEquals(
+            3L,
+            viewModel.state.value.pendingDeletion
+                ?.experienceId,
+        )
+        assertEquals(1, calls)
+
+        server.complete(Unit)
+        assertFalse(viewModel.state.value.isDeleting)
+        assertNull(viewModel.state.value.pendingDeletion)
+        assertEquals(ExperienceListMessage.DeleteFailed, viewModel.state.value.message)
+        viewModel.onEvent(ExperienceListEvent.DeleteClicked(3L))
+        viewModel.onIntent(ExperienceListIntent.ConfirmDelete)
+        assertEquals(2, calls)
     }
 
     private companion object {
