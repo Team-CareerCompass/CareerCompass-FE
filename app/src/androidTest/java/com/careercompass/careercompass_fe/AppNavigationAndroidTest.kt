@@ -11,7 +11,9 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -21,10 +23,12 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextReplacement
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.careercompass.core.domain.error.CoreDataFailure
 import com.careercompass.core.domain.testing.FakeAppSettingsRepository
@@ -57,6 +61,7 @@ import com.careercompass.feature.foryou.domain.model.StrengthExport
 import com.careercompass.feature.foryou.domain.testing.FakeForYouRepository
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableSharedFlow
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -420,6 +425,114 @@ class AppNavigationAndroidTest {
         composeRule.onNodeWithContentDescription("뒤로가기").performClick()
         composeRule.onNodeWithText(DEEP_LINK_POSTING_TITLE, useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("초안 작성 시작").assertDoesNotExist()
+    }
+
+    @Test
+    fun applicationEditor_keepsEachAnswerAcrossTabsAndRecreation() {
+        fakeAuthRepository.loggedIn = true
+        fakeUserProfileRepository.profileState.value = profile(onboardingDone = true)
+        val questions = listOf(PostingFormQuestion(1, "지원 동기", 5), PostingFormQuestion(2, "협업 경험", 400))
+        fakePostingRepository.details +=
+            postingDetail(DEEP_LINK_POSTING_ID, DEEP_LINK_POSTING_TITLE).copy(
+                parsed = PostingParsed(emptyList(), PostingQualifications(null, null), emptyList(), questions),
+            )
+        val draft =
+            ApplicationDraft(
+                42,
+                ApplicationStatus.Ready,
+                listOf(
+                    ApplicationItem(1, 1, "지원 동기", 5, ApplicationItemStatus.Done, "서버 답"),
+                    ApplicationItem(2, 2, "협업 경험", 400, ApplicationItemStatus.Done, "서버 협업 답"),
+                ),
+            )
+        fakeApplicationRepository.onUpdateItemAnswer =
+            { _, id, answer -> Result.success(draft.items.first { it.id == id }.copy(answer = answer)) }
+        fakeApplicationRepository.onCreateDraft = { _, _, _ -> Result.success(draft) }
+        scenario = ActivityScenario.launch<MainActivity>(postingDeepLinkIntent(DEEP_LINK_POSTING_ID))
+        composeRule.waitUntil(DEEP_LINK_TIMEOUT_MILLIS) {
+            composeRule
+                .onAllNodesWithText(DEEP_LINK_POSTING_TITLE, useUnmergedTree = true)
+                .fetchSemanticsNodes(atLeastOneRootRequired = false)
+                .isNotEmpty()
+        }
+        composeRule.onNodeWithText("지원서 초안 작성하기").performClick()
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText("초안 작성 시작").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
+        composeRule.onNodeWithText("초안 작성 시작").performClick()
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText("이 항목 편집").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
+        composeRule.onAllNodesWithText("이 항목 편집")[0].performClick()
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("직접 쓴 첫 답\n둘째 줄")
+        composeRule.onNodeWithText("2번 문항").performClick()
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("직접 쓴 협업 답")
+        composeRule.onNodeWithText("1번 문항").performClick()
+        composeRule.onNode(hasSetTextAction()).assertTextContains("직접 쓴 첫 답\n둘째 줄")
+        scenario?.recreate()
+        // Activity 재생성은 host ViewModel을 보존한다. 완성된 초안을 다시 생성할 이유가 없다.
+        // 새 SavedStateHandle/Parcel로 만드는 프로세스 복원은 ViewModel 단위 테스트에서 별도로 확인한다.
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
+        assertEquals(1, fakeApplicationRepository.createDraftCalls.size)
+        composeRule.onNodeWithText("지원서 편집").assertIsDisplayed()
+        composeRule.onNode(hasSetTextAction()).assertTextContains("직접 쓴 첫 답\n둘째 줄")
+        composeRule.onNodeWithText("2번 문항").performClick()
+        composeRule.onNode(hasSetTextAction()).assertTextContains("직접 쓴 협업 답")
+        assertTrue(fakeApplicationRepository.saveCalls.isEmpty())
+    }
+
+    @Test
+    fun applicationSave_confirmsOverflowAndBlocksBackUntilSaved() {
+        fakeAuthRepository.loggedIn = true
+        fakeUserProfileRepository.profileState.value = profile(onboardingDone = true)
+        val questions = listOf(PostingFormQuestion(1, "지원 동기", 5))
+        fakePostingRepository.details +=
+            postingDetail(DEEP_LINK_POSTING_ID, DEEP_LINK_POSTING_TITLE).copy(
+                parsed = PostingParsed(emptyList(), PostingQualifications(null, null), emptyList(), questions),
+            )
+        val draft =
+            ApplicationDraft(42, ApplicationStatus.Ready, listOf(ApplicationItem(1, 1, "지원 동기", 5, ApplicationItemStatus.Done, "서버 답")))
+        val saveReply = CompletableDeferred<Result<ApplicationDraft>>()
+        fakeApplicationRepository.onCreateDraft = { _, _, _ -> Result.success(draft) }
+        fakeApplicationRepository.onUpdateItemAnswer = { _, _, answer -> Result.success(draft.items.single().copy(answer = answer)) }
+        fakeApplicationRepository.onSave = { saveReply.await() }
+        scenario = ActivityScenario.launch<MainActivity>(postingDeepLinkIntent(DEEP_LINK_POSTING_ID))
+        composeRule.waitUntil(DEEP_LINK_TIMEOUT_MILLIS) {
+            composeRule
+                .onAllNodesWithText(
+                    DEEP_LINK_POSTING_TITLE,
+                    useUnmergedTree = true,
+                ).fetchSemanticsNodes(atLeastOneRootRequired = false)
+                .isNotEmpty()
+        }
+        composeRule.onNodeWithText("지원서 초안 작성하기").performClick()
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText("초안 작성 시작").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
+        composeRule.onNodeWithText("초안 작성 시작").performClick()
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText("이 항목 편집").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
+        composeRule.onNodeWithText("이 항목 편집").performClick()
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("초과한 최종 답변")
+        composeRule.onNodeWithText("최종 저장").performClick()
+        composeRule.onNodeWithText("글자 수 초과 상태로 저장할까요?").assertIsDisplayed()
+        assertTrue(fakeApplicationRepository.saveCalls.isEmpty())
+        composeRule.onNodeWithText("그대로 저장").performClick()
+        composeRule.waitUntil(10_000) { fakeApplicationRepository.saveCalls.size == 1 }
+        composeRule.onNodeWithText("답변").assertIsNotEnabled()
+        composeRule.onNodeWithContentDescription("뒤로가기").performClick()
+        Espresso.pressBack()
+        composeRule.onNodeWithText("지원서 편집").assertIsDisplayed()
+        assertEquals("초과한 최종 답변", fakeApplicationRepository.updateAnswerCalls.last().answer)
+        saveReply.complete(Result.success(draft.copy(status = ApplicationStatus.Saved)))
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText("작성 화면 닫기").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
+        composeRule.onNodeWithText("작성 화면 닫기").performClick()
+        composeRule.onNodeWithText(DEEP_LINK_POSTING_TITLE, useUnmergedTree = true).assertIsDisplayed()
     }
 
     // ── 인셋 (#145) ──────────────────────────────────────────────────────────

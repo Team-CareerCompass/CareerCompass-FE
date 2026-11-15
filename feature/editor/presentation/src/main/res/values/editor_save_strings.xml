@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="editor_save_final">최종 저장</string>
+    <string name="editor_save_final_working">최종 저장 중이에요. 잠시 기다려 주세요.</string>
+    <string name="editor_save_temporary_working">수정한 내용을 임시 저장하고 있어요.</string>
+    <string name="editor_save_temporary_notice">편집 화면에서 30초마다 수정한 내용을 임시 저장해요.</string>
+    <string name="editor_save_last_time">마지막 임시 저장 · %1$s</string>
+    <string name="editor_save_failed">저장하지 못했어요. 입력한 내용은 유지했어요.</string>
+    <string name="editor_save_stopped">저장이 3회 연속 실패해 자동 저장을 멈췄어요. 문제를 해결한 뒤 다시 저장해 주세요.</string>
+    <string name="editor_save_retry">다시 저장</string>
+    <string name="editor_save_overflow_title">글자 수 초과 상태로 저장할까요?</string>
+    <string name="editor_save_overflow_description">제출할 지원서 양식에서는 초과한 글이 잘릴 수 있어요. 이 앱에는 입력한 내용 그대로 저장해요.</string>
+    <string name="editor_save_overflow_confirm">그대로 저장</string>
+    <string name="editor_save_keep_editing">계속 편집</string>
+    <string name="editor_save_wait_generation">생성이 끝난 뒤 최종 저장할 수 있어요. 실패한 항목은 직접 작성하거나 다시 생성해 주세요.</string>
+    <string name="editor_save_complete_title">지원서를 저장했어요</string>
+    <string name="editor_save_complete_description">최종 지원서와 지원 이력이 저장됐어요.</string>
+    <string name="editor_save_close">작성 화면 닫기</string>
+</resources>

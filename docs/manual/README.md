@@ -14,6 +14,7 @@
 | 1부 | [가입과 온보딩](01-signup-and-onboarding.md) | 소셜 로그인, 지문 로그인, 온보딩 4단계, 완료 화면 |
 | 2부 | [게시판](02-boards.md) | URL 등록, 구조 분석 결과, 이름·유형·수집 주기, 내 게시판 목록 |
 | 3부 | [피드와 적합도](03-feed-and-suitability.md) | 검색·필터·정렬·북마크, 적합도 4축, 공고 상세와 원문 보기 |
+| 4부 | [지원서 초안과 편집](04-application-editor.md) | 문항 확인, 생성 진행, 항목별 편집, 글자 수 경고, 임시·최종 저장 |
 | 5부 | [마이 탭](05-my-tab.md) | 마이 홈, 프로필 편집, 경험 카드, 과거 지원서, 지문 로그인·화면 테마·로그아웃 |
 | 7부 | [분석과 로드맵](07-analysis-and-roadmap.md) | 분석 탭, 코호트 비교, 표본 수, 내 기록, 학기별 제안, 강점 내보내기 |
 
@@ -21,7 +22,7 @@
 
 ## 아직 쓰지 않은 부
 
-지원서(4부)는 #185~#187 이, 알림(6부)은 #195~#196 이 머지된 뒤에 쓴다. 지금 하단 탭의 「지원서」, 피드 헤더의 알림 버튼, 마이 홈의 「알림 설정」, 과거 지원서의 「지원서 추가」를 누르면 준비 중이라는 자리표시자가 나온다. 매뉴얼 전체의 범위는 이슈 #268 에 있고, 1~3부는 #289 로, 5부는 #333 으로 갈라 먼저 썼다.
+지원서의 재생성 옵션·버전과 이력 목록은 #186·#188 뒤에 보충한다. 알림(6부)은 #195~#196 뒤에 쓴다. 지금 하단 탭의 「지원서」, 피드 헤더의 알림 버튼, 마이 홈의 「알림 설정」, 과거 지원서의 「지원서 추가」를 누르면 준비 중이라는 자리표시자가 나온다. 매뉴얼 전체의 범위는 이슈 #268 에 있고, 1~3부는 #289 로, 5부는 #333 으로 갈라 먼저 썼다.
 
 ## 이 매뉴얼이 값을 적지 않는 것
 
@@ -36,10 +37,10 @@
 | 영역 | 파일 |
 | --- | --- |
 | 로그인·지문·온보딩 | [`feature/onboarding/presentation/src/main/res/values/`](../../feature/onboarding/presentation/src/main/res/values) |
+| 지원서 작성·편집·저장 | [`feature/editor/presentation/src/main/res/values/`](../../feature/editor/presentation/src/main/res/values) |
 | 피드·공고·게시판 | [`feature/feed/presentation/src/main/res/values/`](../../feature/feed/presentation/src/main/res/values) |
 | 마이 홈·프로필 편집·경험 카드·과거 지원서 | [`feature/profile/presentation/src/main/res/values/`](../../feature/profile/presentation/src/main/res/values) |
 | 실패·상태 화면 공통, 경험 입력 시트·분류 시트·학교와 졸업 예정 시트 | [`core/ui/src/main/res/values/`](../../core/ui/src/main/res/values) |
-| 분석·로드맵·강점 내보내기 | [`feature/foryou/presentation/src/main/res/values/`](../../feature/foryou/presentation/src/main/res/values) |
 | 준비 중 자리표시자(지원서 탭, 피드 헤더의 알림, 알림 설정, 지원서 등록) | [`app/src/main/res/values/placeholder_strings.xml`](../../app/src/main/res/values/placeholder_strings.xml) |
 
 화면별 엣지 상태(오프라인·로딩·빈 결과·점검·세션 만료)의 확정표는 [`docs/spec/edge-states.md`](../spec/edge-states.md), 서버 에러 코드의 문구 매핑은 [`docs/spec/error-copy.md`](../spec/error-copy.md) 에 있다.

@@ -26,6 +26,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -291,6 +292,196 @@ class ApplicationProgressViewModelTest {
             assertTrue(repository.createDraftCalls.isEmpty())
         }
 
+    @Test fun `문항 전환은 수동 입력과 빈 삭제를 보관하고 서버에 저장하지 않는다`() =
+        runTest(dispatcher) {
+            val vm = start()
+            vm.onIntent(ApplicationProgressIntent.EditAnswer(1, "붙여넣은 첫 줄\n둘째 줄"))
+            vm.onIntent(ApplicationProgressIntent.SelectItem(2))
+            vm.onIntent(ApplicationProgressIntent.EditAnswer(2, ""))
+            vm.onIntent(ApplicationProgressIntent.SelectItem(1))
+            assertEquals(mapOf(1L to "붙여넣은 첫 줄\n둘째 줄", 2L to ""), vm.uiState.value.editedAnswers)
+            assertEquals(1L, vm.uiState.value.selectedItemId)
+            assertTrue(repository.updateAnswerCalls.isEmpty())
+            assertTrue(repository.saveCalls.isEmpty())
+        }
+
+    @Test fun `늦은 스트림 답은 사용자가 고친 글을 대체하지 않는다`() =
+        runTest(dispatcher) {
+            val events = MutableSharedFlow<ApplicationStreamEvent>(extraBufferCapacity = 4)
+            repository.onStreamEvents = { events }
+            val vm = start()
+            runCurrent()
+            vm.onIntent(ApplicationProgressIntent.EditAnswer(1, "직접 쓴 답"))
+            events.emit(ApplicationStreamEvent.ItemDone(1, "늦은 AI 답"))
+            runCurrent()
+            assertEquals("직접 쓴 답", vm.uiState.value.editedAnswers[1L])
+            assertEquals(
+                "늦은 AI 답",
+                vm.uiState.value.draft!!
+                    .items
+                    .first()
+                    .answer,
+            )
+        }
+
+    @Test fun `실제 Parcel 복원은 수동 입력과 선택만 살리고 서버 답은 다시 읽는다`() =
+        runTest(dispatcher) {
+            val handle = SavedStateHandle()
+            val original = vm(handle)
+            original.onIntent(ApplicationProgressIntent.Started(ApplicationDraftStarted(draft(), 101, ApplicationTone.Formal, null)))
+            original.onIntent(ApplicationProgressIntent.EditAnswer(1, "내 첫 답\n줄바꿈"))
+            original.onIntent(ApplicationProgressIntent.EditAnswer(2, ""))
+            original.onIntent(ApplicationProgressIntent.SelectItem(2))
+            original.viewModelScope.cancel()
+            val restored = vm(handle.parcelled())
+            assertNull(restored.uiState.value.draft)
+            assertNull(restored.uiState.value.failure)
+            assertFalse(restored.uiState.value.isStreaming)
+            assertEquals(2L, restored.uiState.value.selectedItemId)
+            repository.onCreateDraft =
+                {
+                    _,
+                    _,
+                    _,
+                    ->
+                    Result.success(
+                        draft().copy(
+                            items = listOf(item(1, ApplicationItemStatus.Done, "서버 답 1"), item(2, ApplicationItemStatus.Done, "서버 답 2")),
+                        ),
+                    )
+                }
+            restored.onIntent(ApplicationProgressIntent.Resumed)
+            runCurrent()
+            assertEquals(mapOf(1L to "내 첫 답\n줄바꿈", 2L to ""), restored.uiState.value.editedAnswers)
+            assertEquals(
+                "서버 답 2",
+                restored.uiState.value.draft!!
+                    .items[1]
+                    .answer,
+            )
+            assertEquals(1, repository.createDraftCalls.size)
+        }
+
+    @Test fun `최대 글자 초과는 허용하지만 전체 임시 보관 한도 초과는 기존 글을 지킨다`() =
+        runTest(dispatcher) {
+            val handle = SavedStateHandle()
+            val vm = vm(handle)
+            vm.onIntent(ApplicationProgressIntent.Started(ApplicationDraftStarted(draft(), 101, ApplicationTone.Formal, null)))
+            vm.onIntent(ApplicationProgressIntent.EditAnswer(1, "가".repeat(60_000)))
+            vm.onIntent(ApplicationProgressIntent.EditAnswer(2, "나".repeat(40_000)))
+            assertFalse(vm.uiState.value.inputLimitReached)
+            vm.onIntent(ApplicationProgressIntent.EditAnswer(2, "다".repeat(40_001)))
+            assertTrue(vm.uiState.value.inputLimitReached)
+            assertEquals("나".repeat(40_000), vm.uiState.value.editedAnswers[2L])
+            val parcel = Parcel.obtain()
+            try {
+                parcel.writeBundle(handle.savedStateProvider().saveState())
+                assertTrue("입력 저장 상태가 Binder 예산을 넘는다", parcel.dataSize() < 250_000)
+            } finally {
+                parcel.recycle()
+            }
+            val restored = vm(handle.parcelled())
+            assertEquals(
+                100_000,
+                restored.uiState.value.editedAnswers.values
+                    .sumOf { it.length },
+            )
+            assertFalse(restored.uiState.value.inputLimitReached)
+            vm.onIntent(ApplicationProgressIntent.EditAnswer(2, "줄인 답"))
+            assertFalse(vm.uiState.value.inputLimitReached)
+        }
+
+    @Test fun `401은 수동 입력까지 지우고 뒤늦은 편집 의도도 무시한다`() =
+        runTest(dispatcher) {
+            val handle = SavedStateHandle()
+            val vm = vm(handle)
+            vm.onIntent(
+                ApplicationProgressIntent.Started(
+                    ApplicationDraftStarted(
+                        draft().copy(items = listOf(item(1, ApplicationItemStatus.Failed))),
+                        101,
+                        ApplicationTone.Formal,
+                        null,
+                    ),
+                ),
+            )
+            vm.onIntent(ApplicationProgressIntent.EditAnswer(1, "개인 지원서"))
+            repository.onRegenerateItem = { _, _, _, _ -> Result.failure(CoreDataFailure.Unauthorized("AUTH_REQUIRED", IOException())) }
+            vm.onIntent(ApplicationProgressIntent.RetryItem(1))
+            runCurrent()
+            vm.onIntent(ApplicationProgressIntent.EditAnswer(1, "뒤늦은 개인 지원서"))
+            assertTrue(
+                vm.uiState.value.editedAnswers
+                    .isEmpty(),
+            )
+            assertTrue(
+                vm(handle.parcelled())
+                    .uiState.value.editedAnswers
+                    .isEmpty(),
+            )
+        }
+
+    @Test fun `모르는 문항 편집과 선택은 입력에 들어가지 않는다`() =
+        runTest(dispatcher) {
+            val vm = start()
+            vm.onIntent(ApplicationProgressIntent.EditAnswer(99, "잘못된 문항"))
+            vm.onIntent(ApplicationProgressIntent.SelectItem(99))
+            assertTrue(
+                vm.uiState.value.editedAnswers
+                    .isEmpty(),
+            )
+            assertNull(vm.uiState.value.selectedItemId)
+        }
+
+    @Test fun `최종 저장 중 새 편집을 막고 성공 뒤 입력과 복구 식별자를 지운다`() =
+        runTest(dispatcher) {
+            val handle = SavedStateHandle()
+            val model = vm(handle)
+            val ready = draft().copy(status = ApplicationStatus.Ready, items = listOf(item(1, ApplicationItemStatus.Done, "서버 답")))
+            model.onIntent(ApplicationProgressIntent.Started(ApplicationDraftStarted(ready, 101, ApplicationTone.Formal, null)))
+            model.onIntent(ApplicationProgressIntent.EditAnswer(1, "최종 답"))
+            repository.onUpdateItemAnswer = { _, id, answer -> Result.success(item(id, ApplicationItemStatus.Done, answer)) }
+            val later = CompletableDeferred<Result<ApplicationDraft>>()
+            repository.onSave = { later.await() }
+            model.onIntent(ApplicationProgressIntent.SaveFinal)
+            model.onIntent(ApplicationProgressIntent.EditAnswer(1, "저장 중 무시할 편집"))
+            runCurrent()
+            assertTrue(model.uiState.value.save.isFinalSaving)
+            assertEquals("최종 답", model.uiState.value.editedAnswers[1L])
+            later.complete(Result.success(ready.copy(status = ApplicationStatus.Saved)))
+            runCurrent()
+            assertTrue(model.uiState.value.save.completed)
+            assertTrue(model.uiState.value.savedNavigationPending)
+            assertTrue(
+                model.uiState.value.editedAnswers
+                    .isEmpty(),
+            )
+            assertNull(ProgressIdentity(handle).applicationId)
+            model.onIntent(ApplicationProgressIntent.ConsumeSaved)
+            model.onIntent(ApplicationProgressIntent.SaveFinal)
+            assertFalse(model.uiState.value.savedNavigationPending)
+            assertEquals(1, repository.saveCalls.size)
+        }
+
+    @Test fun `자동 저장 401은 타이머와 개인 입력을 함께 정리한다`() =
+        runTest(dispatcher) {
+            val model = start(draft().copy(items = listOf(item(1, ApplicationItemStatus.Done, "서버 답"))))
+            model.onIntent(ApplicationProgressIntent.EditAnswer(1, "개인 초안"))
+            repository.onUpdateItemAnswer = { _, _, _ -> Result.failure(CoreDataFailure.Unauthorized("AUTH_REQUIRED", IOException())) }
+            model.onIntent(ApplicationProgressIntent.EditorResumed)
+            advanceTimeBy(30_000)
+            runCurrent()
+            assertTrue(model.uiState.value.sessionEnded)
+            assertTrue(
+                model.uiState.value.editedAnswers
+                    .isEmpty(),
+            )
+            assertNull(model.uiState.value.draft)
+            advanceTimeBy(120_000)
+            runCurrent()
+            assertEquals(1, repository.updateAnswerCalls.size)
+        }
+
     private fun start(draft: ApplicationDraft = draft()): ApplicationProgressViewModel =
         vm().also {
             it.onIntent(ApplicationProgressIntent.Started(ApplicationDraftStarted(draft, 101, ApplicationTone.Formal, null)))
@@ -302,6 +493,10 @@ class ApplicationProgressViewModelTest {
             101,
             repository,
             ObserveApplicationDraftUseCase(repository),
+            com.careercompass.feature.editor.domain.usecase
+                .UpdateApplicationItemAnswerUseCase(repository),
+            com.careercompass.feature.editor.domain.usecase
+                .SaveApplicationUseCase(repository),
             object : ErrorReporter {
                 override fun writeFailure(
                     throwable: Throwable,
