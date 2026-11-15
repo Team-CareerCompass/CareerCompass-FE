@@ -466,7 +466,12 @@ class AppNavigationAndroidTest {
         composeRule.onNodeWithText("1번 문항").performClick()
         composeRule.onNode(hasSetTextAction()).assertTextContains("직접 쓴 첫 답\n둘째 줄")
         scenario?.recreate()
-        composeRule.waitUntil(10_000) { fakeApplicationRepository.createDraftCalls.size >= 2 }
+        // Activity 재생성은 host ViewModel을 보존한다. 완성된 초안을 다시 생성할 이유가 없다.
+        // 새 SavedStateHandle/Parcel로 만드는 프로세스 복원은 ViewModel 단위 테스트에서 별도로 확인한다.
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
+        assertEquals(1, fakeApplicationRepository.createDraftCalls.size)
         composeRule.onNodeWithText("지원서 편집").assertIsDisplayed()
         composeRule.onNode(hasSetTextAction()).assertTextContains("직접 쓴 첫 답\n둘째 줄")
         composeRule.onNodeWithText("2번 문항").performClick()
