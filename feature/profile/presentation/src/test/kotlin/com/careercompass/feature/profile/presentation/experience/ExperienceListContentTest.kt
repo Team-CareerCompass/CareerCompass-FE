@@ -38,6 +38,14 @@ class ExperienceListContentTest {
         composeRule.onAllNodesWithText("프로젝트").assertCountEquals(2)
     }
 
+    @Test
+    fun `이미 카드가 있으면 배경 갱신 중에도 목록을 계속 그린다`() {
+        composeRule.setContent(ExperienceListUiState(cards = listOf(project(1L)), totalCount = 24, isLoading = true))
+
+        composeRule.onNodeWithText("카드 1").assertIsDisplayed()
+        composeRule.onNodeWithText("24 / 30장").assertIsDisplayed()
+    }
+
     /** 연도만 아는 수상 카드에 없는 달을 지어내지 않는다(#166). */
     @Test
     fun `시점은 아는 정밀도까지만 적는다`() {
