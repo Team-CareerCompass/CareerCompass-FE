@@ -1,7 +1,6 @@
 package com.careercompass.core.data.repoimpl.application
 
 import com.careercompass.core.common.result.runCatchingCancellable
-import com.careercompass.core.data.failure.mapDataFailure
 import com.careercompass.core.data.mapper.PastApplicationMapper
 import com.careercompass.core.domain.repository.PastApplicationRepository
 import com.careercompass.core.model.application.PastApplication
@@ -9,6 +8,7 @@ import com.careercompass.core.model.application.PastApplicationCategory
 import com.careercompass.core.model.application.PastApplicationItem
 import com.careercompass.core.model.application.UploadFile
 import com.careercompass.core.network.dto.UpdateItemCategoryRequestDto
+import com.careercompass.core.network.failure.mapDataFailure
 import com.careercompass.core.network.model.requireData
 import com.careercompass.core.network.model.requireOk
 import com.careercompass.core.network.service.PastApplicationApiService

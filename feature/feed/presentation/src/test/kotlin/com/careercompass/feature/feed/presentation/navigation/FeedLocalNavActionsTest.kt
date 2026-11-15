@@ -100,6 +100,15 @@ public class FeedLocalNavActionsTest {
         assertEquals(0, exits)
     }
 
+    /** 초안 작성은 피드 그래프 밖이다 — 로컬 스택을 건드리지 않고 셸에 넘긴다. */
+    @Test
+    public fun `초안 작성은 로컬 스택을 쌓지 않고 셸로 넘긴다`() {
+        actions.navigateToApplicationSetup(101L)
+
+        assertEquals(listOf("Home"), shape())
+        assertEquals(listOf("application-setup:101"), external.calls)
+    }
+
     private class RecordingExternalActions : FeedExternalActions {
         val calls = mutableListOf<String>()
 
@@ -109,6 +118,10 @@ public class FeedLocalNavActionsTest {
 
         override fun navigateToProfileTab() {
             calls += "profile"
+        }
+
+        override fun navigateToApplicationSetup(postingId: Long) {
+            calls += "application-setup:$postingId"
         }
 
         override fun onSessionEnded() {

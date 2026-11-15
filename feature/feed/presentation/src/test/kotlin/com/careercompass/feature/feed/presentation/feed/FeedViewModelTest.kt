@@ -11,6 +11,7 @@ import com.careercompass.core.model.posting.Posting
 import com.careercompass.core.model.posting.PostingQuery
 import com.careercompass.core.model.posting.PostingSort
 import com.careercompass.core.model.posting.PostingType
+import com.careercompass.core.ui.failure.FailureKind
 import com.careercompass.feature.feed.domain.model.FeedDeadlineFilter
 import com.careercompass.feature.feed.domain.model.FeedSnapshot
 import com.careercompass.feature.feed.domain.testing.FakeFeedSnapshotRepository
@@ -746,7 +747,10 @@ class FeedViewModelTest {
         val repository = FakePostingRepository()
         repository.onGetPostings = { Result.failure(CoreDataFailure.ServerError("INTERNAL_ERROR", RuntimeException())) }
 
-        assertEquals(FeedLoadState.Failed(FeedFailureReason.Generic), viewModel(postingRepository = repository).state.value.loadState)
+        assertEquals(
+            FeedLoadState.Failed(FeedFailureReason.Generic(FailureKind.Unexpected)),
+            viewModel(postingRepository = repository).state.value.loadState,
+        )
         assertTrue(reporter.stages.contains("feed_load"))
     }
 
@@ -1115,6 +1119,46 @@ class FeedViewModelTest {
     }
 
     @Test
+    fun `오프라인에서 조건 변경 시 로딩 중 배너 없음`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val postings = offlinePostings()
+            val viewModel =
+                viewModel(
+                    postingRepository = postings,
+                    snapshotRepository = FakeFeedSnapshotRepository(initial = snapshot(7L, 8L)),
+                )
+            viewModel.showOfflineSnapshot()
+            assertTrue(viewModel.state.value.isOffline)
+
+            // 조건을 바꾸면 재조회가 돈다. 그 조회가 끝나기 전 자리를 열어 둔다.
+            val gate = CompletableDeferred<Unit>()
+            postings.onGetPostings = {
+                gate.await()
+                Result.failure(CoreDataFailure.NetworkUnavailable(UnknownHostException()))
+            }
+            viewModel.onEvent(FeedUiEvent.FilterSelected(FeedListingCategory.Employment))
+
+            // 스냅샷 목록은 이미 비워졌다. 배너 문구의 유일한 근거인 offlineSavedAt 이 남아 있으면
+            // 로딩 화면 위에 저장본 배너가 그대로 뜬다(FeedStateMapping.toFeedUiState).
+            val loading = viewModel.state.value
+            assertEquals(FeedLoadState.Loading, loading.loadState)
+            assertTrue(loading.postings.isEmpty())
+            assertFalse(loading.isOffline)
+            assertNull(loading.offlineSavedAt)
+            // 다시 열어 줄 스냅샷은 버리지 않는다.
+            assertNotNull(loading.offlineSnapshot)
+
+            gate.complete(Unit)
+
+            // 재조회가 실패해도 배너는 돌아오지 않는다. 「다시 시도」를 눌러도 마찬가지다.
+            val failed = viewModel.state.value
+            assertEquals(FeedLoadState.Failed(FeedFailureReason.NetworkUnavailable), failed.loadState)
+            assertFalse(failed.isOffline)
+            assertNull(failed.offlineSavedAt)
+            assertNotNull(failed.offlineSnapshot)
+        }
+
+    @Test
     fun `새로고침이 성공하면 온라인 목록으로 돌아온다`() {
         val postings = offlinePostings()
         val viewModel = viewModel(postingRepository = postings, snapshotRepository = FakeFeedSnapshotRepository(initial = snapshot(7L)))
@@ -1211,7 +1255,7 @@ class FeedViewModelTest {
         viewModel.onSortEvent(FeedSortMenuEvent.SortSelected(FeedSortOption.ScoreDesc))
 
         val state = viewModel.state.value
-        assertEquals(FeedLoadState.Failed(FeedFailureReason.Generic), state.loadState)
+        assertEquals(FeedLoadState.Failed(FeedFailureReason.Generic(FailureKind.Unexpected)), state.loadState)
         assertTrue(state.canResetFailedQuery)
     }
 

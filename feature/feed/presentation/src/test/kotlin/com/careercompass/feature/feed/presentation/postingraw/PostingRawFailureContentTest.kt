@@ -9,6 +9,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.careercompass.core.ui.failure.FailureKind
 import com.careercompass.core.ui.theme.CareerCompassTheme
 import com.careercompass.feature.feed.presentation.shared.model.FeedFailureReason
 import org.junit.Assert.assertEquals
@@ -71,7 +72,7 @@ class PostingRawFailureContentTest {
     fun generic_showsRawRetryNotice() {
         var retryCount = 0
         composeRule.setFailureContent(
-            reason = FeedFailureReason.Generic,
+            reason = FeedFailureReason.Generic(FailureKind.Unexpected),
             onRetryClick = { retryCount += 1 },
         )
 

@@ -10,22 +10,29 @@ const productionWorkflow = await readFile(
   new URL("../workflows/release-distribution.yml", import.meta.url),
   "utf8",
 );
-const releaseConfigAction = await readFile(
+const setupReleaseConfigAction = await readFile(
   new URL("../actions/setup-release-config/action.yml", import.meta.url),
+  "utf8",
+);
+const cleanupReleaseConfigAction = await readFile(
+  new URL("../actions/cleanup-release-config/action.yml", import.meta.url),
   "utf8",
 );
 
 test("no workflow carries a long-lived service account JSON", () => {
-  // canary 가 성공한 뒤 프로덕션도 WIF 로 전환했다 (#850). 이제 파이프라인 어디에도 장기 키가
-  // 없어야 한다 — 되살아나면 이 단언이 그 자리에서 막는다. 롤백이 필요하면 이 테스트를 함께
-  // 되돌리는 것이 «의도된 롤백» 의 표시다.
+  // 릴리스와 canary 둘 다 WIF 로만 인증한다. 파이프라인 어디에도 장기 키가 없어야 하고, 되살아나면
+  // 이 단언이 그 자리에서 막는다. 롤백이 필요하면 이 테스트를 함께 되돌리는 것이 의도된 롤백의 표시다.
   assert.doesNotMatch(canaryWorkflow, /FIREBASE_SERVICE_ACCOUNT_JSON/);
   assert.doesNotMatch(productionWorkflow, /FIREBASE_SERVICE_ACCOUNT_JSON/);
-  // 워크플로가 안 넘겨도 composite action 이 입력을 들고 있으면 경로가 살아 있는 것이다.
-  // 2026-08-30 실배포 성공 후 그 롤백 경로까지 걷었다 — 입력·env·ADC 파일 생성·output 전부.
-  assert.doesNotMatch(releaseConfigAction, /FIREBASE_SERVICE_ACCOUNT_JSON/);
-  assert.doesNotMatch(releaseConfigAction, /firebase-service-account-json/);
-  assert.doesNotMatch(releaseConfigAction, /firebase-credentials-path/);
+  // 워크플로가 안 넘겨도 composite action 이 입력을 들고 있으면 경로가 살아 있는 것이다. 자격 파일을
+  // 만드는 setup 만 보면 절반이라, 지우는 cleanup 까지 읽어야 경로를 다 걷었다고 할 수 있다 (#371).
+  for (const action of [setupReleaseConfigAction, cleanupReleaseConfigAction]) {
+    assert.doesNotMatch(action, /FIREBASE_SERVICE_ACCOUNT_JSON/);
+    assert.doesNotMatch(action, /firebase-service-account-json/);
+    // 입력 이름은 하이픈, env 이름은 밑줄이라 한 패턴으로 본다. 대문자 리터럴을 여기 적으면
+    // .github 에 그 이름이 0건인지 grep 으로 확인할 수 없다.
+    assert.doesNotMatch(action, /firebase[_-]credentials[_-]path/i);
+  }
   // 자격 파일 경로를 워크플로가 손으로 지정하면 auth 액션이 export 한 단기 credential 대신
   // 낡은 경로를 물 수 있다. 경로는 액션이 정하게 둔다.
   assert.doesNotMatch(productionWorkflow, /GOOGLE_APPLICATION_CREDENTIALS:/);

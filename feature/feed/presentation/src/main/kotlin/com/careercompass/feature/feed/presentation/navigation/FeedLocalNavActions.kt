@@ -33,6 +33,8 @@ internal class FeedLocalNavActions(
 
     override fun navigateToProfileTab(): Unit = externalActions.navigateToProfileTab()
 
+    override fun navigateToApplicationSetup(postingId: Long): Unit = externalActions.navigateToApplicationSetup(postingId)
+
     override fun popBack(): Unit = backStack.popOrExit(boundary)
 
     override fun onSessionEnded(): Unit = externalActions.onSessionEnded()

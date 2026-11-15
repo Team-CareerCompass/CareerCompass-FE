@@ -3,6 +3,7 @@ package com.careercompass.feature.onboarding.presentation.flow
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.careercompass.core.common.reporting.ErrorReporter
+import com.careercompass.core.domain.repository.AuthRepository
 import com.careercompass.core.model.application.MAX_PAST_APPLICATIONS
 import com.careercompass.core.model.application.MAX_PAST_APPLICATION_FILE_BYTES
 import com.careercompass.core.model.application.PastApplication
@@ -81,6 +82,8 @@ import com.careercompass.feature.onboarding.presentation.reporting.OnboardingFai
 import com.careercompass.feature.onboarding.presentation.reporting.recordOnboardingFailure
 import com.careercompass.feature.onboarding.presentation.shared.model.OnboardingFieldError
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import java.io.ByteArrayInputStream
 import java.time.Year
@@ -118,6 +121,8 @@ public class OnboardingViewModel
         private val deletePastApplication: DeletePastApplicationUseCase,
         private val updatePastApplicationItemCategory: UpdatePastApplicationItemCategoryUseCase,
         private val completeOnboarding: CompleteOnboardingUseCase,
+        // 세션 경계만 본다 — 앞 세션으로 낸 진입 판정을 언제 버려야 하는지 알려 준다.
+        private val authRepository: AuthRepository,
         private val errorReporter: ErrorReporter,
         savedStateHandle: SavedStateHandle,
     ) : MviViewModel<OnboardingIntent, OnboardingFlowState, OnboardingReducerEvent>(
@@ -128,9 +133,23 @@ public class OnboardingViewModel
 
         private var nextLocalDocumentId = 1
 
+        /** 경험 카드 제출을 세는 표. 응답이 어느 제출의 것인지 가린다(#340). */
+        private var experienceSubmissionToken = 0
+
+        private var entryJob: Job? = null
+
         init {
             viewModelScope.launch { uiState.collect(draft::save) }
-            viewModelScope.launch { resolveEntry() }
+            entryJob = viewModelScope.launch { resolveEntry() }
+            // 진입 판정은 이 ViewModel 이 만들어진 시점의 세션 것이다. 그 세션이 끝나면(지문 화면의 「다른 방법으로
+            // 로그인」·로그아웃·만료) 판정도 함께 버린다 — 다음 계정의 Step 1 이 앞 계정의 프리필과 이동 지시를
+            // 물려받지 않게(#335). 새 세션의 판정은 그 계정이 온보딩에 들어올 때 앱 셸이 다시 세운다.
+            viewModelScope.launch {
+                authRepository.sessionGeneration.drop(1).collect {
+                    entryJob?.cancel()
+                    dispatch(OnboardingReducerEvent.SessionSwitched)
+                }
+            }
         }
 
         override fun onIntent(intent: OnboardingIntent) {
@@ -246,6 +265,11 @@ public class OnboardingViewModel
 
                 OnboardingReducerEvent.SessionEnded -> {
                     state.copy(sessionEnded = true)
+                }
+
+                OnboardingReducerEvent.SessionSwitched -> {
+                    // 세션 종료 신호만 넘긴다 — 셸이 아직 읽지 않았으면 이 초기화로 사라져서는 안 된다.
+                    OnboardingFlowState(isResolvingEntry = false, sessionEnded = state.sessionEnded)
                 }
 
                 is OnboardingReducerEvent.NavigationRequested -> {
@@ -603,19 +627,35 @@ public class OnboardingViewModel
             }
         }
 
+        /**
+         * Step 3 목록을 한 번 읽는다. 도는 동안 카드 추가를 잠그고, 응답은 갈아 끼우지 않고 병합한다(#356).
+         *
+         * 실패하면 [OnboardingStep3FormState.isLoading] 만 풀고 [OnboardingStep3FormState.isLoaded] 는 false 로
+         * 남긴다 — 다음 진입이 다시 읽고, 그 사이에도 추가는 열려 있다.
+         */
         private fun loadExperiences() {
-            if (currentState.step3.isLoaded) return
+            val form = currentState.step3
+            if (form.isLoaded || form.isLoading) return
+            updateStep3 { copy(isLoading = true) }
             viewModelScope.launch {
                 getOnboardingExperiences()
-                    .onSuccess { experiences -> updateStep3 { copy(experiences = experiences, isLoaded = true) } }
-                    .onFailure { throwable -> report(OnboardingFailureStage.LoadExperiences, throwable) }
+                    .onSuccess { experiences -> updateStep3 { merging(experiences) } }
+                    .onFailure { throwable ->
+                        updateStep3 { copy(isLoading = false) }
+                        report(OnboardingFailureStage.LoadExperiences, throwable)
+                    }
             }
         }
 
-        /** 신규 등록. 상한(F1-3, 30개)에 닿았으면 열지 않고 사유만 알린다 — 하나를 지우면 다시 열린다. */
+        /**
+         * 신규 등록. 상한(F1-3, 30개)에 닿았으면 열지 않고 사유만 알린다 — 하나를 지우면 다시 열린다.
+         *
+         * 목록을 읽는 중에는 열지 않는다(#356). 아직 빈 목록으로 상한을 판정하면 31번째 카드를 서버가 거절할
+         * 때까지 알 수 없다. 화면의 추가 버튼도 같은 조건으로 잠긴다.
+         */
         private fun openExperienceEditor() {
             val state = currentState
-            if (!state.isInputEnabled) return
+            if (!state.isInputEnabled || state.step3.isLoading) return
             if (state.step3.experiences.size >= MAX_EXPERIENCE_CARDS) {
                 dispatch(OnboardingReducerEvent.Failed(OnboardingFailureReason.LimitExceeded(FailureSurface.ExperienceCard)))
                 return
@@ -679,12 +719,22 @@ public class OnboardingViewModel
 
         private fun onExperienceEditorEvent(event: ExperienceQuickAddEvent) {
             when (event) {
-                ExperienceQuickAddEvent.Submitted -> submitExperience()
+                ExperienceQuickAddEvent.Submitted -> {
+                    submitExperience()
+                }
 
-                ExperienceQuickAddEvent.Dismissed -> dispatch(OnboardingReducerEvent.ExperienceEditorUpdated(null))
+                // 제출 중에는 닫지 않는다(#340). 스크림·뒤로가기로 닫고 다른 카드를 치기 시작하면 늦게 온 응답이
+                // 그 시트를 닫아 입력이 사라진다. 마이 탭의 같은 시트도 같은 조건으로 막는다.
+                ExperienceQuickAddEvent.Dismissed -> {
+                    if (currentState.experienceEditor?.isSubmitting != true) {
+                        dispatch(OnboardingReducerEvent.ExperienceEditorUpdated(null))
+                    }
+                }
 
                 // 나머지는 순수 전이다 — 마이 탭의 같은 시트와 한 벌을 쓴다(#179).
-                else -> updateExperienceEditor { applying(event) }
+                else -> {
+                    updateExperienceEditor { applying(event) }
+                }
             }
         }
 
@@ -702,16 +752,38 @@ public class OnboardingViewModel
             val draft = validated.toDraft()
             dispatch(OnboardingReducerEvent.ExperienceSubmissionStarted(validated.copy(isSubmitting = true)))
             val stage = if (editingId == null) OnboardingFailureStage.AddExperience else OnboardingFailureStage.UpdateExperience
+            val token = ++experienceSubmissionToken
             viewModelScope.launch {
                 val result = if (editingId == null) addExperience(draft) else updateExperience(editingId, draft)
                 result
                     .onSuccess { saved ->
-                        dispatch(OnboardingReducerEvent.ExperienceSaved(currentState.step3.upsert(saved, isNew = editingId == null)))
+                        // 목록은 어느 시트가 열려 있든 갱신한다 — 서버에 저장된 카드는 저장된 것이다.
+                        val form = currentState.step3.upsert(saved, isNew = editingId == null)
+                        if (isSubmittingSheetOpen(token)) {
+                            dispatch(OnboardingReducerEvent.ExperienceSaved(form))
+                        } else {
+                            dispatch(OnboardingReducerEvent.Step3Updated(form))
+                        }
                     }.onFailure { throwable ->
-                        dispatch(OnboardingReducerEvent.ExperienceSubmissionFailed(failed(stage, throwable)))
+                        val reason = failed(stage, throwable)
+                        if (isSubmittingSheetOpen(token)) {
+                            dispatch(OnboardingReducerEvent.ExperienceSubmissionFailed(reason))
+                        } else {
+                            // 시트는 그 사이 바뀌었다 — 잠금을 풀 자리가 없으니 사유만 알린다.
+                            dispatch(OnboardingReducerEvent.Failed(reason))
+                        }
                     }
             }
         }
+
+        /**
+         * 지금 열린 시트가 [token] 의 제출을 시작한 그 시트인가.
+         *
+         * 응답은 제출을 시작한 시트에만 적용한다(#340). 시트가 그 사이 닫히거나 다른 카드로 바뀌었으면 목록만
+         * 갱신하고 시트는 건드리지 않는다 — 사용자가 치고 있던 입력을 늦게 온 응답이 지우지 않게.
+         */
+        private fun isSubmittingSheetOpen(token: Int): Boolean =
+            token == experienceSubmissionToken && currentState.experienceEditor?.isSubmitting == true
 
         private fun submitStep3() {
             if (!currentState.isInputEnabled) return
@@ -750,19 +822,18 @@ public class OnboardingViewModel
             }
         }
 
+        /** Step 4 목록을 한 번 읽는다. 규칙은 [loadExperiences] 와 같다(#356). */
         private fun loadPastApplications() {
-            if (currentState.step4.isLoaded) return
+            val form = currentState.step4
+            if (form.isLoaded || form.isLoading) return
+            updateStep4 { copy(isLoading = true) }
             viewModelScope.launch {
                 getOnboardingPastApplications()
-                    .onSuccess { applications ->
-                        val remote = applications.take(MAX_PAST_APPLICATIONS).map(::toRemoteDocument)
-                        val local = currentState.step4.documents.filter { it.remoteId == null }
-                        dispatch(
-                            OnboardingReducerEvent.Step4Updated(
-                                OnboardingStep4FormState(documents = (remote + local).take(MAX_PAST_APPLICATIONS), isLoaded = true),
-                            ),
-                        )
-                    }.onFailure { throwable -> report(OnboardingFailureStage.LoadPastApplications, throwable) }
+                    .onSuccess { applications -> updateStep4 { merging(applications.map(::toRemoteDocument)) } }
+                    .onFailure { throwable ->
+                        updateStep4 { copy(isLoading = false) }
+                        report(OnboardingFailureStage.LoadPastApplications, throwable)
+                    }
             }
         }
 
@@ -878,20 +949,27 @@ public class OnboardingViewModel
             upload(document)
         }
 
+        /**
+         * 삭제를 낙관적으로 반영한다 — 목록에서 먼저 빼고 요청을 보낸다. 실패하면 원래 자리로 되돌린다.
+         *
+         * 경험 카드 삭제([confirmExperienceDeletion])와 같은 규칙이다. 응답을 기다리는 동안 카드가 남아 있으면
+         * 연타가 같은 문서로 DELETE 를 두 번 보내고, 두 번째는 404 로 돌아와 이미 지워진 문서에 실패 배너와
+         * 계측 표본을 남긴다(#357). 목록에서 먼저 빼면 두 번째 탭은 보낼 문서를 찾지 못한다.
+         */
         private fun deleteDocument(documentId: String) {
-            val document =
+            val index =
                 currentState.step4.documents
-                    .firstOrNull { it.id == documentId } ?: return
-            val remoteId = document.remoteId
-            if (remoteId == null) {
-                updateStep4 { removeDocument(documentId) }
-                return
-            }
+                    .indexOfFirst { it.id == documentId }
+            if (index < 0) return
+            val document = currentState.step4.documents[index]
+            updateStep4 { removeDocument(documentId) }
+            val remoteId = document.remoteId ?: return
             viewModelScope.launch {
                 deletePastApplication(remoteId)
-                    .onSuccess { updateStep4 { removeDocument(documentId) } }
                     .onFailure { throwable ->
-                        dispatch(OnboardingReducerEvent.Failed(failed(OnboardingFailureStage.DeletePastApplication, throwable)))
+                        val reason = failed(OnboardingFailureStage.DeletePastApplication, throwable)
+                        updateStep4 { restore(document, index) }
+                        dispatch(OnboardingReducerEvent.Failed(reason))
                     }
             }
         }
@@ -971,7 +1049,7 @@ public class OnboardingViewModel
 
         /** 프로세스가 죽어 닫힌 시트는 저절로 다시 열지 않는다 — 대신 다시 열면 쓰던 글이 그대로 있다(#133). */
         private fun openDirectInput() {
-            if (!currentState.isInputEnabled) return
+            if (!currentState.isInputEnabled || currentState.step4.isLoading) return
             dispatch(OnboardingReducerEvent.DirectInputUpdated(draft.restoredDirectInput()))
         }
 
@@ -1190,6 +1268,19 @@ private fun OnboardingStep2FormState.prefill(profile: UserProfile?): OnboardingS
     )
 }
 
+/**
+ * 서버 목록에 그 사이 등록한 카드를 얹는다.
+ *
+ * 조회를 시작한 뒤에 만든 카드는 응답에 없다. 통째로 갈아 끼우면 방금 등록한 카드가 화면에서 사라지고,
+ * 사용자가 같은 카드를 다시 등록해 서버에 둘이 남는다(#356). 서버가 모르는 카드만 앞에 남긴다 — 목록이
+ * 최신 등록순이라 방금 만든 카드의 자리가 맨 앞이다.
+ */
+private fun OnboardingStep3FormState.merging(loaded: List<Experience>): OnboardingStep3FormState {
+    val loadedIds = loaded.mapTo(mutableSetOf(), Experience::id)
+    val pending = experiences.filterNot { it.id in loadedIds }
+    return copy(experiences = pending + loaded, isLoaded = true, isLoading = false)
+}
+
 /** 새 카드는 맨 앞(최신 등록순), 수정한 카드는 있던 자리에 그대로 둔다. */
 private fun OnboardingStep3FormState.upsert(
     saved: Experience,
@@ -1240,6 +1331,36 @@ private fun OnboardingStep4FormState.removeDocument(documentId: String): Onboard
         documents = documents.filterNot { it.id == documentId },
         expandedDocumentId = expandedDocumentId?.takeIf { it != documentId },
     )
+
+/** 삭제가 실패한 문서를 원래 자리에 되돌린다. 그 사이 목록이 짧아졌으면 끝에 붙인다. */
+private fun OnboardingStep4FormState.restore(
+    document: OnboardingUploadDocument,
+    index: Int,
+): OnboardingStep4FormState =
+    if (documents.any { it.id == document.id }) {
+        this
+    } else {
+        copy(documents = documents.toMutableList().apply { add(index.coerceAtMost(size), document) })
+    }
+
+/**
+ * 서버 목록에 그 사이 올린 문서를 얹는다.
+ *
+ * 앞 규칙은 `remoteId == null` 인 문서만 남겨, 조회가 끝나기 전에 업로드까지 끝난 문서(그래서 remoteId 를
+ * 받은 문서)를 목록에서 지웠다(#356). 서버가 돌려준 id 로 가른다 — 서버가 이미 아는 문서는 서버 쪽을 쓰고,
+ * 모르는 문서(올리는 중이거나 방금 끝난 것)는 그대로 둔다.
+ */
+private fun OnboardingStep4FormState.merging(loaded: List<OnboardingUploadDocument>): OnboardingStep4FormState {
+    val loadedIds = loaded.mapNotNullTo(mutableSetOf(), OnboardingUploadDocument::remoteId)
+    val pending = documents.filterNot { it.remoteId != null && it.remoteId in loadedIds }
+    val merged = (loaded + pending).take(MAX_PAST_APPLICATIONS)
+    return copy(
+        documents = merged,
+        isLoaded = true,
+        isLoading = false,
+        expandedDocumentId = expandedDocumentId?.takeIf { id -> merged.any { it.id == id } },
+    )
+}
 
 private fun toRemoteDocument(application: PastApplication): OnboardingUploadDocument =
     OnboardingUploadDocument(

@@ -1,5 +1,6 @@
 package com.careercompass.feature.profile.presentation.pastapplication
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.careercompass.core.common.reporting.ErrorReporter
 import com.careercompass.core.domain.error.CoreDataFailure
@@ -171,9 +172,11 @@ public class PastApplicationListViewModel
         private val deletePastApplication: DeletePastApplicationUseCase,
         private val uploadPastApplicationText: UploadPastApplicationTextUseCase,
         private val errorReporter: ErrorReporter,
+        savedStateHandle: SavedStateHandle,
     ) : MviViewModel<PastApplicationListIntent, PastApplicationListUiState, PastApplicationListReducerEvent>(
             PastApplicationListUiState(),
         ) {
+        private val inputDraft = PastApplicationInputDraft(savedStateHandle)
         private var loadJob: Job? = null
         private var categoryJob: Job? = null
         private var deleteJob: Job? = null
@@ -291,7 +294,7 @@ public class PastApplicationListViewModel
                 }
 
                 is PastApplicationListReducerEvent.SessionEnded -> {
-                    state.copy(isLoading = false, isDeleting = false, sessionEnd = event.cause)
+                    state.copy(isLoading = false, isDeleting = false, directInput = null, sessionEnd = event.cause)
                 }
 
                 PastApplicationListReducerEvent.MessageConsumed -> {
@@ -331,7 +334,7 @@ public class PastApplicationListViewModel
                     if (currentState.isLimitReached) {
                         dispatch(PastApplicationListReducerEvent.MessageRaised(PastApplicationListMessage.LimitReached))
                     } else {
-                        dispatch(PastApplicationListReducerEvent.DirectInputChanged(DirectInputState()))
+                        dispatch(PastApplicationListReducerEvent.DirectInputChanged(inputDraft.restore()))
                     }
                 }
 
@@ -354,6 +357,7 @@ public class PastApplicationListViewModel
          */
         private fun onDirectInputEvent(event: DirectInputEvent) {
             val input = currentState.directInput ?: return
+            if (input.isSubmitting) return
             when (event) {
                 is DirectInputEvent.LabelChanged -> {
                     dispatch(PastApplicationListReducerEvent.DirectInputChanged(input.copy(label = event.value, labelError = null)))
@@ -368,9 +372,11 @@ public class PastApplicationListViewModel
                 }
 
                 DirectInputEvent.Dismissed -> {
-                    if (!input.isSubmitting) dispatch(PastApplicationListReducerEvent.DirectInputChanged(null))
+                    inputDraft.clear()
+                    dispatch(PastApplicationListReducerEvent.DirectInputChanged(null))
                 }
             }
+            currentState.directInput?.let(inputDraft::save)
         }
 
         private fun submitDirectInput(input: DirectInputState) {
@@ -380,6 +386,7 @@ public class PastApplicationListViewModel
                 viewModelScope.launch {
                     uploadPastApplicationText(label = input.label, content = input.content)
                         .onSuccess {
+                            inputDraft.clear()
                             dispatch(PastApplicationListReducerEvent.DirectInputChanged(null))
                             dispatch(PastApplicationListReducerEvent.MessageRaised(PastApplicationListMessage.Uploaded))
                             load()
@@ -417,7 +424,7 @@ public class PastApplicationListViewModel
             errorReporter.recordProfileFailure(ProfileFailureStage.PastApplicationUpload, cause)
             dispatch(PastApplicationListReducerEvent.DirectInputChanged(input.copy(isSubmitting = false)))
             if (cause is CoreDataFailure.Unauthorized) {
-                dispatch(PastApplicationListReducerEvent.SessionEnded(ProfileSessionEnd.Expired))
+                endSession()
             } else if (cause is CoreDataFailure.LimitExceeded) {
                 dispatch(PastApplicationListReducerEvent.MessageRaised(PastApplicationListMessage.LimitReached))
             } else {
@@ -472,7 +479,7 @@ public class PastApplicationListViewModel
                             errorReporter.recordProfileFailure(ProfileFailureStage.PastApplicationCategory, cause)
                             dispatch(PastApplicationListReducerEvent.CategoryEditorChanged(null))
                             if (cause is CoreDataFailure.Unauthorized) {
-                                dispatch(PastApplicationListReducerEvent.SessionEnded(ProfileSessionEnd.Expired))
+                                endSession()
                             } else {
                                 dispatch(
                                     PastApplicationListReducerEvent.MessageRaised(
@@ -499,7 +506,7 @@ public class PastApplicationListViewModel
                             dispatch(PastApplicationListReducerEvent.DeleteFinished)
                             errorReporter.recordProfileFailure(ProfileFailureStage.PastApplicationDelete, cause)
                             if (cause is CoreDataFailure.Unauthorized) {
-                                dispatch(PastApplicationListReducerEvent.SessionEnded(ProfileSessionEnd.Expired))
+                                endSession()
                             } else {
                                 dispatch(PastApplicationListReducerEvent.MessageRaised(PastApplicationListMessage.DeleteFailed))
                             }
@@ -507,10 +514,15 @@ public class PastApplicationListViewModel
                 }
         }
 
+        private fun endSession() {
+            inputDraft.clear()
+            dispatch(PastApplicationListReducerEvent.SessionEnded(ProfileSessionEnd.Expired))
+        }
+
         private fun onLoadFailure(cause: Throwable) {
             errorReporter.recordProfileFailure(ProfileFailureStage.PastApplicationList, cause)
             if (cause is CoreDataFailure.Unauthorized) {
-                dispatch(PastApplicationListReducerEvent.SessionEnded(ProfileSessionEnd.Expired))
+                endSession()
             } else {
                 dispatch(PastApplicationListReducerEvent.LoadFailed(cause.toFailureKind()))
             }

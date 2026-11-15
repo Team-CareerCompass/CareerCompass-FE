@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  테마 아이콘용 단색 마크. 시스템이 색을 버리고 알파만 마스크로 쓰므로 포그라운드와 같은 도형을
+  한 색으로 그린다. 남쪽 바늘이 없어 단색에서도 북쪽이 남는다. 컬러 포그라운드를 그대로 물리면
+  색으로만 갈라 둔 부분이 한 덩어리가 되므로(#417) 이 파일을 따로 둔다.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#000000"
+        android:strokeWidth="7.5"
+        android:pathData="M54,31 a23,23 0 1,1 -0.01,0 z" />
+    <path
+        android:fillColor="#000000"
+        android:pathData="M54,22 L67,69 L54,58 L41,69 Z" />
+</vector>

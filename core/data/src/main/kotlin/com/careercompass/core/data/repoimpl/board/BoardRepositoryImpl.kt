@@ -1,7 +1,6 @@
 package com.careercompass.core.data.repoimpl.board
 
 import com.careercompass.core.common.result.runCatchingCancellable
-import com.careercompass.core.data.failure.mapDataFailure
 import com.careercompass.core.data.mapper.BoardMapper
 import com.careercompass.core.domain.repository.BoardRepository
 import com.careercompass.core.model.board.Board
@@ -9,6 +8,7 @@ import com.careercompass.core.model.board.BoardDetection
 import com.careercompass.core.model.board.BoardRegistration
 import com.careercompass.core.model.board.BoardUpdate
 import com.careercompass.core.network.dto.BoardDetectRequestDto
+import com.careercompass.core.network.failure.mapDataFailure
 import com.careercompass.core.network.model.requireData
 import com.careercompass.core.network.model.requireOk
 import com.careercompass.core.network.service.BoardApiService

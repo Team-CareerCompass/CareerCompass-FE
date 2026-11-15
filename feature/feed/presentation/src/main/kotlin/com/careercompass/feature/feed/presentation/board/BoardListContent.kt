@@ -222,6 +222,8 @@ private fun BoardCard(
                             CareerCompassButtonVariant.Secondary
                         },
                     size = CareerCompassButtonSize.Small,
+                    // 요청이 오가는 동안 잠근다. 살려 두면 연타한 횟수만큼 재시도가 나간다(#341).
+                    enabled = !board.isRetrying,
                     contentDescription = stringResource(R.string.feed_board_retry_content_description, board.name),
                 )
             }

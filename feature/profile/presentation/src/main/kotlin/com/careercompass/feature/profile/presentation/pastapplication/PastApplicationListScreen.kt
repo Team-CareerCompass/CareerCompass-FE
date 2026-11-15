@@ -43,7 +43,7 @@ import kotlinx.coroutines.launch
  * 한쪽에서 고친 값이 다른 쪽에서 다른 이름으로 보인다.
  *
  * 「지원서 추가」는 앱 안에서 직접 쓰는 시트를 연다(#181) — 텍스트는 TXT 로 만들어 파일 업로드와 같은
- * 엔드포인트로 나간다. 파일을 골라 올리는 길은 온보딩 Step 4 에 있고, 마이 탭 쪽 진입점은 아직 이슈가 없다.
+ * 엔드포인트로 나간다. 파일을 골라 올리는 길은 온보딩 Step 4 에 있고, 마이 탭 쪽 진입점은 #400 이 맡는다.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

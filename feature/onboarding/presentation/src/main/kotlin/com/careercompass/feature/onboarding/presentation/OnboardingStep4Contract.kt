@@ -109,6 +109,7 @@ public data class OnboardingStep4UiState(
     public val uploadedDocuments: List<OnboardingApplicationDocument> = emptyList(),
     public val expandedDocumentId: String? = null,
     public val isInputEnabled: Boolean = true,
+    public val isListLoading: Boolean = false,
     public val currentStep: Int = 4,
     public val totalSteps: Int = 4,
 ) {
@@ -134,11 +135,20 @@ public data class OnboardingStep4UiState(
         }
     }
 
-    /** Whether another document can be added without exceeding the fixed upload limit. */
+    /**
+     * Whether another document can be added without exceeding the fixed upload limit.
+     *
+     * 목록을 읽는 중에도 막는다 — 아직 받지 못한 목록으로 상한을 판정하지 않기 위해서다(#356).
+     */
     public val isUploadEnabled: Boolean
         get() =
             isInputEnabled &&
+                !isListLoading &&
                 uploadedDocuments.size < ONBOARDING_MAX_APPLICATION_UPLOAD_COUNT
+
+    /** 직접 입력도 문서를 하나 만든다 — 목록을 읽는 중에는 업로드와 같이 잠근다(#356). */
+    public val isDirectInputEnabled: Boolean
+        get() = isInputEnabled && !isListLoading
 
     /** Every uploaded document must finish classification before onboarding can complete. */
     public val isCompleteEnabled: Boolean

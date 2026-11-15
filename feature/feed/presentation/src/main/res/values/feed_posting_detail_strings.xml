@@ -33,7 +33,6 @@
     <string name="feed_posting_detail_similar_title">유사 공고</string>
     <string name="feed_posting_detail_view_original">원문 보기</string>
     <string name="feed_posting_detail_create_draft">지원서 초안 작성하기</string>
-    <string name="feed_posting_detail_draft_coming_soon">지원서 초안 작성은 준비 중이에요</string>
     <string name="feed_posting_detail_share_chooser">공고 공유</string>
     <string name="feed_posting_detail_share_text">%1$s\n%2$s</string>
     <string name="feed_posting_detail_deadline_none">미정</string>

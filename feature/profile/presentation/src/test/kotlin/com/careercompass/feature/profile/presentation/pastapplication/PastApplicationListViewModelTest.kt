@@ -1,5 +1,6 @@
 package com.careercompass.feature.profile.presentation.pastapplication
 
+import androidx.lifecycle.SavedStateHandle
 import com.careercompass.core.common.reporting.ErrorReporter
 import com.careercompass.core.domain.error.CoreDataFailure
 import com.careercompass.core.domain.testing.FakePastApplicationRepository
@@ -61,6 +62,7 @@ class PastApplicationListViewModelTest {
             deletePastApplication = DeletePastApplicationUseCase(repository),
             uploadPastApplicationText = UploadPastApplicationTextUseCase(repository),
             errorReporter = reporter,
+            savedStateHandle = SavedStateHandle(),
         )
 
     @Test

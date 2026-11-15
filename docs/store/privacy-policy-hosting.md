@@ -69,10 +69,10 @@ gh api --method POST /markdown -f mode=gfm \
 | 자리 | 무엇을 | 모듈 | 언제 |
 |---|---|---|---|
 | 로그인 화면의 고지 문구 | `onboarding_login_terms_notice` 안의 「개인정보 처리방침」에 링크를 건다 | `feature:onboarding` | 게시 뒤 |
-| 마이 탭 메뉴 | 방침으로 가는 줄 하나 | `feature:profile` | [#175](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/175) 가 프로필 홈을 만들 때 |
+| 마이 홈의 계정 절 | 방침으로 가는 줄 하나 | `feature:profile` | 마이 홈은 [#175](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/175) 로 이미 서 있다. 게시 뒤 그 화면에 줄을 더한다 |
 
 로그인 화면을 첫 자리로 잡은 이유는 그 문구가 이미 동의를 간주하고 있기 때문이다. 지금은 링크가 없는 `Text` 라 읽을 길이 없다. 다만 그 문구는 문서 둘을 부르는데 저장소에 있는 것은 방침 하나뿐이다. 이용약관을 둘지는 이 문서가 정하지 않는다. 링크는 방침 쪽에만 건다.
 
-마이 탭 자리표시자(`app` 모듈의 `MyTabPlaceholderScreen`)에는 넣지 않는다. #175 가 통째로 지울 화면이다.
+마이 탭은 더 이상 셸의 자리표시자가 아니다. #175 가 `MyTabPlaceholderScreen` 을 지우고 profile 모듈의 마이 홈으로 바꿨다. 그래서 방침 줄은 `app` 이 아니라 `feature:profile` 의 마이 홈에, 지문 로그인·화면 테마·로그아웃이 있는 「계정」 절에 넣는다.
 
 여는 방법은 공고 원문 보기(`PostingRawScreen`)와 같다. `Intent.ACTION_VIEW` 로 외부 브라우저에 넘기고 앱 안에 WebView 를 두지 않는다. 주소는 서버가 준 값이 아니라 앱이 박아 두는 상수라 `ExternalUrl.openableOrNull` 을 거칠 필요는 없다. 상수는 `core:common` 에 한 번만 두고 두 화면이 함께 읽는다. 화면마다 따로 적으면 개정 때 한쪽이 남는다.

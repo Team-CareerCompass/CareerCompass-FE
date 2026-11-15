@@ -167,6 +167,7 @@ private fun OnboardingStep4FormState.toUiState(isInputEnabled: Boolean): Onboard
         uploadedDocuments = documents.map { it.toUiModel() },
         expandedDocumentId = expandedDocumentId,
         isInputEnabled = isInputEnabled,
+        isListLoading = isLoading,
     )
 
 /**

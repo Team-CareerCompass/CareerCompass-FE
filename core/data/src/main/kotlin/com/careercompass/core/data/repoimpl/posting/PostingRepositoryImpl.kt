@@ -1,7 +1,6 @@
 package com.careercompass.core.data.repoimpl.posting
 
 import com.careercompass.core.common.result.runCatchingCancellable
-import com.careercompass.core.data.failure.mapDataFailure
 import com.careercompass.core.data.mapper.PostingMapper
 import com.careercompass.core.domain.repository.PostingRepository
 import com.careercompass.core.model.paging.CursorPage
@@ -9,6 +8,7 @@ import com.careercompass.core.model.posting.Posting
 import com.careercompass.core.model.posting.PostingDetail
 import com.careercompass.core.model.posting.PostingQuery
 import com.careercompass.core.model.posting.PostingType
+import com.careercompass.core.network.failure.mapDataFailure
 import com.careercompass.core.network.model.requireData
 import com.careercompass.core.network.model.requireOk
 import com.careercompass.core.network.service.PostingApiService

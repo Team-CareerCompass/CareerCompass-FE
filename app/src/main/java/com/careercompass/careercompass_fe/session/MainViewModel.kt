@@ -30,7 +30,7 @@ import javax.inject.Inject
  * @property themeMode 이 기기에서 고른 화면 테마(#210). 첫 값은 [ThemeMode.System] 이고 저장소를 읽는 즉시 갈린다.
  * @property pendingDeepLink 아직 적용하지 않은 딥링크(`careercompass://postings/{id}`) — `MainActivity` 가 intent 에서
  *   파싱해 싣고, `AppNavigation` 이 피드 그래프 안에서 이동한 뒤 [MainIntent.ConsumeDeepLink] 로 비운다. 로그인·온보딩
- *   중에 들어온 것은 인증을 마칠 때까지 여기 머문다.
+ *   중에 들어온 것은 인증을 마칠 때까지 여기 머물고, 그사이 프로세스가 죽어도 저장 상태에 실려 돌아온다(#352).
  */
 public data class AppShellState(
     val launch: AppShellLaunch? = null,
@@ -157,6 +157,7 @@ public class MainViewModel
         private var pendingCause: SessionEndCause? = null
 
         init {
+            savedStateHandle.restoredDeepLink()?.let { link -> dispatch(MainReducerEvent.DeepLinkStored(link)) }
             viewModelScope.launch {
                 appSettingsRepository.themeMode.collect { mode -> dispatch(MainReducerEvent.ThemeModeChanged(mode)) }
             }
@@ -166,10 +167,14 @@ public class MainViewModel
         override fun onIntent(intent: MainIntent) {
             when (intent) {
                 is MainIntent.DeepLinkReceived -> {
-                    intent.link?.let { dispatch(MainReducerEvent.DeepLinkStored(it)) }
+                    intent.link?.let {
+                        persistDeepLink(it)
+                        dispatch(MainReducerEvent.DeepLinkStored(it))
+                    }
                 }
 
                 MainIntent.ConsumeDeepLink -> {
+                    persistDeepLink(null)
                     dispatch(MainReducerEvent.DeepLinkConsumed)
                 }
 
@@ -264,6 +269,7 @@ public class MainViewModel
             val isRecalculation = currentState.launch != null
             if (isRecalculation || destination.requiresAuthentication) revision += 1
             savedStateHandle[KEY_REVISION] = revision
+            if (isRecalculation) persistDeepLink(null)
             val cause = pendingCause
             pendingCause = null
             dispatch(
@@ -278,6 +284,26 @@ public class MainViewModel
                 ),
             )
         }
+
+        /**
+         * 보관 중인 딥링크를 액티비티 저장 상태에도 남긴다. 인메모리 상태만으로는 프로세스 재생성을 못 건넌다(#352).
+         *
+         * 로그아웃 상태에서 알림으로 로그인 화면에 온 사용자가 카카오 앱에 다녀오는 사이 프로세스가 죽으면
+         * `MainActivity` 는 재생성에서 intent 를 다시 읽지 않으므로(`savedInstanceState != null`) 여기 남은 값이
+         * 유일한 출처다. 링크 형식이 공고 id 하나뿐이라 그 값만 싣는다. 종류가 늘면 그때 함께 나른다.
+         *
+         * 상태와 같은 자리에서 바뀐다: 보관·소비, 그리고 세션 종료로 버릴 때([emit])다.
+         */
+        private fun persistDeepLink(link: AppDeepLink?) {
+            savedStateHandle[KEY_DEEP_LINK_POSTING_ID] =
+                when (link) {
+                    null -> null
+                    is AppDeepLink.PostingDetail -> link.postingId
+                }
+        }
+
+        /** 재생성 전에 보관돼 있던 딥링크. [persistDeepLink] 가 남긴 값만 돌아온다. */
+        private fun SavedStateHandle.restoredDeepLink(): AppDeepLink? = get<Long>(KEY_DEEP_LINK_POSTING_ID)?.let(AppDeepLink::PostingDetail)
 
         /** 로그아웃이 이긴다 — 사용자가 끝낸 세션에 뒤늦게 돌아온 401 이 만료 안내를 붙이지 않는다. */
         private fun reportCause(cause: SessionEndCause) {
@@ -372,5 +398,8 @@ public class MainViewModel
 
             /** 액티비티 저장 상태에 실리는 [revision] 키 — 프로세스를 건너 셸 세대를 잇는다. */
             const val KEY_REVISION = "app_shell.navHostRevision"
+
+            /** 같은 저장 상태에 실리는 보관 딥링크의 공고 id 키(#352). */
+            const val KEY_DEEP_LINK_POSTING_ID = "app_shell.pendingDeepLinkPostingId"
         }
     }

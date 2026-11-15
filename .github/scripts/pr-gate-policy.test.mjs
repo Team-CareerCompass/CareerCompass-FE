@@ -187,6 +187,17 @@ test("the entry point keeps no pull_request branch or path filter", async () => 
     assert.doesNotMatch(trigger, /^\s+paths(?:-ignore)?:/m);
 });
 
+/**
+ * 면제 라벨은 게이트가 빨개진 **뒤에** 붙는다 — 이벤트 페이로드의 라벨은 트리거 시점 값이라 그 라벨이 없다.
+ * 그대로 두면 라벨을 붙이고 재실행해도 같은 페이로드를 다시 읽어 면제가 영영 듣지 않는다.
+ */
+test("policy payload refreshes labels from the live API when it reuses the event payload", async () => {
+    const repositoryQuality = await readWorkflow("repository-quality.yml");
+
+    assert.match(repositoryQuality, /gh api "repos\/\$GITHUB_REPOSITORY\/issues\/\$PR_NUMBER\/labels"/);
+    assert.match(repositoryQuality, /\.labels = \$labels\[0\]/);
+});
+
 test("impact outputs scope each heavy lane and classification failure runs full validation", async () => {
     const entry = await readWorkflow(ENTRY_WORKFLOW);
 

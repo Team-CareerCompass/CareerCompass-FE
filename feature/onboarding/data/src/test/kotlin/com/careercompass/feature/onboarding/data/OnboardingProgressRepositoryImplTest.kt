@@ -1,11 +1,19 @@
 package com.careercompass.feature.onboarding.data
 
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.mutablePreferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.careercompass.core.datastore.StoreScope
+import com.careercompass.feature.onboarding.data.support.FakeLocalStoreRegistry
 import com.careercompass.feature.onboarding.data.support.InMemoryPreferencesDataStore
 import com.careercompass.feature.onboarding.domain.model.OnboardingProgress
 import com.careercompass.feature.onboarding.domain.model.OnboardingStep
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -13,8 +21,9 @@ import org.junit.Test
 import java.io.IOException
 
 class OnboardingProgressRepositoryImplTest {
+    private val registry = FakeLocalStoreRegistry()
     private val dataStore = InMemoryPreferencesDataStore()
-    private val repository = OnboardingProgressRepositoryImpl(dataStore)
+    private val repository = OnboardingProgressRepositoryImpl(dataStore, registry)
 
     @Test
     fun `저장 전에는 NotStarted 다`() =
@@ -30,7 +39,7 @@ class OnboardingProgressRepositoryImplTest {
             assertEquals(OnboardingProgress.InProgress(OnboardingStep.Experience), repository.progress.first())
             assertEquals(
                 OnboardingProgress.InProgress(OnboardingStep.Experience),
-                OnboardingProgressRepositoryImpl(dataStore).progress.first(),
+                OnboardingProgressRepositoryImpl(dataStore, registry).progress.first(),
             )
         }
 
@@ -71,7 +80,26 @@ class OnboardingProgressRepositoryImplTest {
         runTest {
             val corrupted = InMemoryPreferencesDataStore(mutablePreferencesOf(stringPreferencesKey("step") to "Legacy"))
 
-            assertEquals(OnboardingProgress.NotStarted, OnboardingProgressRepositoryImpl(corrupted).progress.first())
+            assertEquals(OnboardingProgress.NotStarted, OnboardingProgressRepositoryImpl(corrupted, registry).progress.first())
+        }
+
+    /**
+     * #348 — 세션이 끝난 뒤에 커밋된 기록은 다음 계정의 진입 판정을 앞 계정의 재개 지점이나 완료 상태로 연다.
+     */
+    @Test
+    fun `세션이 끝난 뒤 커밋되는 기록은 저장소를 비운 채로 둔다`() =
+        runTest {
+            val store = registry.store("OnboardingProgress", StoreScope.SESSION)
+            val gate = CompletableDeferred<Unit>()
+            val repository = OnboardingProgressRepositoryImpl(GatedPreferencesDataStore(store, gate), registry)
+            val saved = async { repository.save(OnboardingStep.Experience) }
+            runCurrent()
+
+            registry.clearScope(StoreScope.SESSION)
+            gate.complete(Unit)
+            saved.await().getOrThrow()
+
+            assertEquals(OnboardingProgress.NotStarted, repository.progress.first())
         }
 
     @Test
@@ -84,4 +112,17 @@ class OnboardingProgressRepositoryImplTest {
             assertTrue(result.exceptionOrNull() is IOException)
             assertEquals(OnboardingProgress.NotStarted, repository.progress.first())
         }
+
+    /** [gate] 가 열릴 때까지 쓰기를 붙잡아 둔다 — 세션이 끝난 뒤에 커밋되는 쓰기를 재현한다. */
+    private class GatedPreferencesDataStore(
+        private val delegate: DataStore<Preferences>,
+        private val gate: CompletableDeferred<Unit>,
+    ) : DataStore<Preferences> {
+        override val data: Flow<Preferences> get() = delegate.data
+
+        override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences {
+            gate.await()
+            return delegate.updateData(transform)
+        }
+    }
 }

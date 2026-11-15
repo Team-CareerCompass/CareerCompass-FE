@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.lifecycle.SavedStateHandle
 import com.careercompass.core.domain.error.CoreDataFailure
+import com.careercompass.core.domain.testing.FakeAuthRepository
 import com.careercompass.core.domain.testing.FakeExperienceRepository
 import com.careercompass.core.domain.testing.FakePastApplicationRepository
 import com.careercompass.core.domain.testing.FakeUserProfileRepository
@@ -60,6 +61,7 @@ class OnboardingStepScreenSessionEndTest {
     private val progressRepository = FakeOnboardingProgressRepository()
     private val experienceRepository = FakeExperienceRepository()
     private val pastApplicationRepository = FakePastApplicationRepository()
+    private val authRepository = FakeAuthRepository(loggedIn = true)
     private val reporter = RecordingErrorReporter()
 
     private var sessionEndedCount = 0
@@ -131,6 +133,7 @@ class OnboardingStepScreenSessionEndTest {
             deletePastApplication = DeletePastApplicationUseCase(pastApplicationRepository),
             updatePastApplicationItemCategory = UpdatePastApplicationItemCategoryUseCase(pastApplicationRepository),
             completeOnboarding = CompleteOnboardingUseCase(progressRepository, userProfileRepository),
+            authRepository = authRepository,
             errorReporter = reporter,
             savedStateHandle = SavedStateHandle(),
         )

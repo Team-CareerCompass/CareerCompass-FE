@@ -44,6 +44,7 @@ public fun PostingDetailScreen(
     onPostingClick: (Long) -> Unit,
     onRawClick: (Long) -> Unit,
     onProfileClick: () -> Unit,
+    onCreateDraftClick: (Long) -> Unit,
     onSessionEnded: () -> Unit,
     viewModel: PostingDetailViewModel,
     modifier: Modifier = Modifier,
@@ -63,6 +64,7 @@ public fun PostingDetailScreen(
             is PostingDetailDestination.Raw -> onRawClick(pendingNavigation.postingId)
             is PostingDetailDestination.Posting -> onPostingClick(pendingNavigation.postingId)
             PostingDetailDestination.Profile -> onProfileClick()
+            is PostingDetailDestination.ApplicationSetup -> onCreateDraftClick(pendingNavigation.postingId)
         }
     }
     val sessionEnded = state.sessionEnded
@@ -94,7 +96,6 @@ public fun PostingDetailScreen(
         val messageRes =
             when (message) {
                 PostingDetailMessage.BookmarkFailed -> R.string.feed_bookmark_failed
-                PostingDetailMessage.DraftComingSoon -> R.string.feed_posting_detail_draft_coming_soon
             }
         snackbarScope.launch { snackbarHostState.showSnackbar(resources.getString(messageRes)) }
     }
@@ -139,7 +140,7 @@ internal fun PostingDetailViewState.toUiState(
 
                         // 문구는 실패 표에서 읽는다(#204). 제목·본문을 따로 들어 실패 부품이 두 줄로 그리고,
                         // 재시도 유무도 표의 판정을 그대로 싣는다(#222).
-                        FeedFailureReason.Generic -> {
+                        is FeedFailureReason.Generic -> {
                             val display = loadState.reason.failureKind.display(FailureSurface.Posting)
                             PostingDetailContentState.Error(
                                 title = display.title(resources),

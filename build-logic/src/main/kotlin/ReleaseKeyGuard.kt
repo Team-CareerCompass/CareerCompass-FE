@@ -43,7 +43,7 @@ fun Project.requireKeyForReleaseBuild(
             |$keyName 가 비어 있어 release 빌드를 중단합니다.
             |빈 키로 빌드된 release APK 는 소셜 로그인이 동작하지 않습니다.
             |루트 local.properties 또는 CI 환경변수 $keyName 를 설정한 뒤 다시 빌드하세요.
-            |발급·설정 방법은 README '신규 팀원 빌드 셋업' 섹션 참고.
+            |발급·설정 방법은 docs/release/credentials.md 의 「로컬에서 빌드하려면」 절 참고.
             """.trimMargin(),
     )
 }
@@ -67,7 +67,7 @@ fun Project.requireReleaseSigningForReleaseBuild(missingKeys: List<String>) {
             |release 서명 자격이 없어 release 빌드를 중단합니다.
             |루트 local.properties 누락 항목: ${missingKeys.joinToString()}
             |네 키는 하나의 단위입니다 — 모두 채우세요. debug 와 달리 release 에는 폴백 keystore 가 없습니다.
-            |생성·설정 방법은 README '비개발자 APK 배포' 섹션 참고.
+            |인계·설정 방법은 docs/release/distribution.md 의 「운영 자격 인계」 절 참고.
             """.trimMargin(),
     )
 }

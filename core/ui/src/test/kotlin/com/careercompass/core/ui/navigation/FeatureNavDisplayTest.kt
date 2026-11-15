@@ -2,6 +2,7 @@ package com.careercompass.core.ui.navigation
 
 import android.app.Application
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -319,20 +320,111 @@ class FeatureNavDisplayTest {
         assertEquals(listOf(true, false, true), atRootSignals)
     }
 
+    /**
+     * **host 가 컴포지션에서 빠져도 깊이를 되돌리지 않는다** (#354).
+     *
+     * 로컬 스택은 부모 entry 에 남아 있어 돌아오면 같은 깊이로 다시 그려진다. 여기서 `true` 로 되돌리면
+     * 셸은 바닥이라고 알게 되고, 돌아오는 첫 프레임이 그 값으로 그려진다(아래 첫 프레임 테스트).
+     */
     @Test
-    fun `host 가 컴포지션에서 빠지면 깊이 신호를 되돌린다`() {
+    fun `host 가 컴포지션에서 빠져도 마지막 깊이가 그대로 남는다`() {
         var shown by mutableStateOf(true)
         composeRule.setContent { if (shown) TestHost() }
         composeRule.waitForIdle()
         push(DetailKey(id = 1))
         composeRule.waitForIdle()
-        assertEquals(false, atRootSignals.last())
+        assertEquals(listOf(true, false), atRootSignals)
 
-        // 탭 이탈 — 되돌리지 않으면 다른 탭의 바텀바 판정이 이 피처의 마지막 깊이에 오염된다.
+        // 탭 이탈 — 스택은 부모 entry 에 남아 있으므로 셸이 아는 깊이도 그대로다.
         composeRule.runOnIdle { shown = false }
         composeRule.waitForIdle()
 
-        assertEquals(true, atRootSignals.last())
+        assertEquals("빠지는 것만으로는 아무것도 알리지 않는다", listOf(true, false), atRootSignals)
+    }
+
+    /**
+     * **스택이 새로 세워진 host 는 들어오면서 바닥임을 스스로 알린다.**
+     *
+     * 컴포지션 이탈에서 되돌리지 않아도 셸이 옛 깊이에 묶이지 않는 이유다. 되돌리기가 막던 오염(로그아웃 뒤
+     * 새 스택으로 재진입)을 이 재통지가 대신 막는다.
+     */
+    @Test
+    fun `스택이 새로 세워진 host 는 들어오면서 바닥임을 알린다`() {
+        var shown by mutableStateOf(true)
+        composeRule.setContent { if (shown) TestHost() }
+        composeRule.waitForIdle()
+        push(DetailKey(id = 1))
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { shown = false }
+        composeRule.waitForIdle()
+
+        composeRule.runOnIdle { shown = true }
+        composeRule.waitForIdle()
+
+        assertEquals(listOf(true, false, true), atRootSignals)
+    }
+
+    /**
+     * **위에 쌓였던 루트 화면에서 돌아오는 첫 프레임이 지금 깊이로 그려진다** (#354).
+     *
+     * 셸의 바텀바 판정은 그 프레임의 컴포지션에서 깊이를 읽고, host 는 그 뒤에 그려진다. 그래서 이 표시부가
+     * 그 프레임에 올리는 값은 이미 늦다. 첫 프레임을 맞히는 것은 떠날 때 남겨 둔 값 하나뿐이라, 시계를 멈추고
+     * 프레임 하나만 돌려 그 값을 잰다.
+     *
+     * 스택을 host 밖에 두는 것은 실제 구조를 따른 것이다. 피드 로컬 스택은 부모 entry 의 저장 상태에 남아
+     * 있어, 위에 쌓인 루트 화면에서 돌아오면 같은 깊이로 복원된다.
+     */
+    @Test
+    fun `위에 쌓인 화면에서 돌아온 첫 프레임에 바텀바가 없다`() {
+        var hostShown by mutableStateOf(true)
+        var shellAtRoot by mutableStateOf(true)
+        val shellBoundary =
+            object : FeatureStackBoundary {
+                override fun exit() = Unit
+
+                override fun onAtRootChanged(isAtRoot: Boolean) {
+                    shellAtRoot = isAtRoot
+                }
+            }
+
+        composeRule.setContent {
+            val stack = rememberNavBackStack(RootKey)
+            SideEffect { backStack = stack }
+            Column {
+                if (shellAtRoot) BasicText(BOTTOM_BAR)
+                if (hostShown) {
+                    FeatureNavDisplay(
+                        backStack = stack,
+                        boundary = shellBoundary,
+                        entryProvider =
+                            entryProvider {
+                                entry<RootKey> { BasicText("root") }
+                                entry<DetailKey> { BasicText("detail") }
+                            },
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        push(DetailKey(id = 1))
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText(BOTTOM_BAR).assertDoesNotExist()
+
+        // 상세 위로 루트 화면(문항 확인)이 쌓여 host 가 컴포지션에서 빠진다. 그 화면에서는 루트 키만으로
+        // 바텀바가 숨으므로 깊이는 읽히지 않는다.
+        composeRule.runOnIdle { hostShown = false }
+        composeRule.waitForIdle()
+
+        // back 으로 돌아온다. 시계를 멈추고 프레임 하나만 돌린다.
+        composeRule.mainClock.autoAdvance = false
+        composeRule.runOnIdle { hostShown = true }
+        composeRule.mainClock.advanceTimeByFrame()
+        composeRule.onNodeWithText(BOTTOM_BAR).assertDoesNotExist()
+
+        composeRule.mainClock.autoAdvance = true
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("detail").assertIsDisplayed()
+        composeRule.onNodeWithText(BOTTOM_BAR).assertDoesNotExist()
     }
 
     @Test
@@ -351,6 +443,11 @@ class FeatureNavDisplayTest {
         // rememberNavBackStack 이 키를 직렬화해 되살린다 — NavKey 가 @Serializable 이어야 하는 이유.
         assertEquals(listOf<NavKey>(RootKey, DetailKey(id = 1)), composeRule.runOnIdle { backStack.toList() })
         composeRule.onNodeWithText("detail1#1").assertIsDisplayed()
+    }
+
+    private companion object {
+        /** 셸의 바텀바 자리를 대신하는 노드. 이 표시부가 올린 깊이로만 그려진다. */
+        const val BOTTOM_BAR = "bottombar"
     }
 
     @Serializable

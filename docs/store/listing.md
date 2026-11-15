@@ -69,7 +69,7 @@ CareerCompass
 
 - 카테고리: 교육 또는 비즈니스 중 택일. 공고 수집과 지원서 작성이 중심이므로 비즈니스를 기본안으로 한다
 - 태그: 취업, 채용, 장학금, 공모전, 자기소개서
-- 이메일: 팀 공용 주소를 만들어 넣는다. 개인 메일을 스토어에 공개하지 않는다
+- 이메일: [careercompass-support@googlegroups.com](mailto:careercompass-support@googlegroups.com)
 - 웹사이트: 개인정보처리방침을 올린 페이지. 게시처와 주소는 [`privacy-policy-hosting.md`](privacy-policy-hosting.md)
 
 ## 앱 콘텐츠 선언

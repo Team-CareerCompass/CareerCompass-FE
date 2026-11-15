@@ -1,13 +1,21 @@
 package com.careercompass.feature.feed.data
 
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.mutablePreferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.careercompass.core.datastore.StoreScope
 import com.careercompass.core.model.posting.Posting
 import com.careercompass.core.model.posting.PostingBoardRef
 import com.careercompass.core.model.posting.PostingType
 import com.careercompass.core.model.posting.SuitabilityLabel
+import com.careercompass.feature.feed.data.support.FakeLocalStoreRegistry
 import com.careercompass.feature.feed.data.support.InMemoryPreferencesDataStore
 import com.careercompass.feature.feed.domain.model.FeedSnapshot
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -20,8 +28,9 @@ import java.time.LocalDate
 
 class FeedSnapshotRepositoryImplTest {
     private val json = Json { ignoreUnknownKeys = true }
+    private val registry = FakeLocalStoreRegistry()
     private val dataStore = InMemoryPreferencesDataStore()
-    private val repository = FeedSnapshotRepositoryImpl(dataStore, json)
+    private val repository = FeedSnapshotRepositoryImpl(dataStore, json, registry)
 
     @Test
     fun `저장 전에는 스냅샷이 없다`() =
@@ -45,7 +54,7 @@ class FeedSnapshotRepositoryImplTest {
             assertTrue(repository.save(snapshot).isSuccess)
 
             assertEquals(snapshot, repository.load().getOrThrow())
-            assertEquals(snapshot, FeedSnapshotRepositoryImpl(dataStore, json).load().getOrThrow())
+            assertEquals(snapshot, FeedSnapshotRepositoryImpl(dataStore, json, registry).load().getOrThrow())
         }
 
     @Test
@@ -77,7 +86,7 @@ class FeedSnapshotRepositoryImplTest {
         runTest {
             val corrupted = InMemoryPreferencesDataStore(mutablePreferencesOf(SNAPSHOT_KEY to "{not json"))
 
-            assertNull(FeedSnapshotRepositoryImpl(corrupted, json).load().getOrThrow())
+            assertNull(FeedSnapshotRepositoryImpl(corrupted, json, registry).load().getOrThrow())
         }
 
     @Test
@@ -91,7 +100,7 @@ class FeedSnapshotRepositoryImplTest {
             listOf(unknownType, scoreWithoutLabel, invalidInstant, emptyPostings).forEach { raw ->
                 val store = InMemoryPreferencesDataStore(mutablePreferencesOf(SNAPSHOT_KEY to raw))
 
-                assertNull(raw, FeedSnapshotRepositoryImpl(store, json).load().getOrThrow())
+                assertNull(raw, FeedSnapshotRepositoryImpl(store, json, registry).load().getOrThrow())
             }
         }
 
@@ -101,9 +110,28 @@ class FeedSnapshotRepositoryImplTest {
             val withExtraKeys = snapshotJson(extra = ""","futureField":123""")
             val store = InMemoryPreferencesDataStore(mutablePreferencesOf(SNAPSHOT_KEY to withExtraKeys))
 
-            val loaded = requireNotNull(FeedSnapshotRepositoryImpl(store, json).load().getOrThrow())
+            val loaded = requireNotNull(FeedSnapshotRepositoryImpl(store, json, registry).load().getOrThrow())
 
             assertEquals(listOf(7L), loaded.postings.map(Posting::id))
+        }
+
+    /**
+     * #348 — 세션이 끝난 뒤에 커밋된 스냅샷은 다음 계정의 오프라인 피드에 앞 계정의 공고를 띄운다.
+     */
+    @Test
+    fun `세션이 끝난 뒤 커밋되는 저장은 저장소를 비운 채로 둔다`() =
+        runTest {
+            val store = registry.store("FeedSnapshot", StoreScope.SESSION)
+            val gate = CompletableDeferred<Unit>()
+            val repository = FeedSnapshotRepositoryImpl(GatedPreferencesDataStore(store, gate), json, registry)
+            val saved = async { repository.save(FeedSnapshot(listOf(posting(id = 1)), SAVED_AT)) }
+            runCurrent()
+
+            registry.clearScope(StoreScope.SESSION)
+            gate.complete(Unit)
+            saved.await().getOrThrow()
+
+            assertNull(repository.load().getOrThrow())
         }
 
     @Test
@@ -160,6 +188,19 @@ class FeedSnapshotRepositoryImplTest {
             isRead = isRead,
             isBookmarked = isBookmarked,
         )
+
+    /** [gate] 가 열릴 때까지 쓰기를 붙잡아 둔다 — 세션이 끝난 뒤에 커밋되는 쓰기를 재현한다. */
+    private class GatedPreferencesDataStore(
+        private val delegate: DataStore<Preferences>,
+        private val gate: CompletableDeferred<Unit>,
+    ) : DataStore<Preferences> {
+        override val data: Flow<Preferences> get() = delegate.data
+
+        override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences {
+            gate.await()
+            return delegate.updateData(transform)
+        }
+    }
 
     private companion object {
         val SAVED_AT: Instant = Instant.parse("2026-09-03T05:20:00Z")

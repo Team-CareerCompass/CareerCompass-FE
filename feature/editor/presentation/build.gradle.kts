@@ -21,6 +21,8 @@ dependencies {
     implementation(projects.core.ui)
 
     testImplementation(libs.coroutines.test)
+    testImplementation(testFixtures(projects.core.domain))
+    testImplementation(testFixtures(projects.feature.editor.domain))
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.test.manifest)

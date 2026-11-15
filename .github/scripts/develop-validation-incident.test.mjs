@@ -5,6 +5,7 @@ import {
     DEVELOP_VALIDATION_MARKER,
     reconcileDevelopValidationIncident,
 } from "./develop-validation-incident.mjs";
+import { inspectIssue, readFormSection } from "./reconcile-issue-metadata.mjs";
 
 const SHA_A = "a".repeat(40);
 const SHA_B = "b".repeat(40);
@@ -92,6 +93,48 @@ test("creates a labelled incident for the first failing develop SHA", async () =
     const create = testHarness.calls.find((call) => call.method === "create");
     assert.deepEqual(create.parameters.labels, [DEVELOP_VALIDATION_LABEL]);
     assert.match(create.parameters.body, new RegExp(`develop-validation-sha:${SHA_A}`));
+});
+
+test("incident 본문이 reconcile-issue-metadata 의 판정을 통과한다", async () => {
+    const testHarness = harness([]);
+
+    await reconcile(testHarness);
+    const body = testHarness.calls.find((call) => call.method === "create").parameters.body;
+
+    assert.equal(readFormSection(body, "작업 유형"), "bug — 버그·오동작");
+    assert.equal(readFormSection(body, "주 담당 모듈"), "platform — Android 앱·CI·빌드·릴리스·저장소 운영");
+    assert.notEqual(readFormSection(body, "개요"), null);
+
+    const inspection = inspectIssue({
+        number: 99,
+        state: "open",
+        user: { login: "github-actions[bot]" },
+        labels: [{ name: DEVELOP_VALIDATION_LABEL }],
+        body,
+    });
+
+    assert.equal(inspection.status, "valid", "판정 불가면 일일 스윕이 incident 를 not_planned 로 닫는다");
+    assert.equal(inspection.expectedLabel, "bug");
+    assert.equal(inspection.expectedAreaLabel, "area:platform");
+    assert.equal(inspection.expectedAssignee, "1hyok");
+    assert.deepEqual(inspection.labels, [DEVELOP_VALIDATION_LABEL, "bug", "area:platform"]);
+});
+
+test("양식 절을 넣은 본문도 incident 소유 판정을 유지한다", async () => {
+    const created = harness([]);
+    await reconcile(created);
+    const body = created.calls.find((call) => call.method === "create").parameters.body;
+
+    const testHarness = harness([{
+        number: 31,
+        state: "open",
+        user: { login: "github-actions[bot]" },
+        labels: [{ name: DEVELOP_VALIDATION_LABEL }],
+        body,
+    }]);
+    const result = await reconcile(testHarness);
+
+    assert.deepEqual(result, { action: "reused", issueNumber: 31 });
 });
 
 test("reuses only an incident that belongs to the same failing SHA", async () => {

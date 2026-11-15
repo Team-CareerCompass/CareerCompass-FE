@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="editor_setup_title">지원서 작성</string>
+    <string name="editor_setup_heading">이 항목들로 작성할까요?</string>
+    <string name="editor_setup_description">공고에서 찾은 자기소개서 항목이에요. 고치거나 더할 수 있어요.</string>
+    <string name="editor_setup_empty_heading">공고에서 항목을 찾지 못했어요</string>
+    <string name="editor_setup_empty_description">쓸 문항을 직접 넣어 주세요. 하나만 있어도 초안을 만들 수 있어요.</string>
+    <string name="editor_setup_item_order">%1$d.</string>
+    <string name="editor_setup_item_max_chars">%1$d자</string>
+    <string name="editor_setup_item_no_max_chars">제한 없음</string>
+    <string name="editor_setup_item_edit">고치기</string>
+    <string name="editor_setup_item_delete">삭제</string>
+    <string name="editor_setup_item_add">항목 추가</string>
+    <string name="editor_setup_item_count">%1$d / %2$d개</string>
+    <string name="editor_setup_default_length_notice">글자 수 제한이 없는 항목은 %1$d~%2$d자로 작성해 드려요.</string>
+    <string name="editor_setup_tone_label">문체</string>
+    <string name="editor_setup_tone_formal">격식체</string>
+    <string name="editor_setup_tone_casual">친근체</string>
+    <string name="editor_setup_start">초안 작성 시작</string>
+    <string name="editor_setup_starting">초안을 준비하고 있어요…</string>
+    <string name="editor_setup_loading">공고를 읽고 있어요…</string>
+    <string name="editor_setup_limit_reached">항목은 최대 %1$d개까지 넣을 수 있어요</string>
+    <string name="editor_setup_last_item_kept">마지막 항목은 지울 수 없어요. 내용을 고쳐 주세요</string>
+    <string name="editor_setup_create_failed">초안 작성을 시작하지 못했어요. 잠시 후 다시 시도해 주세요</string>
+
+    <string name="editor_item_editor_add_title">항목 추가</string>
+    <string name="editor_item_editor_edit_title">항목 고치기</string>
+    <string name="editor_item_editor_question_label">질문 *</string>
+    <string name="editor_item_editor_question_placeholder">예: 지원 동기를 작성해 주세요</string>
+    <string name="editor_item_editor_max_chars_label">글자 수 제한</string>
+    <string name="editor_item_editor_max_chars_placeholder">비워 두면 %1$d~%2$d자로 작성해요</string>
+    <string name="editor_item_editor_submit">확인</string>
+</resources>

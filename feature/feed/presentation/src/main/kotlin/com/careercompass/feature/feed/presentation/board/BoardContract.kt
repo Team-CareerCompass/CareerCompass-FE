@@ -163,6 +163,8 @@ public enum class BoardStatus {
  *
  * [postingCount] is `null` when the source does not report how many postings the board produced;
  * the count row is then omitted instead of showing a misleading zero.
+ *
+ * [isRetrying] 는 재시도 요청이 오가는 중이라는 뜻이다. 그동안 재시도 버튼은 잠긴다(#341).
  */
 public data class BoardUiModel(
     val id: String,
@@ -175,6 +177,7 @@ public data class BoardUiModel(
     val failCount: Int,
     val lastCollectedLabel: String?,
     val postingCount: Int?,
+    val isRetrying: Boolean = false,
 ) {
     init {
         require(id.isNotBlank()) { "id must not be blank" }

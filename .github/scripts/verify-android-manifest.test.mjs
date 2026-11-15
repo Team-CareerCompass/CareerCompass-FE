@@ -85,9 +85,26 @@ test('backup stays disabled and the extraction rules stay wired', () => {
   );
 });
 
+const allDomainExcludes = [
+  'root',
+  'file',
+  'database',
+  'sharedpref',
+  'external',
+  'device_root',
+  'device_file',
+  'device_database',
+  'device_sharedpref',
+]
+  .map((domain) => `<exclude domain="${domain}" path="." />`)
+  .join('');
+
 /**
  * allowBackup="false" 는 Android 12+ 에서 클라우드 백업만 끈다. 규칙 파일을 가리키지 않으면 기기 간 전송으로
  * 세션이 새 기기에 그대로 실려 간다. 매니페스트가 가리키기만 하고 파일 안이 비어 있어도 마찬가지다.
+ *
+ * root 하나만 빼는 것도 통과가 아니다. 백업 에이전트는 root 순회에서 files/·databases/·shared_prefs/ 를 빼고
+ * 그 셋을 별도 도메인으로 다시 순회하므로, root 제외만으로는 세션 토큰이 file 도메인으로 그대로 나간다.
  */
 test('data extraction rules exclude everything from both transfer paths', async () => {
   assert.deepEqual(inspectPrivacyDefaults(manifest({ backupAttributes: '' })), [
@@ -101,11 +118,34 @@ test('data extraction rules exclude everything from both transfer paths', async 
   assert.deepEqual(
     inspectDataExtractionRules(
       `<data-extraction-rules>
-         <cloud-backup><exclude domain="root" path="." /></cloud-backup>
-         <device-transfer><exclude domain="file" path="datastore" /></device-transfer>
+         <cloud-backup>${allDomainExcludes}</cloud-backup>
+         <device-transfer>${allDomainExcludes}</device-transfer>
        </data-extraction-rules>`,
     ),
-    ['device-transfer must exclude the whole app data directory'],
+    [],
+  );
+  assert.deepEqual(
+    inspectDataExtractionRules(
+      `<data-extraction-rules>
+         <cloud-backup>${allDomainExcludes}</cloud-backup>
+         <device-transfer><exclude domain="root" path="." /></device-transfer>
+       </data-extraction-rules>`,
+    ),
+    [
+      'device-transfer must exclude path="." for every backup domain, missing: file, database,' +
+        ' sharedpref, external, device_root, device_file, device_database, device_sharedpref',
+    ],
+  );
+  assert.deepEqual(
+    inspectDataExtractionRules(
+      `<data-extraction-rules>
+         <cloud-backup>${allDomainExcludes}</cloud-backup>
+         <device-transfer>
+           ${allDomainExcludes.replace('<exclude domain="file" path="." />', '<exclude domain="file" path="datastore" />')}
+         </device-transfer>
+       </data-extraction-rules>`,
+    ),
+    ['device-transfer must exclude path="." for every backup domain, missing: file'],
   );
 
   const rules = await readFile(

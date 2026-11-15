@@ -52,7 +52,7 @@
 
 서버 쪽에 필요한 것 — 항목별 버전 목록(`GET /applications/{id}/items/{itemId}/versions`, 최대 3)과 복원
 (`POST …/versions/{versionId}/restore`), 그리고 `POST /applications` 의 「진행 중이면 기존 것을 돌려준다」 규칙.
-**BE 저장소에 아직 알리지 않았다.**
+BE 저장소에 전했다 — 「진행 중이면 기존 것을 돌려준다」 규칙은 [BE #57](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/57), 항목별 버전 목록·복원은 이미 [BE #38](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/38) 에 있다.
 
 ## 서버 계약에 없어서 화면이 못 하는 것
 
@@ -60,13 +60,52 @@
 
 | 없는 것 | 막히는 기능 | 이슈 |
 | --- | --- | --- |
-| 공고 조회의 검색어·마감일 파라미터 | 클라이언트 필터로 우회 중이라 페이지 경계에서 조건이 샌다. 서버에 요구할 파라미터와 그 의미는 [`posting-query-contract.md`](posting-query-contract.md) | [#159](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/159) |
+| 공고 조회의 검색어·마감일 파라미터 | 클라이언트 필터로 우회 중이라 페이지 경계에서 조건이 샌다. 서버에 요구할 파라미터와 그 의미는 [`posting-query-contract.md`](posting-query-contract.md) | [#159](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/159) · [BE #56](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/56) |
 | refresh 재사용·logout 범위 정책 | refresh 일시 실패의 single-flight 공유 | [#79](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/79) |
 | 공고 파싱 실패를 나타내는 필드 | 「점수 산출 불가」의 두 사유(프로필 미입력 / 파싱 실패)를 화면이 가를 수 없다 | [#200](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/200) |
 | 직무·학교 목록 엔드포인트 | 온보딩의 두 피커가 로컬 상수로 돈다 | — |
-| 과거 지원서 응답의 파일 이름·형식 | 목록의 형식 배지(F1-4). `PastApplication` 은 id · label · items · createdAt 뿐이라 화면이 만들어 낼 수 없다 — 라벨에서 확장자를 읽는 우회는 「2024 카카오.pdf 지원서」 같은 값에서 엉뚱한 형식을 읽는다([#121](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/121) 이 이미 밟은 함정이다) | [#180](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/180) |
-| 과거 지원서 라벨 수정 엔드포인트 | 목록에서 라벨 고치기(F1-4). §4 는 업로드 요청 필드로만 라벨을 받는다 | [#180](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/180) |
+| 과거 지원서 응답의 파일 이름·형식 | 목록의 형식 배지(F1-4). `PastApplication` 은 id · label · items · createdAt 뿐이라 화면이 만들어 낼 수 없다 — 라벨에서 확장자를 읽는 우회는 「2024 카카오.pdf 지원서」 같은 값에서 엉뚱한 형식을 읽는다([#121](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/121) 이 이미 밟은 함정이다) | [#180](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/180) · [BE #60](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/60) |
+| 과거 지원서 라벨 수정 엔드포인트 | 목록에서 라벨 고치기(F1-4). §4 는 업로드 요청 필드로만 라벨을 받는다 | [#180](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/180) · [BE #60](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/60) |
+| 지원 이력 응답의 공고 제목·기관 | 지원 이력 목록(F4-4)이 「어느 공고에 낸 것인가」를 못 쓴다. §6 의 지원서 스키마는 `id`·`status`·`items` 뿐이고, `postingId` 로 공고를 한 건씩 다시 읽는 우회는 목록 한 페이지에 20번의 왕복을 만든다 | [#188](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/188) |
+| 지원서 단건 조회(`GET /applications/{id}`) | 스트림이 끊긴 뒤 지금 상태를 다시 읽는 길. 지금은 `POST /applications` 가 「진행 중이면 기존 것을 돌려준다」는 규칙에 기대 복구한다 — 그 규칙이 서버에 들어가지 않으면 재시도가 초안을 하나 더 만든다 | [#182](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/182) · [BE #37](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/37) |
 | `GET /notifications` 의 응답 스키마 | 알림 목록 화면 | [#195](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/195) |
+| 쓰기 응답의 형태 | API_SPEC §2 의 `PATCH /users/me`·`PUT /users/me/job-interests`·`PUT /users/me/tags` 와 §3·§4 의 쓰기에 **응답 예시가 없다.** 앱은 `PATCH /users/me` 가 `GET` 과 같은 전체 객체를 준다고 보고 `requireData()` 로 읽어 SESSION 캐시를 갈아 끼우고, `PUT job-interests`·`PUT tags` 는 `requireOk()` 로 `ok` 만 본다. 서버가 `{"ok":true}` 나 부분 객체를 주면 저장은 됐는데 앱은 `EMPTY_DATA` 로 「저장 실패」를 보고하고 캐시도 그대로여서, 온보딩 Step 1 이 「다음」에서 막힌다. 형태가 확정되면 앱이 맞춘다 | [#355](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/355) · [BE #3](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/3) · [BE #15](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/15) 확정 대기 |
+
+## 지원서 스트림의 계약 (§6 의 빈 곳, #182 판정)
+
+API_SPEC §6 은 `GET /applications/{id}/stream` 에 이벤트를 **하나만** 적어 두었다 — `event: item_done`.
+그런데 같은 절의 지원서 상태에는 `partial_failed` 가 있다. 「일부가 실패했다」가 성립하려면 어느 항목이 실패했는지
+항목 쪽에서 알 수 있어야 하는데, 그것을 말해 주는 이벤트도 항목 상태 값도 스펙에 없다. 정하지 않으면 에디터를
+만드는 사람이 그 자리에서 임의로 정하고, 서버가 다르게 만들면 둘 중 하나를 뜯는다.
+
+| 물음 | 판정 | 근거 |
+| --- | --- | --- |
+| 항목 실패를 어떻게 아는가 | **`event: item_failed`(`{"itemId", "code"}`)를 서버에 요구한다.** 오기 전까지 앱은 「`loading` 도 `done` 도 아닌 항목 상태는 실패」로 읽는다 | 이것이 없으면 화면은 실패한 항목을 「아직 쓰는 중」과 구분할 수 없어 영원히 스피너를 돌린다. 관대하게 읽는 쪽(모르는 값 = 완료)은 빈 답을 완성으로 보여 주므로 반대로 기운다 |
+| 스트림이 끝난 것을 어떻게 아는가 | **연결이 닫히는 것으로 본다.** 종료 이벤트를 새로 요구하지 않는다 | 닫힘은 어차피 다뤄야 한다(끊김과 정상 종료가 같은 신호다). 종료 이벤트를 두면 「이벤트는 왔는데 연결이 안 닫힌 경우」가 새로 생기고, 그때 무엇이 이기는지 또 정해야 한다. 닫힌 뒤 아직 `loading` 인 항목은 실패로 굳힌다(`ApplicationDraft.settled`) |
+| 상태가 도중에 바뀌면 | **`event: status`(`{"status"}`)를 서버에 요구한다.** 없으면 닫힘 시점에 앱이 계산한다 | 서버가 `partial_failed` 로 갈린 것을 스트림 도중에 알려 주면 화면이 그 자리에서 안내를 바꿀 수 있다. 없어도 닫힘 계산이 같은 값에 도달하므로 **차단 조건은 아니다** |
+| 모르는 이벤트·읽을 수 없는 본문이 오면 | **그 덩어리만 버리고 스트림을 이어 간다** | 예외로 끊으면 이미 받은 항목까지 버려진다 — 사용자에게는 다 쓴 자소서가 통째로 사라지는 일이다. 버려서 잃는 것은 답 하나이고, 그 항목은 닫힘 때 실패로 굳어 재생성 버튼이 뜬다 |
+| 끊긴 뒤 어떻게 이어 받는가 | **재연결하지 않는다. `POST /applications` 로 지금 상태를 다시 받는다** | 서버가 만들어 둔 초안은 하나이고, 「진행 중이면 기존 id 를 돌려준다」가 이미 정해져 있다(위 「지원서 규칙」). SSE 재연결(`Last-Event-ID`)을 쓰면 그 규칙과 두 벌이 된다 — 그래서 `okhttp-sse` 도 쓰지 않는다 |
+| 얼마나 기다리는가 | 한 항목 2분 · 스트림 전체 5분(`LongRunningOperation.ApplicationStream`) | 항목마다 LLM 을 부르므로 일반 API 의 30초로는 서버가 아직 쓰는 중에 우리가 먼저 끊는다(#134 와 같은 실패). 전체 상한을 문항 수 × 최악으로 잡지 않은 것은, 사용자가 진행 표시 앞에서 기다릴 수 있는 시간이 먼저 끝나기 때문이다 — 끊어도 받은 항목은 남는다 |
+
+서버 쪽에 필요한 것 — `event: item_failed` 와 `event: status`, 그리고 항목 응답의 실패 상태 값.
+BE 저장소에 전했다 — 항목 status 값 집합과 `item_failed` 페이로드는 [BE #59](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/59).
+
+## 지원서 문항 확정의 계약 (F4-1 의 빈 곳, #183 판정)
+
+F4-1 은 초안을 만들기 전에 **인식된 문항을 사용자에게 확인받고**, 고치고 더할 수 있게 하고, 인식 결과가 없으면
+직접 쓰게 정했다. 그런데 API_SPEC §6 의 `POST /applications` 요청은 `postingId` 와 `tone` 둘뿐이다 —
+사용자가 손본 결과를 실을 자리가 없다.
+
+| 물음 | 판정 | 근거 |
+| --- | --- | --- |
+| 문항은 어디서 오는가 | **§5 의 공고 상세**(`parsed.formQuestions`)다. 새 엔드포인트를 요구하지 않는다 | 이미 파싱 결과에 `order`·`question`·`maxChars` 가 있고 화면이 그것을 그리고 있다(공고 상세의 「지원서 항목」). §6 을 부르기 **전에** 보여 줄 수 있어야 「확인받고 시작한다」가 성립한다 |
+| 손본 문항을 어떻게 보내는가 | **`POST /applications` 요청에 `items` 를 더해 달라고 요구한다**(`[{order, question, maxChars}]`). 오기 전까지 앱은 그 필드를 실어 보내되, **사용자가 실제로 손봤을 때만** 보낸다 | 보낼 자리가 없으면 화면이 받은 입력이 서버에 닿지 못해 F4-1 의 절반(수정·추가·직접 입력)이 성립하지 않는다. 항상 보내지 않는 이유는 반대쪽 위험이다 — 계약에 없는 필드를 모든 요청에 실으면 그 필드를 모르는 서버가 요청 전체를 거절할 여지가 생긴다. 손보지 않은 요청은 지금 계약과 한 글자도 다르지 않게 나간다 |
+| 파싱이 안 끝났거나 실패한 공고는 | **인식 결과가 없는 것과 같이 다룬다.** 직접 쓰는 자리를 연다 | 「파싱을 기다려 주세요」로 막으면 그 공고는 영영 초안을 못 만들고, 사용자가 할 수 있는 일이 없다. F4-1 이 「인식된 항목이 없으면 직접 입력」을 이미 정해 두었다 |
+| 글자 수 제한을 못 찾은 문항은 | **null 로 두고 화면이 「제한 없음」이라 쓴다.** 400 이나 600 을 채워 넣지 않는다 | F4-2 는 그때 서버가 400~600자로 만든다고 정했다. 앱이 값을 채우면 「공고가 정한 500자」와 「우리가 정한 500자」가 화면에서 구분되지 않아, 사용자가 공고에 없는 제한을 공고의 것으로 읽는다. 무엇으로 쓰이는지는 목록 아래 안내가 말한다 |
+| 같은 공고로 두 번 시작하면 | **서버가 진행 중인 초안의 id 를 돌려준다**(위 「지원서 규칙」). 앱은 새로 만들지, 이어 열지 묻지 않는다 | 묻는 화면을 두면 그 판단이 앱과 서버 두 곳에 생기고, 서버가 기존 id 를 돌려주는 순간 앱이 물어본 것이 무의미해진다. **이 규칙이 서버에 들어가지 않으면 재시도가 초안을 하나 더 만든다** — 그것이 이 판정의 전제다 |
+
+서버 쪽에 필요한 것 — `POST /applications` 의 `items` 필드와, 「진행 중이면 기존 것을 돌려준다」 규칙.
+BE 저장소에 전했다 — `items` 요청 필드는 [BE #58](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/58), 「진행 중이면 기존 것을 돌려준다」 규칙은 [BE #57](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/57).
 
 ## 지원서 텍스트 등록의 계약 (F1-4 의 빈 곳, #181 판정)
 
@@ -81,6 +120,14 @@ F1-4 는 과거 지원서를 「파일 업로드」와 「직접 입력」 둘�
 
 이 판정은 온보딩 Step 4 가 이미 쓰던 것을 명시적 계약으로 끌어올린 것이고, 온보딩과 마이 탭의 두 화면이
 이제 같은 함수 하나를 지난다.
+
+서버 구현의 선행 작업은 [BE #19](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/19)다.
+이 이슈가 직접 입력을 같은 저장소에 넣는 경로도 포함하므로 텍스트 전용 엔드포인트 이슈를 중복 생성하지 않는다.
+
+마이 탭의 입력 복원은 온보딩(#133·#137)과 같은 규칙이다. 라벨·본문만 `SavedStateHandle` 에 저장하고
+시트를 다시 열 때 복원한다. 진행 상태·오류·일회성 신호는 복원하지 않으며 취소·업로드 성공·세션 종료 시
+초안을 지운다. Bundle 크기 제한 때문에 본문은 10만 자까지만 복원한다. 이를 넘긴 본문은 일부를 잘라
+되살리지 않고 초안에서 제거한다. 이 제한은 서버 업로드 상한(10MB)과 별개다.
 
 ## 새 불일치를 발견하면
 

@@ -8,9 +8,11 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 
 class TokenDataSourceTest {
-    private val dataSource = TokenDataSource(InMemoryPreferencesDataStore())
+    private val store = InMemoryPreferencesDataStore()
+    private val dataSource = TokenDataSource(store)
 
     @Test
     fun `토큰을 저장하면 로그인 상태가 되고 읽을 수 있다`() =
@@ -33,6 +35,21 @@ class TokenDataSourceTest {
 
             assertNull(dataSource.getAccessToken())
             assertNull(dataSource.getRefreshToken())
+            assertFalse(dataSource.isLoggedIn.first())
+        }
+
+    /**
+     * #362 — 읽기는 [IOException] 을 빈 값으로 가리지만 쓰기는 가리지 않는다. 저장 실패를 여기서 삼키면
+     * 호출부는 토큰이 선 줄 알고 다음 요청을 내보낸다.
+     */
+    @Test
+    fun `저장 실패는 삼키지 않고 호출부로 올린다`() =
+        runTest {
+            store.failOnWrite = true
+
+            assertThrows(IOException::class.java) {
+                kotlinx.coroutines.runBlocking { dataSource.saveTokens(accessToken = "access", refreshToken = "refresh") }
+            }
             assertFalse(dataSource.isLoggedIn.first())
         }
 

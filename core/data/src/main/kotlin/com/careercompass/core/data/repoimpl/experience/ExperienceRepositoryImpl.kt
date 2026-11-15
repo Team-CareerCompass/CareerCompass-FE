@@ -1,13 +1,13 @@
 package com.careercompass.core.data.repoimpl.experience
 
 import com.careercompass.core.common.result.runCatchingCancellable
-import com.careercompass.core.data.failure.mapDataFailure
 import com.careercompass.core.data.mapper.ExperienceMapper
 import com.careercompass.core.domain.repository.ExperienceRepository
 import com.careercompass.core.model.experience.Experience
 import com.careercompass.core.model.experience.ExperienceDraft
 import com.careercompass.core.model.experience.ExperienceType
 import com.careercompass.core.model.paging.CursorPage
+import com.careercompass.core.network.failure.mapDataFailure
 import com.careercompass.core.network.model.requireData
 import com.careercompass.core.network.model.requireOk
 import com.careercompass.core.network.service.ExperienceApiService

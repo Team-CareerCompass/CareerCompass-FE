@@ -18,6 +18,9 @@ public interface FeedNavActions {
     /** 프로필 입력 안내 — 앱 셸이 마이 탭으로 보낸다. */
     public fun navigateToProfileTab()
 
+    /** 지원서 초안 작성 — 앱 셸이 editor 모듈의 문항 확인 화면으로 보낸다(#183). */
+    public fun navigateToApplicationSetup(postingId: Long)
+
     /** 뒤로 가기. 피드 홈에서 부르면 로컬 스택이 바닥이므로 셸이 결정한다. */
     public fun popBack()
 

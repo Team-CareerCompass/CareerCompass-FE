@@ -202,6 +202,10 @@ private fun CompactExperienceTypePill(
  *
  * 삭제 영역은 48dp 를 차지하고 본문은 그만큼 오른쪽 여백을 비워, 두 손잡이의 터치 영역이 겹치지 않는다
  * (#57 에서 Step 4 문서 카드에 정한 규칙과 같다).
+ *
+ * 본문에는 `contentDescription` 을 얹지 않는다. 병합 노드에 설명을 얹으면 스크린 리더가 그 한 줄만 읽고
+ * 기간·역할·기술 태그가 사라진다. 행동은 `onClickLabel` 로만 붙인다. 삭제 손잡이는 아이콘뿐이라 읽을
+ * 본문이 없으므로 거기에는 설명을 그대로 둔다(#346).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -214,7 +218,7 @@ private fun ExperienceCard(
     val colors = CareerCompassTheme.colors
     val spacing = CareerCompassTheme.spacing
     val shape = RoundedCornerShape(14.dp)
-    val editDescription = stringResource(R.string.onboarding_step3_experience_edit, experience.title)
+    val editActionLabel = stringResource(R.string.onboarding_step3_experience_edit, experience.title)
     val deleteDescription = stringResource(R.string.onboarding_step3_experience_delete, experience.title)
 
     Surface(
@@ -233,13 +237,10 @@ private fun ExperienceCard(
                         .padding(end = DELETE_TOUCH_TARGET_SIZE)
                         .clickable(
                             enabled = enabled,
+                            onClickLabel = editActionLabel,
                             role = Role.Button,
                             onClick = onClick,
-                        ).semantics(mergeDescendants = true) {
-                            contentDescription = editDescription
-                            role = Role.Button
-                            if (!enabled) disabled()
-                        }.padding(start = 14.dp, top = 14.dp, bottom = 14.dp),
+                        ).padding(start = 14.dp, top = 14.dp, bottom = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(spacing.small),
             ) {
                 Text(
