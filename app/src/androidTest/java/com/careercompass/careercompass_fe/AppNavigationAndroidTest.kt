@@ -10,7 +10,9 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -20,6 +22,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextReplacement
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.test.core.app.ActivityScenario
@@ -369,6 +372,54 @@ class AppNavigationAndroidTest {
         composeRule.onNodeWithContentDescription("뒤로가기").performClick()
         composeRule.onNodeWithText(DEEP_LINK_POSTING_TITLE, useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("초안 작성 시작").assertDoesNotExist()
+    }
+
+    @Test
+    fun applicationEditor_keepsEachAnswerAcrossTabsAndRecreation() {
+        fakeAuthRepository.loggedIn = true
+        fakeUserProfileRepository.profileState.value = profile(onboardingDone = true)
+        val questions = listOf(PostingFormQuestion(1, "지원 동기", 5), PostingFormQuestion(2, "협업 경험", 400))
+        fakePostingRepository.details +=
+            postingDetail(DEEP_LINK_POSTING_ID, DEEP_LINK_POSTING_TITLE).copy(
+                parsed = PostingParsed(emptyList(), PostingQualifications(null, null), emptyList(), questions),
+            )
+        val draft =
+            ApplicationDraft(
+                42,
+                ApplicationStatus.Ready,
+                listOf(
+                    ApplicationItem(1, 1, "지원 동기", 5, ApplicationItemStatus.Done, "서버 답"),
+                    ApplicationItem(2, 2, "협업 경험", 400, ApplicationItemStatus.Done, "서버 협업 답"),
+                ),
+            )
+        fakeApplicationRepository.onCreateDraft = { _, _, _ -> Result.success(draft) }
+        scenario = ActivityScenario.launch<MainActivity>(postingDeepLinkIntent(DEEP_LINK_POSTING_ID))
+        composeRule.waitUntil(DEEP_LINK_TIMEOUT_MILLIS) {
+            composeRule
+                .onAllNodesWithText(DEEP_LINK_POSTING_TITLE, useUnmergedTree = true)
+                .fetchSemanticsNodes(atLeastOneRootRequired = false)
+                .isNotEmpty()
+        }
+        composeRule.onNodeWithText("지원서 초안 작성하기").performClick()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("초안 작성 시작"))
+        composeRule.onNodeWithText("초안 작성 시작").performClick()
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText("이 항목 편집").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
+        composeRule.onAllNodesWithText("이 항목 편집")[0].performClick()
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("직접 쓴 첫 답\n둘째 줄")
+        composeRule.onNodeWithText("2번 문항").performClick()
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("직접 쓴 협업 답")
+        composeRule.onNodeWithText("1번 문항").performClick()
+        composeRule.onNode(hasSetTextAction()).assertTextContains("직접 쓴 첫 답\n둘째 줄")
+        scenario?.recreate()
+        composeRule.waitUntil(10_000) { fakeApplicationRepository.createDraftCalls.size >= 2 }
+        composeRule.onNodeWithText("지원서 편집").assertIsDisplayed()
+        composeRule.onNode(hasSetTextAction()).assertTextContains("직접 쓴 첫 답\n둘째 줄")
+        composeRule.onNodeWithText("2번 문항").performClick()
+        composeRule.onNode(hasSetTextAction()).assertTextContains("직접 쓴 협업 답")
+        assertTrue(fakeApplicationRepository.updateAnswerCalls.isEmpty())
+        assertTrue(fakeApplicationRepository.saveCalls.isEmpty())
     }
 
     // ── 인셋 (#145) ──────────────────────────────────────────────────────────

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="editor_edit_title">지원서 편집</string>
+    <string name="editor_edit_tab">%1$d번 문항</string>
+    <string name="editor_edit_answer">답변</string>
+    <string name="editor_edit_maximum">최대 %1$d자</string>
+    <string name="editor_edit_count">%1$d / %2$d자</string>
+    <string name="editor_edit_overflow">최대 글자 수를 넘었어요. 입력은 그대로 유지돼요.</string>
+    <string name="editor_edit_input_limit">전체 문항의 임시 보관 한도는 10만 자예요. 방금 입력은 반영하지 않았어요. 내용을 줄인 뒤 다시 시도해 주세요.</string>
+    <string name="editor_edit_local_notice">편집 중인 내용은 이 작성 화면에 임시 보관돼요. 탭 이동으로 서버에 저장되지는 않아요.</string>
+    <string name="editor_edit_progress_notice">생성 상태를 확인하지 못했어요. 입력은 유지했어요. 진행 화면에서 상태를 확인해 주세요.</string>
+    <string name="editor_edit_next">다음 문항</string>
+    <string name="editor_edit_progress">진행 화면으로</string>
+    <string name="editor_edit_item">이 항목 편집</string>
+    <string name="editor_edit_manual">직접 편집 중</string>
+</resources>

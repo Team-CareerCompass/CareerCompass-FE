@@ -37,6 +37,7 @@ internal fun ApplicationProgressContent(
     onBackClick: () -> Unit,
     onCompleteProfile: () -> Unit,
     modifier: Modifier = Modifier,
+    onEditItem: (Long) -> Unit = {},
 ) {
     val spacing = CareerCompassTheme.spacing
     Column(modifier.fillMaxSize().background(CareerCompassTheme.colors.subtleSurface)) {
@@ -47,6 +48,7 @@ internal fun ApplicationProgressContent(
                     stringResource(
                         when {
                             state.draft == null -> R.string.editor_progress_recovering
+
                             state.draft?.hasLoadingItem == true -> R.string.editor_progress_generating_title
 
                             state.draft?.items?.any {
@@ -117,6 +119,7 @@ internal fun ApplicationProgressContent(
                         val retrying = item.id in state.retryingIds
                         val status =
                             when {
+                                item.id in state.editedAnswers -> R.string.editor_edit_manual
                                 retrying -> R.string.editor_progress_retrying
                                 item.status == ApplicationItemStatus.Done -> R.string.editor_progress_done
                                 item.status == ApplicationItemStatus.Failed -> R.string.editor_progress_failed
@@ -124,9 +127,15 @@ internal fun ApplicationProgressContent(
                                 else -> R.string.editor_progress_waiting
                             }
                         Text(stringResource(status), style = CareerCompassTheme.typography.caption, color = statusColor)
-                        item.answer?.takeIf { it.isNotEmpty() }?.let { answer ->
+                        (state.editedAnswers[item.id] ?: item.answer)?.takeIf { it.isNotEmpty() }?.let { answer ->
                             SelectionContainer { Text(answer, style = CareerCompassTheme.typography.bodyMedium) }
                         }
+                        CareerCompassButton(
+                            text = stringResource(R.string.editor_edit_item),
+                            onClick = { onEditItem(item.id) },
+                            enabled = !state.identityMismatch,
+                            variant = com.careercompass.core.ui.component.CareerCompassButtonVariant.Ghost,
+                        )
                         if (item.status == ApplicationItemStatus.Failed) {
                             CareerCompassButton(
                                 text = stringResource(R.string.editor_progress_retry_item),

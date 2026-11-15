@@ -21,6 +21,7 @@ import com.careercompass.feature.editor.domain.model.ApplicationTone
 import com.careercompass.feature.editor.domain.model.settled
 import com.careercompass.feature.editor.domain.repository.ApplicationRepository
 import com.careercompass.feature.editor.domain.usecase.ObserveApplicationDraftUseCase
+import com.careercompass.feature.editor.presentation.editor.ApplicationEditorInput
 import com.careercompass.feature.editor.presentation.setup.ApplicationDraftStarted
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -42,6 +43,9 @@ public data class ApplicationProgressUiState(
     val interrupted: Boolean = false,
     val identityMismatch: Boolean = false,
     val sessionEnded: Boolean = false,
+    val editedAnswers: Map<Long, String> = emptyMap(),
+    val selectedItemId: Long? = null,
+    val inputLimitReached: Boolean = false,
 ) : UiState
 
 public sealed interface ApplicationProgressIntent : MviIntent {
@@ -57,6 +61,15 @@ public sealed interface ApplicationProgressIntent : MviIntent {
 
     public data class RetryItem(
         val itemId: Long,
+    ) : ApplicationProgressIntent
+
+    public data class SelectItem(
+        val itemId: Long,
+    ) : ApplicationProgressIntent
+
+    public data class EditAnswer(
+        val itemId: Long,
+        val answer: String,
     ) : ApplicationProgressIntent
 
     public data object ConsumeSessionEnded : ApplicationProgressIntent
@@ -82,6 +95,12 @@ public sealed interface ApplicationProgressReducerEvent : ReducerEvent {
         val interrupted: Boolean = false,
     ) : ApplicationProgressReducerEvent
 
+    public data class InputChanged(
+        val answers: Map<Long, String>,
+        val selectedItemId: Long?,
+        val limitReached: Boolean = false,
+    ) : ApplicationProgressReducerEvent
+
     public data object IdentityMismatch : ApplicationProgressReducerEvent
 
     public data object SessionEnded : ApplicationProgressReducerEvent
@@ -99,12 +118,18 @@ public class ApplicationProgressViewModel
         private val observeDraft: ObserveApplicationDraftUseCase,
         private val reporter: ErrorReporter,
         private val handle: SavedStateHandle,
-    ) : MviViewModel<ApplicationProgressIntent, ApplicationProgressUiState, ApplicationProgressReducerEvent>(ApplicationProgressUiState()) {
+    ) : MviViewModel<ApplicationProgressIntent, ApplicationProgressUiState, ApplicationProgressReducerEvent>(
+            ApplicationProgressUiState(
+                editedAnswers = ApplicationEditorInput(handle).answers(),
+                selectedItemId = ApplicationEditorInput(handle).selectedItemId,
+            ),
+        ) {
         @AssistedFactory public interface Factory {
             public fun create(postingId: Long): ApplicationProgressViewModel
         }
 
         private val identity = ProgressIdentity(handle)
+        private val input = ApplicationEditorInput(handle)
         private var streamJob: Job? = null
         private var recoverJob: Job? = null
         private val retryJobs = mutableMapOf<Long, Job>()
@@ -149,6 +174,26 @@ public class ApplicationProgressViewModel
 
                 is ApplicationProgressIntent.RetryItem -> {
                     retryItem(intent.itemId)
+                }
+
+                is ApplicationProgressIntent.SelectItem -> {
+                    if (currentState.draft?.items?.none { it.id == intent.itemId } != false) return
+                    input.save(currentState.editedAnswers, intent.itemId)
+                    dispatch(ApplicationProgressReducerEvent.InputChanged(currentState.editedAnswers, intent.itemId))
+                }
+
+                is ApplicationProgressIntent.EditAnswer -> {
+                    if (currentState.identityMismatch || currentState.draft?.items?.none { it.id == intent.itemId } != false) return
+                    val answers = currentState.editedAnswers + (intent.itemId to intent.answer)
+                    val exceedsLimit = answers.values.sumOf { it.length.toLong() } > ApplicationEditorInput.MAX_CHARS
+                    if (!exceedsLimit) input.save(answers, intent.itemId)
+                    dispatch(
+                        ApplicationProgressReducerEvent.InputChanged(
+                            answers = if (exceedsLimit) currentState.editedAnswers else answers,
+                            selectedItemId = intent.itemId,
+                            limitReached = exceedsLimit,
+                        ),
+                    )
                 }
 
                 ApplicationProgressIntent.ConsumeSessionEnded -> {
@@ -312,6 +357,7 @@ public class ApplicationProgressViewModel
                 recoverJob?.cancel()
                 retryJobs.values.forEach { it.cancel() }
                 identity.clear()
+                input.clear()
                 dispatch(ApplicationProgressReducerEvent.SessionEnded)
             } else {
                 val kind = if (failure is EditorFailure.StreamInterrupted) FailureKind.NoConnection else failure.toFailureKind()
@@ -351,6 +397,14 @@ public class ApplicationProgressViewModel
                         isStreaming = if (event.interrupted) false else state.isStreaming,
                         failure = event.kind,
                         interrupted = event.interrupted,
+                    )
+                }
+
+                is ApplicationProgressReducerEvent.InputChanged -> {
+                    state.copy(
+                        editedAnswers = event.answers,
+                        selectedItemId = event.selectedItemId,
+                        inputLimitReached = event.limitReached,
                     )
                 }
 
