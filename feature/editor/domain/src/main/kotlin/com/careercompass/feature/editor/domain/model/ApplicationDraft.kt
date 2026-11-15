@@ -51,17 +51,29 @@ public fun ApplicationDraft.applying(event: ApplicationStreamEvent): Application
  * 남으면 화면은 오지 않을 항목을 계속 기다린다. 아직 `loading` 인 항목은 답을 못 받은 것이므로 실패로 굳히고,
  * 전체는 실패한 항목이 있으면 [ApplicationStatus.PartialFailed], 없으면 [ApplicationStatus.Ready] 다.
  *
- * 이미 `generating` 이 아니면(저장됐거나 서버가 상태를 말해 줬으면) 손대지 않는다.
+ * 서버가 상태를 먼저 알렸어도 미완 항목은 실패로 굳힌다. `partial_failed` 는 서버의 판정을 유지한다.
+ * `ready` 뒤에도 답을 못 받은 항목이 있으면 `partial_failed` 로 내린다 — 서버에서 생성이 끝났어도
+ * 앱에는 답이 없으므로 완료로 보여 줄 수 없고, 실패한 항목의 재생성 경로가 필요하다(#411).
+ * 최종 저장된 초안([ApplicationStatus.Saved])은 항목을 포함해 그대로 둔다.
  */
 public fun ApplicationDraft.settled(): ApplicationDraft {
-    if (status != ApplicationStatus.Generating) return this
+    if (status == ApplicationStatus.Saved) return this
     val settledItems =
         items.map { item ->
             if (item.status == ApplicationItemStatus.Loading) item.copy(status = ApplicationItemStatus.Failed) else item
         }
     val hasFailure = settledItems.any { it.status == ApplicationItemStatus.Failed }
     return copy(
-        status = if (hasFailure) ApplicationStatus.PartialFailed else ApplicationStatus.Ready,
+        status =
+            when (status) {
+                ApplicationStatus.Generating, ApplicationStatus.Ready -> {
+                    if (hasFailure) ApplicationStatus.PartialFailed else ApplicationStatus.Ready
+                }
+
+                ApplicationStatus.PartialFailed, ApplicationStatus.Saved -> {
+                    status
+                }
+            },
         items = settledItems,
     )
 }
