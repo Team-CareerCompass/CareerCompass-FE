@@ -93,7 +93,19 @@ internal fun LoginContent(state: LoginUiState, onIntent: (LoginIntent) -> Unit, 
 ```
 
 - `Screen` 은 stateful 이고 ViewModel 을 주입받는다.
-- `Content` 는 stateless 이고, 프리뷰 · screenshotTest · Robolectric 의 진입점이다. 화면을 그리려고 ViewModel 을 조립하지 않는다. 기본은 `internal` 이고, 다른 모듈의 androidTest 가 합성하는 것만 public 이다. 지금 그 자격이 있는 것은 app 의 접근성 스모크가 그리는 `FeedContent` · `OnboardingStep1~4Content` · `LoginContent` · `ProfileHomeContent` · `ProfileEditContent` 다. `ExperienceListContent` · `PastApplicationListContent` · `ApplicationSetupContent` 도 public 이지만 자기 모듈 밖 소비처가 없다. 규약대로면 `internal` 이고, 좁히는 것은 profile · editor 담당 몫이다.
+- `Content` 는 stateless 이고, 프리뷰 · screenshotTest · Robolectric 의 진입점이다. 화면을 그리려고 ViewModel 을 조립하지 않는다. 기본은 `internal` 이고, 다른 모듈의 androidTest 가 합성하는 것만 public 이다. 현재 예외는 아래와 같으며 전부 app 의 접근성 스모크가 그린다. `ContentVisibilityKonsistTest` 가 main 선언의 public 이름 집합과 이 목록을 대조한다.
+
+<!-- public-content-exceptions:start -->
+- `FeedContent`
+- `OnboardingStep1Content`
+- `OnboardingStep2Content`
+- `OnboardingStep3Content`
+- `OnboardingStep4Content`
+- `LoginContent`
+- `ProfileHomeContent`
+- `ProfileEditContent`
+- `ApplicationSetupContent`
+<!-- public-content-exceptions:end -->
 
 ### 옛 이름과의 대응
 
