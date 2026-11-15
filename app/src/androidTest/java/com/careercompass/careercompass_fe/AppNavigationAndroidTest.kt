@@ -1,5 +1,6 @@
 package com.careercompass.careercompass_fe
 
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -37,12 +38,26 @@ import com.careercompass.core.model.board.BoardType
 import com.careercompass.core.model.posting.Posting
 import com.careercompass.core.model.posting.PostingBoardRef
 import com.careercompass.core.model.posting.PostingDetail
+import com.careercompass.core.model.posting.PostingFormQuestion
+import com.careercompass.core.model.posting.PostingParsed
+import com.careercompass.core.model.posting.PostingQualifications
 import com.careercompass.core.model.posting.PostingType
 import com.careercompass.core.model.settings.ThemeMode
 import com.careercompass.core.model.user.JobInterest
 import com.careercompass.core.model.user.UserProfile
+import com.careercompass.feature.editor.domain.model.ApplicationDraft
+import com.careercompass.feature.editor.domain.model.ApplicationItem
+import com.careercompass.feature.editor.domain.model.ApplicationItemStatus
+import com.careercompass.feature.editor.domain.model.ApplicationStatus
+import com.careercompass.feature.editor.domain.model.ApplicationStreamEvent
+import com.careercompass.feature.editor.domain.testing.FakeApplicationRepository
+import com.careercompass.feature.foryou.domain.model.RoadmapComparison
+import com.careercompass.feature.foryou.domain.model.RoadmapMetric
+import com.careercompass.feature.foryou.domain.model.StrengthExport
+import com.careercompass.feature.foryou.domain.testing.FakeForYouRepository
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import kotlinx.coroutines.flow.MutableSharedFlow
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -83,6 +98,12 @@ class AppNavigationAndroidTest {
     @Inject
     lateinit var fakeAppSettingsRepository: FakeAppSettingsRepository
 
+    @Inject
+    lateinit var fakeApplicationRepository: FakeApplicationRepository
+
+    @Inject
+    lateinit var fakeForYouRepository: FakeForYouRepository
+
     private var scenario: ActivityScenario<MainActivity>? = null
 
     @Before
@@ -117,6 +138,47 @@ class AppNavigationAndroidTest {
         composeRule.onNodeWithText("피드").assertIsDisplayed()
         composeRule.onNodeWithText("마이").performClick()
         composeRule.onNodeWithText("프로필 완성도").assertIsDisplayed()
+    }
+
+    @Test
+    fun strengthExport_previewsAndCopiesExactContent() {
+        fakeAuthRepository.loggedIn = true
+        fakeUserProfileRepository.profileState.value = profile(onboardingDone = true)
+        val content = "# 내 강점\n팀과 함께 모바일 앱을 만들었습니다."
+        fakeForYouRepository.onExport = { format, _ -> Result.success(StrengthExport(format, content)) }
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        composeRule.onNodeWithText("분석").performClick()
+        composeRule.onNodeWithText("내 강점 정리").performClick()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("미리보기 만들기"))
+        composeRule.onNodeWithText("미리보기 만들기").performClick()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("클립보드에 복사"))
+        composeRule.onNodeWithText("클립보드에 복사").performClick()
+        composeRule.onNodeWithText("내 강점을 복사했어요").assertIsDisplayed()
+        scenario?.onActivity { activity ->
+            val clip = activity.getSystemService(ClipboardManager::class.java).primaryClip
+            assertEquals(content, clip?.getItemAt(0)?.text?.toString())
+            assertEquals(true, clip?.description?.extras?.getBoolean("android.content.extra.IS_SENSITIVE"))
+        }
+        composeRule.onNodeWithContentDescription("뒤로가기").performClick()
+        composeRule.onNodeWithText("나를 위한 분석").assertIsDisplayed()
+    }
+
+    @Test
+    fun analysisRoadmap_switchesCohortAndReturnsToAnalysisHome() {
+        fakeAuthRepository.loggedIn = true
+        fakeUserProfileRepository.profileState.value = profile(onboardingDone = true)
+        fakeForYouRepository.onGetRoadmapComparison = { cohort ->
+            Result.success(RoadmapComparison(cohort, 86, listOf(RoadmapMetric("프로젝트 수", 4.0, 2.0)), emptyList()))
+        }
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        composeRule.onNodeWithText("분석").performClick()
+        composeRule.onNodeWithText("커리어 로드맵").performClick()
+        composeRule.onNodeWithText("86명의 기록과 비교했어요").assertIsDisplayed()
+        composeRule.onNodeWithText("합격 선배 비교").performClick()
+        composeRule.onNodeWithText("합격 선배 평균").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("뒤로가기").performClick()
+        composeRule.onNodeWithText("나를 위한 분석").assertIsDisplayed()
+        composeRule.onNodeWithText("피드").assertIsDisplayed()
     }
 
     /**
@@ -299,6 +361,65 @@ class AppNavigationAndroidTest {
         // 인증 게이트 — 세션이 없으면 딥링크가 있어도 로그인 화면이며, 상세가 백스택에 오르지 않는다.
         composeRule.onNodeWithText("카카오 로그인").assertIsDisplayed()
         composeRule.onNodeWithText(DEEP_LINK_POSTING_TITLE, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun applicationProgress_keepsPartialAnswerAcrossRecreationAndReturnsToPosting() {
+        fakeAuthRepository.loggedIn = true
+        fakeUserProfileRepository.profileState.value = profile(onboardingDone = true)
+        val questions = listOf(PostingFormQuestion(1, "지원 동기", 500), PostingFormQuestion(2, "협업 경험", 400))
+        fakePostingRepository.details +=
+            postingDetail(DEEP_LINK_POSTING_ID, DEEP_LINK_POSTING_TITLE).copy(
+                parsed = PostingParsed(emptyList(), PostingQualifications(null, null), emptyList(), questions),
+            )
+        var serverDraft =
+            ApplicationDraft(
+                42,
+                ApplicationStatus.Generating,
+                listOf(
+                    ApplicationItem(1, 1, "지원 동기", 500, ApplicationItemStatus.Loading, null),
+                    ApplicationItem(2, 2, "협업 경험", 400, ApplicationItemStatus.Loading, null),
+                ),
+            )
+        val events = MutableSharedFlow<ApplicationStreamEvent>(extraBufferCapacity = 4)
+        fakeApplicationRepository.onCreateDraft = { _, _, _ -> Result.success(serverDraft) }
+        fakeApplicationRepository.onStreamEvents = { events }
+        scenario = ActivityScenario.launch<MainActivity>(postingDeepLinkIntent(DEEP_LINK_POSTING_ID))
+        composeRule.waitUntil(DEEP_LINK_TIMEOUT_MILLIS) {
+            composeRule
+                .onAllNodesWithText(DEEP_LINK_POSTING_TITLE, useUnmergedTree = true)
+                .fetchSemanticsNodes(atLeastOneRootRequired = false)
+                .isNotEmpty()
+        }
+        composeRule.onNodeWithText("지원서 초안 작성하기").performClick()
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText("초안 작성 시작").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
+        composeRule.onNodeWithText("초안 작성 시작").performClick()
+        composeRule.waitUntil(10_000) { events.subscriptionCount.value == 1 }
+        serverDraft =
+            serverDraft.copy(
+                items =
+                    serverDraft.items.map {
+                        if (it.id ==
+                            1L
+                        ) {
+                            it.copy(status = ApplicationItemStatus.Done, answer = "첫 번째 답")
+                        } else {
+                            it
+                        }
+                    },
+            )
+        events.tryEmit(ApplicationStreamEvent.ItemDone(1, "첫 번째 답"))
+        composeRule.onNodeWithText("첫 번째 답").assertIsDisplayed()
+        scenario?.recreate()
+        composeRule.waitUntil(10_000) { fakeApplicationRepository.createDraftCalls.size >= 2 && events.subscriptionCount.value == 1 }
+        composeRule.onNodeWithText("첫 번째 답").assertIsDisplayed()
+        events.tryEmit(ApplicationStreamEvent.ItemDone(2, "두 번째 답"))
+        composeRule.onNodeWithText("2 / 2개 항목 완료").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("뒤로가기").performClick()
+        composeRule.onNodeWithText(DEEP_LINK_POSTING_TITLE, useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("초안 작성 시작").assertDoesNotExist()
     }
 
     // ── 인셋 (#145) ──────────────────────────────────────────────────────────

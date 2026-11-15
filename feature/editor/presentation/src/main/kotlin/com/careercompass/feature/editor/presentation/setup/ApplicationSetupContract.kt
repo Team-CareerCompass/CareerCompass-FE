@@ -1,18 +1,23 @@
 package com.careercompass.feature.editor.presentation.setup
 
 import com.careercompass.core.model.user.ProfileFieldViolation
+import com.careercompass.core.ui.failure.FailureKind
+import com.careercompass.feature.editor.domain.model.ApplicationDraft
+import com.careercompass.feature.editor.domain.model.ApplicationItemDraft
 import com.careercompass.feature.editor.domain.model.ApplicationTone
 
 /** 스낵바 한 줄로 끝나는 알림. */
-public enum class ApplicationSetupMessage {
+public sealed interface ApplicationSetupMessage {
     /** 문항 상한(10개)에 닿아 추가를 막았다. */
-    LimitReached,
+    public data object LimitReached : ApplicationSetupMessage
 
     /** 마지막 문항은 지울 수 없다 — 문항이 없으면 초안을 만들 수 없다. */
-    LastItemKept,
+    public data object LastItemKept : ApplicationSetupMessage
 
     /** `POST /applications` 가 실패했다. 쓰던 문항은 화면에 그대로 남는다. */
-    CreateFailed,
+    public data class CreateFailed(
+        val kind: FailureKind,
+    ) : ApplicationSetupMessage
 }
 
 /** 문항 편집 시트가 가리키는 대상. [order] 가 null 이면 새 문항이다. */
@@ -68,9 +73,13 @@ public sealed interface ApplicationSetupEvent {
 
 /** 초안 생성이 시작됐다 — 앱 셸이 진행 화면으로 보낸다(#184). */
 public data class ApplicationDraftStarted(
-    val applicationId: Long,
+    val draft: ApplicationDraft,
     val postingId: Long,
-)
+    val tone: ApplicationTone,
+    val requestItems: List<ApplicationItemDraft>?,
+) {
+    val applicationId: Long get() = draft.id
+}
 
 /** 세션이 끝났다(401). 앱 셸이 로그인으로 보낸다. */
 public data object ApplicationSetupSessionEnd

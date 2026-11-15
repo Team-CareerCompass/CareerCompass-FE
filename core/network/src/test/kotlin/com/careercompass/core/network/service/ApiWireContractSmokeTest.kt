@@ -6,6 +6,7 @@ import com.careercompass.core.network.dto.BoardRegisterRequestDto
 import com.careercompass.core.network.dto.BoardUpdateRequestDto
 import com.careercompass.core.network.dto.CreateApplicationRequestDto
 import com.careercompass.core.network.dto.ExperienceRequestDto
+import com.careercompass.core.network.dto.ExportRequestDto
 import com.careercompass.core.network.dto.JobInterestDto
 import com.careercompass.core.network.dto.JobInterestsRequestDto
 import com.careercompass.core.network.dto.LogoutRequestDto
@@ -71,6 +72,7 @@ class ApiWireContractSmokeTest {
     private lateinit var boardDetectService: BoardDetectApiService
     private lateinit var applicationService: ApplicationApiService
     private lateinit var applicationStreamService: ApplicationStreamApiService
+    private lateinit var forYouService: ForYouApiService
 
     @Before
     fun setUp() {
@@ -107,6 +109,7 @@ class ApiWireContractSmokeTest {
         boardDetectService = publicRetrofit.create(BoardDetectApiService::class.java)
         applicationService = publicRetrofit.create(ApplicationApiService::class.java)
         applicationStreamService = publicRetrofit.create(ApplicationStreamApiService::class.java)
+        forYouService = publicRetrofit.create(ForYouApiService::class.java)
     }
 
     @Test
@@ -674,6 +677,83 @@ class ApiWireContractSmokeTest {
             // cursor 는 안 보냈다 — Retrofit 이 null @Query 를 빼는 것을 소켓에서 확인한다.
             val recorded = recordedRequests("GET", "/api/v1/applications").single().jsonObject
             assertTrue("cursor must be absent: $recorded", !recorded.toString().contains("cursor"))
+        }
+
+    // ── §7 신규 기능(For You · 로드맵 · Export) ──
+
+    /**
+     * `reason` 이 톱 픽에서는 **배열**, 나머지에서는 **문자열**이다. 계약이 그렇게 적혀 있으므로 둘 다 소켓을
+     * 지나는 것을 확인한다 — DTO 를 한 타입으로 합치면 둘 중 한쪽 응답이 파싱 실패로 떨어진다.
+     */
+    @Test
+    fun `for you feed preserves route and the mixed reason schema`() =
+        runTest {
+            installExpectation(
+                method = "GET",
+                path = "/api/v1/feed/for-you",
+                responseBody =
+                    """
+                    {"ok":true,"data":{
+                     "topPick":{"postingId":101,"reason":["전공 일치","마감까지 여유"]},
+                     "byStrength":[{"postingId":102,"reason":"프로젝트 경험이 맞아요"}],
+                     "byGap":[{"postingId":103,"reason":"어학·인턴 보완용"}]}}
+                    """.trimIndent(),
+            )
+
+            val feed = requireNotNull(forYouService.getForYouFeed().data)
+
+            assertEquals(listOf("전공 일치", "마감까지 여유"), feed.topPick?.reason)
+            assertEquals("프로젝트 경험이 맞아요", feed.byStrength.single().reason)
+            assertEquals(103L, feed.byGap.single().postingId)
+            assertExactlyOneRecordedRequest("GET", "/api/v1/feed/for-you")
+        }
+
+    /** 지표는 정수와 소수가 한 표에 섞여 온다(`"me": 4` · `"peerAvg": 0.8`). 소켓에서 그것을 고정한다. */
+    @Test
+    fun `roadmap compare preserves route, cohort query, and mixed number schema`() =
+        runTest {
+            installExpectation(
+                method = "GET",
+                path = "/api/v1/roadmap/compare",
+                requestQueryParameters = mapOf("cohort" to "senior"),
+                responseBody =
+                    """
+                    {"ok":true,"data":{"cohort":"senior","sampleSize":86,
+                     "metrics":[{"name":"프로젝트 수","me":4,"peerAvg":2},{"name":"인턴 경험","me":0,"peerAvg":0.8}],
+                     "suggestions":[{"semester":"3-2","action":"SQLD + 토익 800+","expectedLift":12}]}}
+                    """.trimIndent(),
+            )
+
+            val comparison = requireNotNull(forYouService.getRoadmapComparison("senior").data)
+
+            assertEquals("senior", comparison.cohort)
+            assertEquals(86, comparison.sampleSize)
+            assertEquals(listOf(2.0, 0.8), comparison.metrics.map { it.peerAvg })
+            assertEquals(12, comparison.suggestions.single().expectedLift)
+            assertExactlyOneRecordedRequest("GET", "/api/v1/roadmap/compare")
+        }
+
+    @Test
+    fun `strength export preserves route, strict request JSON, and response schema`() =
+        runTest {
+            installExpectation(
+                method = "POST",
+                path = "/api/v1/export",
+                requestBody =
+                    wireJson
+                        .parseToJsonElement("""{"format":"markdown","sections":["basic","skills"]}""")
+                        .jsonObject,
+                responseBody = """{"ok":true,"data":{"format":"markdown","content":"# 제목\n본문"}}""",
+            )
+
+            val export =
+                requireNotNull(
+                    forYouService.export(ExportRequestDto(format = "markdown", sections = listOf("basic", "skills"))).data,
+                )
+
+            assertEquals("markdown", export.format)
+            assertTrue("content must survive newlines: ${export.content}", export.content.contains("\n"))
+            assertExactlyOneRecordedRequest("POST", "/api/v1/export")
         }
 
     private fun installExpectation(

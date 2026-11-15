@@ -114,6 +114,9 @@ class AppStateTest {
         assertTrue(state.shouldShowBottomBar(Route.Feed, isFeedStackAtRoot = true))
         assertFalse(state.shouldShowBottomBar(Route.Feed, isFeedStackAtRoot = false))
         assertTrue(state.shouldShowBottomBar(Route.MyTab, isFeedStackAtRoot = false))
+        assertTrue(state.shouldShowBottomBar(Route.AnalysisTab, isFeedStackAtRoot = false, isAnalysisStackAtRoot = true))
+        assertFalse(state.shouldShowBottomBar(Route.AnalysisTab, isFeedStackAtRoot = true, isAnalysisStackAtRoot = false))
+        assertTrue(state.shouldShowBottomBar(Route.MyTab, isFeedStackAtRoot = true, isAnalysisStackAtRoot = false))
         assertFalse(state.shouldShowBottomBar(Route.NotificationsPlaceholder, isFeedStackAtRoot = true))
         assertFalse(state.shouldShowBottomBar(Route.Onboarding, isFeedStackAtRoot = true))
         assertFalse(state.shouldShowBottomBar(null, isFeedStackAtRoot = true))
@@ -140,20 +143,13 @@ class AppStateTest {
         assertEquals(listOf(Route.Feed, Route.ApplicationSetup(postingId = 101)), state.keys())
     }
 
-    /**
-     * 초안 생성이 시작되면 문항 확인 화면이 백스택에서 빠진다(#183).
-     *
-     * 남겨 두면 뒤로 가기가 이미 만든 초안을 다시 만드는 자리로 돌아오고, 사용자는 같은 공고에 초안이
-     * 둘 생겼다고 읽는다. `removeAll` 이 빠지는 회귀를 여기서 잡는다.
-     */
+    /** 문항 확인→진행은 editor 로컬 스택이 맡고, host를 나가면 원래 공고의 피드로 돌아온다. */
     @Test
-    fun `초안 생성이 시작되면 문항 확인 화면이 빠지고 뒤로가기가 피드로 간다`() {
+    fun `지원서 host를 나가면 피드로 돌아온다`() {
         val state = stateOn(Route.Feed)
         state.navigateToApplicationSetup(postingId = 101)
 
-        state.navigateToApplicationProgress(applicationId = 42)
-
-        assertEquals(listOf(Route.Feed, Route.ApplicationProgressPlaceholder(applicationId = 42)), state.keys())
+        assertEquals(listOf(Route.Feed, Route.ApplicationSetup(postingId = 101)), state.keys())
         assertTrue(state.popBack())
         assertEquals(listOf(Route.Feed), state.keys())
     }
@@ -163,11 +159,6 @@ class AppStateTest {
     fun `지원서 작성 화면에서는 바텀바가 숨고 선택 탭은 피드다`() {
         val state = stateOn(Route.Feed)
         state.navigateToApplicationSetup(postingId = 101)
-
-        assertFalse(state.shouldShowBottomBar(state.topKey, isFeedStackAtRoot = true))
-        assertEquals(CareerCompassBottomTab.Feed, state.currentTab(state.topKey))
-
-        state.navigateToApplicationProgress(applicationId = 42)
 
         assertFalse(state.shouldShowBottomBar(state.topKey, isFeedStackAtRoot = true))
         assertEquals(CareerCompassBottomTab.Feed, state.currentTab(state.topKey))

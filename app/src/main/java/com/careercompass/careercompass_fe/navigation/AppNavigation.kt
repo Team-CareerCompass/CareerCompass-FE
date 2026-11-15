@@ -24,13 +24,16 @@ import com.careercompass.careercompass_fe.session.AppStartDestination
 import com.careercompass.careercompass_fe.session.SessionEndCause
 import com.careercompass.core.ui.component.CareerCompassBottomBar
 import com.careercompass.core.ui.component.CareerCompassBottomTab
+import com.careercompass.core.ui.navigation.FeatureStackBoundary
 import com.careercompass.core.ui.navigation.pushSingleTop
 import com.careercompass.core.ui.navigation.rememberStandardNavEntryDecorators
 import com.careercompass.core.ui.theme.CareerCompassTheme
-import com.careercompass.feature.editor.presentation.setup.ApplicationSetupScreen
-import com.careercompass.feature.editor.presentation.setup.ApplicationSetupViewModel
+import com.careercompass.feature.editor.presentation.navigation.EditorExternalActions
+import com.careercompass.feature.editor.presentation.navigation.EditorNavHost
 import com.careercompass.feature.feed.presentation.navigation.FeedEntryRequest
 import com.careercompass.feature.feed.presentation.navigation.FeedNavHost
+import com.careercompass.feature.foryou.presentation.navigation.ForYouExternalActions
+import com.careercompass.feature.foryou.presentation.navigation.ForYouNavHost
 import com.careercompass.feature.onboarding.presentation.navigation.OnboardingNavHost
 import com.careercompass.feature.onboarding.presentation.navigation.OnboardingRoute
 import com.careercompass.feature.profile.presentation.basicinfo.ProfileEditScreen
@@ -88,7 +91,8 @@ public fun AppNavigation(
     // 피드 로컬 스택의 깊이는 루트 키에 안 보인다 — 피드 host 가 올려 주는 신호를 바텀바 판정에 합성한다.
     // 피드를 떠나면 host 가 true 로 되돌려 다른 탭 판정을 오염시키지 않는다(FeatureNavDisplay).
     var isFeedStackAtRoot by remember { mutableStateOf(true) }
-    val showBottomBar = appState.shouldShowBottomBar(topKey, isFeedStackAtRoot)
+    var isAnalysisStackAtRoot by remember { mutableStateOf(true) }
+    val showBottomBar = appState.shouldShowBottomBar(topKey, isFeedStackAtRoot, isAnalysisStackAtRoot)
     val currentTab = appState.currentTab(topKey)
 
     // 온보딩 완료의 「게시판 먼저 등록하기」 — 셸은 피드 로컬 스택에 push 할 수 없으므로 진입 요청으로 남겨 host 가
@@ -114,6 +118,23 @@ public fun AppNavigation(
 
     // 로컬 스택 바닥에서의 back 은 루트 백스택 pop 으로 돌려준다. 온보딩은 루트에 더 걷어낼 화면이 없으면 앱을 나간다.
     val onboardingBoundary = rememberRootPopBoundary(appState, onRootEmpty = onExitRequest, onAtRootChanged = null)
+    val analysisBoundary = rememberRootPopBoundary(appState, onRootEmpty = null, onAtRootChanged = { isAnalysisStackAtRoot = it })
+    val forYouExternalActions =
+        remember(appState, onSessionEnded) {
+            object : ForYouExternalActions {
+                override fun navigateToExperiences() {
+                    appState.backStack.pushSingleTop(Route.ExperienceCards)
+                }
+
+                override fun navigateToProfile() {
+                    appState.backStack.pushSingleTop(Route.ProfileEdit)
+                }
+
+                override fun onSessionEnded() {
+                    onSessionEnded(SessionEndCause.Expired)
+                }
+            }
+        }
     val feedBoundary =
         rememberRootPopBoundary(
             appState,
@@ -187,7 +208,7 @@ public fun AppNavigation(
                         }
 
                         // ── 다른 담당 모듈의 자리표시자 — 진입점이 생기면 그 모듈의 host 로 바뀐다.
-                        entry<Route.AnalysisTab> { PlaceholderTabScreen(title = stringResource(R.string.placeholder_analysis_title)) }
+                        entry<Route.AnalysisTab> { ForYouNavHost(boundary = analysisBoundary, externalActions = forYouExternalActions) }
                         entry<Route.ApplicationsTab> {
                             PlaceholderTabScreen(title = stringResource(R.string.placeholder_applications_title))
                         }
@@ -229,20 +250,24 @@ public fun AppNavigation(
                         }
                         // ── 지원서 작성 — editor 모듈의 문항 확인(#183)
                         entry<Route.ApplicationSetup> { key ->
-                            ApplicationSetupScreen(
-                                onBackClick = { appState.popBack() },
-                                onDraftStarted = { started -> appState.navigateToApplicationProgress(started.applicationId) },
-                                onSessionEnded = { onSessionEnded(SessionEndCause.Expired) },
-                                viewModel =
-                                    hiltViewModel<ApplicationSetupViewModel, ApplicationSetupViewModel.Factory>(
-                                        creationCallback = { factory -> factory.create(key.postingId) },
-                                    ),
-                            )
-                        }
-                        entry<Route.ApplicationProgressPlaceholder> {
-                            PlaceholderScreen(
-                                title = stringResource(R.string.placeholder_application_progress_title),
-                                onBackClick = { appState.popBack() },
+                            EditorNavHost(
+                                postingId = key.postingId,
+                                boundary =
+                                    object : FeatureStackBoundary {
+                                        override fun exit() {
+                                            appState.popBack()
+                                        }
+                                    },
+                                externalActions =
+                                    object : EditorExternalActions {
+                                        override fun navigateToProfile() {
+                                            appState.backStack.pushSingleTop(Route.ProfileEdit)
+                                        }
+
+                                        override fun onSessionEnded() {
+                                            onSessionEnded(SessionEndCause.Expired)
+                                        }
+                                    },
                             )
                         }
                         entry<Route.NotificationSettingsPlaceholder> {

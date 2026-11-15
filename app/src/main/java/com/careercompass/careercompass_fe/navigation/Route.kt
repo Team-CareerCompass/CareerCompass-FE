@@ -70,12 +70,6 @@ public sealed interface Route : NavKey {
         val postingId: Long,
     ) : Route
 
-    /** 지원서 초안 생성 진행 — editor 모듈(#184). 그 화면이 붙기 전까지 자리표시자다. */
-    @Serializable
-    public data class ApplicationProgressPlaceholder(
-        val applicationId: Long,
-    ) : Route
-
     /** 알림 설정 — notification 모듈(#196). */
     @Serializable
     public data object NotificationSettingsPlaceholder : Route

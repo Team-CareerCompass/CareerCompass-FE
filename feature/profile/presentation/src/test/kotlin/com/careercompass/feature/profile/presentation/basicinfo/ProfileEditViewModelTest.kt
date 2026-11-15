@@ -1,5 +1,6 @@
 package com.careercompass.feature.profile.presentation.basicinfo
 
+import androidx.lifecycle.SavedStateHandle
 import com.careercompass.core.common.reporting.ErrorReporter
 import com.careercompass.core.domain.error.CoreDataFailure
 import com.careercompass.core.domain.testing.FakeUserProfileRepository
@@ -68,6 +69,7 @@ class ProfileEditViewModelTest {
             saveProfileTags = SaveProfileTagsUseCase(userProfileRepository),
             errorReporter = reporter,
             clock = clock,
+            savedStateHandle = SavedStateHandle(),
         )
 
     @Test
@@ -218,6 +220,56 @@ class ProfileEditViewModelTest {
 
         assertTrue(state.isFailureVisible)
         assertEquals("basic_info_load", reporter.recorded.single()["profile_stage"])
+    }
+
+    @Test
+    fun `빈 캐시의 재시도는 실패 화면을 진행 표시로 바꾸고 중복 조회를 막는다`() {
+        userProfileRepository.profileState.value = null
+        val failure = CoreDataFailure.NetworkUnavailable(IOException("offline"))
+        userProfileRepository.onRefreshProfile = { Result.failure(failure) }
+        val viewModel = viewModel()
+        assertTrue(viewModel.state.value.isFailureVisible)
+        val server = CompletableDeferred<Result<UserProfile>>()
+        var calls = 0
+        userProfileRepository.onRefreshProfile = {
+            calls++
+            server.await()
+        }
+
+        viewModel.onEvent(ProfileEditEvent.RetryClicked)
+        assertFalse(viewModel.state.value.isFailureVisible)
+        assertTrue(viewModel.state.value.isLoading)
+        viewModel.onEvent(ProfileEditEvent.RetryClicked)
+        assertEquals(1, calls)
+        server.complete(Result.failure(failure))
+        assertTrue(viewModel.state.value.isFailureVisible)
+        assertFalse(viewModel.state.value.isLoading)
+
+        userProfileRepository.onRefreshProfile = { Result.success(profile()) }
+        viewModel.onEvent(ProfileEditEvent.RetryClicked)
+        assertFalse(viewModel.state.value.isFailureVisible)
+        assertFalse(viewModel.state.value.isLoading)
+        assertEquals("이준혁", viewModel.state.value.name)
+    }
+
+    @Test
+    fun `첫 조회도 진행 중이면 다시 시도 요청을 겹치지 않는다`() {
+        userProfileRepository.profileState.value = null
+        val server = CompletableDeferred<Unit>()
+        var calls = 0
+        userProfileRepository.onRefreshProfile = {
+            calls++
+            server.await()
+            Result.success(profile())
+        }
+        val viewModel = viewModel()
+
+        viewModel.onEvent(ProfileEditEvent.RetryClicked)
+
+        assertEquals(1, calls)
+        assertTrue(viewModel.state.value.isLoading)
+        server.complete(Unit)
+        assertFalse(viewModel.state.value.isLoading)
     }
 
     // ── 학교 선택 (온보딩과 같은 규칙 · #138) ────────────────────────────────────
