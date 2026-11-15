@@ -13,7 +13,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -53,6 +55,12 @@ internal fun RoadmapContent(
                     selected = state.cohort == cohort,
                     onClick = { onIntent(RoadmapIntent.SelectCohort(cohort)) },
                     label = { Text(stringResource(cohort.labelRes())) },
+                    shape = CareerCompassTheme.shapes.pill,
+                    colors =
+                        FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = CareerCompassTheme.colors.inverseSurface,
+                            selectedLabelColor = CareerCompassTheme.colors.inverseOnSurface,
+                        ),
                 )
             }
         }
@@ -104,29 +112,43 @@ private fun RoadmapLoaded(
     }
     LazyColumn(contentPadding = PaddingValues(spacing.large), verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
         item {
-            Text(
-                text =
-                    if (isSelf) {
-                        stringResource(
-                            R.string.foryou_roadmap_self_notice,
-                        )
-                    } else {
-                        stringResource(R.string.foryou_roadmap_sample, comparison.sampleSize)
-                    },
-                style = CareerCompassTheme.typography.bodyMedium,
-                color = CareerCompassTheme.colors.onSurfaceVariant,
-            )
+            CareerCompassCard(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text =
+                        if (isSelf) {
+                            stringResource(
+                                R.string.foryou_roadmap_self_notice,
+                            )
+                        } else {
+                            stringResource(R.string.foryou_roadmap_sample, comparison.sampleSize)
+                        },
+                    style = CareerCompassTheme.typography.bodyMedium,
+                    color = CareerCompassTheme.colors.onSurfaceVariant,
+                )
+            }
         }
-        items(comparison.metrics) { metric -> RoadmapMetricCard(metric = metric, cohort = comparison.cohort) }
+        item {
+            CareerCompassCard(modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.foryou_roadmap_metrics), style = CareerCompassTheme.typography.labelMedium)
+                comparison.metrics.forEach { metric -> RoadmapMetricCard(metric = metric, cohort = comparison.cohort) }
+            }
+        }
         if (comparison.suggestions.isNotEmpty()) {
             item { Text(stringResource(R.string.foryou_roadmap_suggestions), style = CareerCompassTheme.typography.headline2) }
             items(comparison.suggestions) { suggestion ->
-                CareerCompassCard(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        stringResource(R.string.foryou_roadmap_semester, suggestion.semester),
-                        style = CareerCompassTheme.typography.labelMedium,
-                    )
-                    Text(suggestion.action, style = CareerCompassTheme.typography.bodyMedium)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = CareerCompassTheme.shapes.card,
+                    color = CareerCompassTheme.colors.successContainer,
+                    contentColor = CareerCompassTheme.colors.onSuccessContainer,
+                ) {
+                    Column(modifier = Modifier.padding(spacing.large), verticalArrangement = Arrangement.spacedBy(spacing.small)) {
+                        Text(
+                            stringResource(R.string.foryou_roadmap_semester, suggestion.semester),
+                            style = CareerCompassTheme.typography.labelMedium,
+                        )
+                        Text(suggestion.action, style = CareerCompassTheme.typography.bodyMedium)
+                    }
                 }
             }
         }
@@ -147,7 +169,7 @@ private fun RoadmapMetricCard(
     cohort: RoadmapCohort,
 ) {
     val colors = CareerCompassTheme.colors
-    CareerCompassCard(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = CareerCompassTheme.spacing.large)) {
         Text(metric.name, style = CareerCompassTheme.typography.labelMedium)
         if (cohort == RoadmapCohort.MeOnly) {
             // §7에는 과거 시점·기간이 없다. peerAvg를 과거의 내 값으로 지어내지 않는다.
