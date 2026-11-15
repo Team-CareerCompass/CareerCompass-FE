@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import com.careercompass.core.model.application.UploadFile
+import com.careercompass.core.ui.failure.FailureKind
 import com.careercompass.core.ui.theme.CareerCompassTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -73,6 +74,20 @@ class PastApplicationUploadContentTest {
             .assertIsDisplayed()
             .performClick()
         composeRule.runOnIdle { assertEquals(2, events.size) }
+    }
+
+    @Test fun `연결 실패 이유는 스크롤 시트 안에서도 보이고 재시도를 제공한다`() {
+        composeRule.setContent {
+            CareerCompassTheme {
+                PastApplicationFileUploadContent(
+                    PastApplicationFileUploadState(label = "지원서", failure = FailureKind.NoConnection),
+                    onEvent = {},
+                )
+            }
+        }
+        composeRule.onNodeWithText("연결할 수 없어요", substring = true).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("인터넷 연결을 확인하고 다시 시도해 주세요", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("다시 시도").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun `업로드 중에는 입력과 제출과 취소를 잠근다`() {

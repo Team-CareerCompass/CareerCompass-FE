@@ -36,6 +36,8 @@ public fun readUploadFile(
             queryMetadata(resolver, uri)
         } catch (e: SecurityException) {
             return Result.failure(UploadFileSelectionException(UploadFileSelectionReason.Unknown, "cannot read document metadata", e))
+        } catch (e: IllegalArgumentException) {
+            return Result.failure(UploadFileSelectionException(UploadFileSelectionReason.Unknown, "document is no longer available", e))
         }
     val fileName = metadata.displayName ?: uri.lastPathSegment ?: DEFAULT_FILE_NAME
     if (PastApplicationFileFormat.fromFileName(fileName) == null) {
@@ -91,6 +93,8 @@ private fun readStatSize(
     } catch (e: IOException) {
         null
     } catch (e: SecurityException) {
+        null
+    } catch (e: IllegalArgumentException) {
         null
     }
 

@@ -22,6 +22,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
@@ -166,7 +167,15 @@ class AppNavigationAndroidTest {
         composeRule.onNodeWithText("직접 쓰기").performClick()
         composeRule.onAllNodes(hasSetTextAction())[0].performTextInput("내 지원서")
         composeRule.onAllNodes(hasSetTextAction())[1].performTextInput("지원 동기와 경험")
-        composeRule.onNodeWithText("업로드").performClick()
+        scenario!!.onActivity { activity ->
+            ViewCompat.getWindowInsetsController(activity.window.decorView)?.hide(WindowInsetsCompat.Type.ime())
+        }
+        composeRule
+            .onNodeWithText("업로드")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertIsEnabled()
+            .performClick()
         composeRule.waitUntil(5_000) { fakePastApplicationRepository.uploads.size == 1 }
         composeRule.onNodeWithText("내 지원서").assertIsDisplayed()
         assertEquals("내 지원서", fakePastApplicationRepository.uploads.single().second)

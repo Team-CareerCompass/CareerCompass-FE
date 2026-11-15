@@ -72,12 +72,19 @@ class UploadFileReaderTest {
         assertEquals(UploadFileSelectionReason.Unknown, failure())
     }
 
+    @Test
+    fun `제공자가 삭제된 URI를 거부해도 화면을 종료하지 않는다`() {
+        provider.removed = true
+        assertEquals(UploadFileSelectionReason.Unknown, failure())
+    }
+
     private fun failure() = (readUploadFile(resolver, uri).exceptionOrNull() as UploadFileSelectionException).reason
 
     private class TestDocumentProvider : ContentProvider() {
         var name = "지원서.pdf"
         var size: Long? = 4L
         var denied = false
+        var removed = false
         lateinit var file: File
 
         override fun onCreate() = true
@@ -90,6 +97,7 @@ class UploadFileReaderTest {
             sortOrder: String?,
         ): Cursor {
             if (denied) throw SecurityException("document permission expired")
+            if (removed) throw IllegalArgumentException("unknown document")
             return MatrixCursor(arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE)).apply { addRow(arrayOf<Any?>(name, size)) }
         }
 

@@ -11,16 +11,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import com.careercompass.core.ui.component.CareerCompassButton
 import com.careercompass.core.ui.component.CareerCompassButtonSize
 import com.careercompass.core.ui.component.CareerCompassButtonVariant
-import com.careercompass.core.ui.component.CareerCompassFailureState
 import com.careercompass.core.ui.component.CareerCompassTextField
 import com.careercompass.core.ui.component.CareerCompassTextFieldSize
 import com.careercompass.core.ui.failure.FailureSurface
 import com.careercompass.core.ui.failure.display
+import com.careercompass.core.ui.failure.sentence
 import com.careercompass.core.ui.failure.toMessage
 import com.careercompass.core.ui.theme.CareerCompassTheme
 import com.careercompass.feature.profile.presentation.R
@@ -104,7 +106,14 @@ internal fun PastApplicationFileUploadContent(
             enabled = !state.isSubmitting,
             size = CareerCompassTextFieldSize.Large,
         )
-        if (display != null) CareerCompassFailureState(display = display, onActionClick = null)
+        if (display != null) {
+            Text(
+                text = display.sentence(),
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                style = CareerCompassTheme.typography.bodyMedium,
+                color = CareerCompassTheme.colors.actionDanger,
+            )
+        }
         CareerCompassButton(
             text =
                 stringResource(
