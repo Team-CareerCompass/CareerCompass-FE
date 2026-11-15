@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.presentation.flow.util
+package com.careercompass.core.ui.application
 
 import android.content.ContentResolver
 import android.net.Uri
@@ -6,12 +6,17 @@ import android.provider.OpenableColumns
 import com.careercompass.core.model.application.MAX_PAST_APPLICATION_FILE_BYTES
 import com.careercompass.core.model.application.PastApplicationFileFormat
 import com.careercompass.core.model.application.UploadFile
-import com.careercompass.feature.onboarding.presentation.flow.OnboardingFailureReason
 import java.io.IOException
 
+public enum class UploadFileSelectionReason {
+    Unknown,
+    UnsupportedFile,
+    FileTooLarge,
+}
+
 /** 파일 선택 결과를 [UploadFile] 로 만들지 못한 이유를 화면 사유와 함께 담는다. */
-internal class UploadFileSelectionException(
-    val reason: OnboardingFailureReason,
+public class UploadFileSelectionException(
+    val reason: UploadFileSelectionReason,
     message: String,
     cause: Throwable? = null,
 ) : Exception(message, cause)
@@ -22,7 +27,7 @@ internal class UploadFileSelectionException(
  * 스트림은 호출마다 새로 연다 — 재시도가 같은 Uri 를 다시 읽는다. 크기를 알 수 없으면 파일 디스크립터의
  * `statSize` 로 한 번 더 시도한다.
  */
-internal fun readUploadFile(
+public fun readUploadFile(
     resolver: ContentResolver,
     uri: Uri,
 ): Result<UploadFile> {
@@ -30,26 +35,26 @@ internal fun readUploadFile(
         try {
             queryMetadata(resolver, uri)
         } catch (e: SecurityException) {
-            return Result.failure(UploadFileSelectionException(OnboardingFailureReason.Unknown, "cannot read document metadata", e))
+            return Result.failure(UploadFileSelectionException(UploadFileSelectionReason.Unknown, "cannot read document metadata", e))
         }
     val fileName = metadata.displayName ?: uri.lastPathSegment ?: DEFAULT_FILE_NAME
     if (PastApplicationFileFormat.fromFileName(fileName) == null) {
-        return Result.failure(UploadFileSelectionException(OnboardingFailureReason.UnsupportedFile, "unsupported format: $fileName"))
+        return Result.failure(UploadFileSelectionException(UploadFileSelectionReason.UnsupportedFile, "unsupported document format"))
     }
     val size = metadata.sizeBytes?.takeIf { it > 0 } ?: readStatSize(resolver, uri)
     return when {
         size == null || size <= 0 -> {
-            Result.failure(UploadFileSelectionException(OnboardingFailureReason.Unknown, "unknown document size"))
+            Result.failure(UploadFileSelectionException(UploadFileSelectionReason.Unknown, "unknown document size"))
         }
 
         size > MAX_PAST_APPLICATION_FILE_BYTES -> {
-            Result.failure(UploadFileSelectionException(OnboardingFailureReason.FileTooLarge, "document exceeds size limit"))
+            Result.failure(UploadFileSelectionException(UploadFileSelectionReason.FileTooLarge, "document exceeds size limit"))
         }
 
         else -> {
             Result.success(
                 UploadFile(fileName = fileName, sizeBytes = size) {
-                    resolver.openInputStream(uri) ?: throw IOException("cannot open $uri")
+                    resolver.openInputStream(uri) ?: throw IOException("cannot open document")
                 },
             )
         }

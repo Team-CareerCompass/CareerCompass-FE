@@ -15,8 +15,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +61,7 @@ private val TAG_MIN_TOUCH_HEIGHT = 48.dp
  * 6. **세션 만료(401)** — 그리지 않는다. 셸이 로그인으로 보낸다.
  * 7. **되돌릴 길** — 실패 화면에도 상단 바의 뒤로 가기가 남는다.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PastApplicationListContent(
     state: PastApplicationListUiState,
@@ -120,6 +124,15 @@ internal fun PastApplicationListContent(
             }
         }
     }
+    if (state.showAddOptions) {
+        ModalBottomSheet(
+            onDismissRequest = { onEvent(PastApplicationListEvent.DismissAddOptions) },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = colors.surface,
+        ) {
+            PastApplicationAddOptionsContent(onEvent = onEvent)
+        }
+    }
 }
 
 @Composable
@@ -147,6 +160,9 @@ private fun PastApplicationHeader(
             onClick = { onEvent(PastApplicationListEvent.AddClicked) },
             variant = CareerCompassButtonVariant.Secondary,
             size = CareerCompassButtonSize.Small,
+            enabled =
+                !state.isLoading && !state.isFailureVisible && !state.isDeleting && !state.isUpdatingCategory &&
+                    !state.fileUpload.isSubmitting,
         )
     }
 }

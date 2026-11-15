@@ -46,6 +46,12 @@ public sealed interface PastApplicationListEvent {
 
     public data object AddClicked : PastApplicationListEvent
 
+    public data object DismissAddOptions : PastApplicationListEvent
+
+    public data object FileUploadClicked : PastApplicationListEvent
+
+    public data object DirectInputClicked : PastApplicationListEvent
+
     public data object RetryClicked : PastApplicationListEvent
 
     public data object BackClicked : PastApplicationListEvent

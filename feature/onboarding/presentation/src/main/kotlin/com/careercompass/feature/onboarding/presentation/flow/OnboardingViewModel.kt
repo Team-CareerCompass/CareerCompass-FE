@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.careercompass.core.common.reporting.ErrorReporter
 import com.careercompass.core.domain.repository.AuthRepository
+import com.careercompass.core.domain.usecase.UploadPastApplicationUseCase
 import com.careercompass.core.model.application.MAX_PAST_APPLICATIONS
 import com.careercompass.core.model.application.MAX_PAST_APPLICATION_FILE_BYTES
 import com.careercompass.core.model.application.PastApplication
@@ -70,7 +71,6 @@ import com.careercompass.feature.onboarding.domain.usecase.SaveBasicInfoUseCase
 import com.careercompass.feature.onboarding.domain.usecase.SaveJobPreferencesUseCase
 import com.careercompass.feature.onboarding.domain.usecase.UpdateExperienceUseCase
 import com.careercompass.feature.onboarding.domain.usecase.UpdatePastApplicationItemCategoryUseCase
-import com.careercompass.feature.onboarding.domain.usecase.UploadPastApplicationUseCase
 import com.careercompass.feature.onboarding.presentation.OnboardingStep1Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep2Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep3Event

@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import com.careercompass.core.common.reporting.ErrorReporter
 import com.careercompass.core.domain.error.CoreDataFailure
 import com.careercompass.core.domain.testing.FakePastApplicationRepository
+import com.careercompass.core.domain.usecase.UploadPastApplicationUseCase
 import com.careercompass.core.model.application.PastApplication
 import com.careercompass.core.model.application.PastApplicationCategory
 import com.careercompass.core.model.application.PastApplicationItem
@@ -65,6 +66,7 @@ class PastApplicationListViewModelTest {
             updateItemCategory = UpdatePastApplicationItemCategoryUseCase(repository),
             deletePastApplication = DeletePastApplicationUseCase(repository),
             uploadPastApplicationText = UploadPastApplicationTextUseCase(repository),
+            uploadPastApplication = UploadPastApplicationUseCase(repository),
             errorReporter = reporter,
             savedStateHandle = SavedStateHandle(),
         )
@@ -448,7 +450,7 @@ class PastApplicationListViewModelTest {
     fun `상한 아래면 빈 직접 작성 시트를 연다`() {
         val viewModel = viewModel()
 
-        viewModel.onEvent(PastApplicationListEvent.AddClicked)
+        viewModel.onEvent(PastApplicationListEvent.DirectInputClicked)
 
         assertEquals(
             "",
@@ -466,7 +468,7 @@ class PastApplicationListViewModelTest {
     @Test
     fun `빈 채로 제출하면 라벨과 본문 오류를 한 번에 보인다`() {
         val viewModel = viewModel()
-        viewModel.onEvent(PastApplicationListEvent.AddClicked)
+        viewModel.onEvent(PastApplicationListEvent.DirectInputClicked)
 
         viewModel.onDirectInput(DirectInputEvent.Submitted)
 
@@ -487,7 +489,7 @@ class PastApplicationListViewModelTest {
     @Test
     fun `직접 쓴 지원서를 TXT 로 올리고 목록을 다시 읽는다`() {
         val viewModel = viewModel()
-        viewModel.onEvent(PastApplicationListEvent.AddClicked)
+        viewModel.onEvent(PastApplicationListEvent.DirectInputClicked)
         viewModel.onDirectInput(DirectInputEvent.LabelChanged(" 2024 카카오 인턴 자소서 "))
         viewModel.onDirectInput(DirectInputEvent.ContentChanged("지원 동기는 ..."))
 
@@ -507,7 +509,7 @@ class PastApplicationListViewModelTest {
     fun `업로드가 실패해도 쓰던 글은 시트에 남는다`() {
         repository.onUpload = { _, _ -> Result.failure(IOException("offline")) }
         val viewModel = viewModel()
-        viewModel.onEvent(PastApplicationListEvent.AddClicked)
+        viewModel.onEvent(PastApplicationListEvent.DirectInputClicked)
         viewModel.onDirectInput(DirectInputEvent.LabelChanged("2024 카카오"))
         viewModel.onDirectInput(DirectInputEvent.ContentChanged("지원 동기는 ..."))
 
@@ -528,7 +530,7 @@ class PastApplicationListViewModelTest {
             Result.failure(CoreDataFailure.LimitExceeded(code = "LIMIT_EXCEEDED", cause = IllegalStateException()))
         }
         val viewModel = viewModel()
-        viewModel.onEvent(PastApplicationListEvent.AddClicked)
+        viewModel.onEvent(PastApplicationListEvent.DirectInputClicked)
         viewModel.onDirectInput(DirectInputEvent.LabelChanged("2024 카카오"))
         viewModel.onDirectInput(DirectInputEvent.ContentChanged("지원 동기는 ..."))
 

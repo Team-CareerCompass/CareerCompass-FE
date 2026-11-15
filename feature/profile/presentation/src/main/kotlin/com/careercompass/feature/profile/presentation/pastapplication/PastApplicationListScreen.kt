@@ -1,6 +1,10 @@
 package com.careercompass.feature.profile.presentation.pastapplication
 
 import android.content.res.Resources
+import android.net.Uri
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
@@ -12,17 +16,26 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.careercompass.core.model.application.MAX_PAST_APPLICATIONS
+import com.careercompass.core.model.application.PastApplicationFileFormat
+import com.careercompass.core.ui.application.UploadFileSelectionException
+import com.careercompass.core.ui.application.UploadFileSelectionReason
+import com.careercompass.core.ui.application.readUploadFile
 import com.careercompass.core.ui.component.CareerCompassButton
 import com.careercompass.core.ui.component.CareerCompassButtonSize
 import com.careercompass.core.ui.component.CareerCompassButtonVariant
@@ -30,6 +43,7 @@ import com.careercompass.core.ui.component.DirectInputEvent
 import com.careercompass.core.ui.component.DirectInputSheet
 import com.careercompass.core.ui.component.PastApplicationItemCategoryEvent
 import com.careercompass.core.ui.component.PastApplicationItemCategorySheet
+import com.careercompass.core.ui.mvi.ObserveFlag
 import com.careercompass.core.ui.mvi.ObserveSignal
 import com.careercompass.core.ui.theme.CareerCompassTheme
 import com.careercompass.feature.profile.presentation.R
@@ -42,8 +56,7 @@ import kotlinx.coroutines.launch
  * 분류 시트는 온보딩 Step 4 와 같은 것을 쓴다(`core:ui`) — 분류 여섯 갈래와 그 문구가 두 벌이 되면
  * 한쪽에서 고친 값이 다른 쪽에서 다른 이름으로 보인다.
  *
- * 「지원서 추가」는 앱 안에서 직접 쓰는 시트를 연다(#181) — 텍스트는 TXT 로 만들어 파일 업로드와 같은
- * 엔드포인트로 나간다. 파일을 골라 올리는 길은 온보딩 Step 4 에 있고, 마이 탭 쪽 진입점은 #400 이 맡는다.
+ * 「지원서 추가」에서 파일 업로드와 직접 쓰기 중 하나를 고른다. 두 경로는 같은 서버 상한을 따른다.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,6 +71,65 @@ public fun PastApplicationListScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val snackbarScope = rememberCoroutineScope()
 
+    val resolver = LocalContext.current.contentResolver
+    var pendingUploadUri by rememberSaveable { mutableStateOf<String?>(null) }
+    val onFileEvent = { event: PastApplicationFileUploadIntent ->
+        viewModel.onIntent(PastApplicationListIntent.FileUpload(event))
+    }
+    val picker =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                readUploadFile(resolver, uri)
+                    .onSuccess {
+                        pendingUploadUri = uri.toString()
+                        onFileEvent(PastApplicationFileUploadIntent.Selected(it))
+                    }.onFailure {
+                        onFileEvent(
+                            PastApplicationFileUploadIntent.SelectionFailed(
+                                (it as? UploadFileSelectionException)?.reason ?: UploadFileSelectionReason.Unknown,
+                            ),
+                        )
+                    }
+            }
+        }
+    // 한 번만 복원한다. 성공·취소로 시트가 닫혔을 때 같은 URI를 다시 여는 요청은 만들지 않는다.
+    LaunchedEffect(Unit) {
+        val uri = pendingUploadUri
+        if (uri != null && state.fileUpload.file == null && !state.fileUpload.clearUriRequested) {
+            readUploadFile(resolver, Uri.parse(uri))
+                .onSuccess { onFileEvent(PastApplicationFileUploadIntent.Selected(it, restored = true)) }
+                .onFailure {
+                    pendingUploadUri = null
+                    onFileEvent(PastApplicationFileUploadIntent.Dismiss)
+                }
+        }
+    }
+    ObserveFlag(
+        raised = state.filePickerRequested,
+        consumed = PastApplicationListIntent.ConsumeFilePicker,
+        onIntent = viewModel::onIntent,
+    ) { picker.launch(PastApplicationFileFormat.entries.map { it.mimeType }.toTypedArray()) }
+    ObserveFlag(
+        raised = state.fileUpload.clearUriRequested,
+        consumed = PastApplicationListIntent.FileUpload(PastApplicationFileUploadIntent.ConsumeClearUri),
+        onIntent = viewModel::onIntent,
+    ) { pendingUploadUri = null }
+    ObserveSignal(
+        signal = state.fileUpload.selectionFailure,
+        consumed = PastApplicationListIntent.FileUpload(PastApplicationFileUploadIntent.ConsumeSelectionFailure),
+        onIntent = viewModel::onIntent,
+    ) { reason ->
+        val message =
+            resources.getString(
+                when (reason) {
+                    UploadFileSelectionReason.UnsupportedFile -> com.careercompass.core.ui.R.string.core_ui_upload_unsupported_file
+                    UploadFileSelectionReason.FileTooLarge -> com.careercompass.core.ui.R.string.core_ui_upload_file_too_large
+                    UploadFileSelectionReason.Unknown -> com.careercompass.core.ui.R.string.core_ui_upload_unavailable
+                },
+            )
+        snackbarScope.launch { snackbarHostState.showSnackbar(message) }
+    }
+
     LifecycleResumeEffect(Unit) {
         viewModel.onIntent(PastApplicationListIntent.Refresh)
         onPauseOrDispose { }
@@ -67,7 +139,10 @@ public fun PastApplicationListScreen(
         signal = state.sessionEnd,
         consumed = PastApplicationListIntent.ConsumeSessionEnded,
         onIntent = viewModel::onIntent,
-        onSignal = onSessionEnded,
+        onSignal = {
+            pendingUploadUri = null
+            onSessionEnded(it)
+        },
     )
     ObserveSignal(
         signal = state.message,
@@ -82,7 +157,7 @@ public fun PastApplicationListScreen(
             state = state,
             onEvent = { event ->
                 if (event == PastApplicationListEvent.BackClicked) {
-                    onBackClick()
+                    if (!state.fileUpload.isSubmitting && state.directInput?.isSubmitting != true) onBackClick()
                 } else {
                     viewModel.onIntent(PastApplicationListIntent.Screen(event))
                 }
@@ -131,6 +206,25 @@ public fun PastApplicationListScreen(
             )
         }
     }
+
+    if (state.fileUpload.file != null) {
+        ModalBottomSheet(
+            onDismissRequest = { onFileEvent(PastApplicationFileUploadIntent.Dismiss) },
+            sheetState =
+                rememberModalBottomSheetState(
+                    skipPartiallyExpanded = true,
+                    confirmValueChange = { it != SheetValue.Hidden || !state.fileUpload.isSubmitting },
+                ),
+            containerColor = CareerCompassTheme.colors.surface,
+        ) {
+            PastApplicationFileUploadContent(
+                state = state.fileUpload,
+                onEvent = onFileEvent,
+                canSubmit = state.hasLoadedApplications,
+            )
+        }
+    }
+    BackHandler(enabled = state.fileUpload.isSubmitting || state.directInput?.isSubmitting == true) { }
 
     state.pendingDeletion?.let { target ->
         AlertDialog(

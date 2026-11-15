@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="core_ui_upload_unsupported_file">PDF, DOCX, TXT 파일만 올릴 수 있어요</string>
+    <string name="core_ui_upload_file_too_large">파일은 10MB 이하만 올릴 수 있어요</string>
+    <string name="core_ui_upload_unavailable">파일을 읽을 수 없어요. 다시 선택해 주세요</string>
+</resources>

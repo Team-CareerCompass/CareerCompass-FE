@@ -12,6 +12,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -21,6 +22,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextInput
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.test.core.app.ActivityScenario
@@ -30,6 +32,7 @@ import com.careercompass.core.domain.error.CoreDataFailure
 import com.careercompass.core.domain.testing.FakeAppSettingsRepository
 import com.careercompass.core.domain.testing.FakeAuthRepository
 import com.careercompass.core.domain.testing.FakeBoardRepository
+import com.careercompass.core.domain.testing.FakePastApplicationRepository
 import com.careercompass.core.domain.testing.FakePostingRepository
 import com.careercompass.core.domain.testing.FakeUserProfileRepository
 import com.careercompass.core.model.board.Board
@@ -104,6 +107,9 @@ class AppNavigationAndroidTest {
     @Inject
     lateinit var fakeForYouRepository: FakeForYouRepository
 
+    @Inject
+    lateinit var fakePastApplicationRepository: FakePastApplicationRepository
+
     private var scenario: ActivityScenario<MainActivity>? = null
 
     @Before
@@ -137,6 +143,30 @@ class AppNavigationAndroidTest {
         composeRule.onNodeWithText("안녕하세요, 정일혁님", substring = true, useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("피드").assertIsDisplayed()
         composeRule.onNodeWithText("마이").performClick()
+        composeRule.onNodeWithText("프로필 완성도").assertIsDisplayed()
+    }
+
+    @Test
+    fun pastApplications_addOptionsKeepBothEntryPointsAndDirectUpload() {
+        fakeAuthRepository.loggedIn = true
+        fakeUserProfileRepository.profileState.value = profile(onboardingDone = true)
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        composeRule.onNodeWithText("마이").performClick()
+        composeRule.onNodeWithText("과거 지원서").performClick()
+        composeRule.onNodeWithText("지원서 추가").performClick()
+        composeRule.onNodeWithText("파일 올리기").assertIsDisplayed()
+        composeRule.onNodeWithText("직접 쓰기").performClick()
+        composeRule.onNodeWithText("취소").performClick()
+        composeRule.onNodeWithText("첫 지원서 올리기").performClick()
+        composeRule.onNodeWithText("파일 올리기").assertIsDisplayed()
+        composeRule.onNodeWithText("직접 쓰기").performClick()
+        composeRule.onAllNodes(hasSetTextAction())[0].performTextInput("내 지원서")
+        composeRule.onAllNodes(hasSetTextAction())[1].performTextInput("지원 동기와 경험")
+        composeRule.onNodeWithText("업로드").performClick()
+        composeRule.waitUntil(5_000) { fakePastApplicationRepository.uploads.size == 1 }
+        composeRule.onNodeWithText("내 지원서").assertIsDisplayed()
+        assertEquals("내 지원서", fakePastApplicationRepository.uploads.single().second)
+        composeRule.onNodeWithContentDescription("뒤로가기").performClick()
         composeRule.onNodeWithText("프로필 완성도").assertIsDisplayed()
     }
 
