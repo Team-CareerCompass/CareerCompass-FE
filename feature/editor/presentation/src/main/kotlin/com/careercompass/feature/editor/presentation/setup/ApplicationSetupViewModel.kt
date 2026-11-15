@@ -1,5 +1,6 @@
 package com.careercompass.feature.editor.presentation.setup
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.careercompass.core.common.reporting.ErrorReporter
 import com.careercompass.core.domain.error.CoreDataFailure
@@ -83,6 +84,7 @@ public sealed interface ApplicationSetupReducerEvent : ReducerEvent {
 
     public data class Loaded(
         val setup: ApplicationSetup,
+        val items: List<ApplicationItemDraft> = setup.recognizedItems,
     ) : ApplicationSetupReducerEvent
 
     public data class LoadFailed(
@@ -148,8 +150,9 @@ public class ApplicationSetupViewModel
         private val getApplicationSetup: GetApplicationSetupUseCase,
         private val createApplicationDraft: CreateApplicationDraftUseCase,
         private val errorReporter: ErrorReporter,
+        savedStateHandle: SavedStateHandle,
     ) : MviViewModel<ApplicationSetupIntent, ApplicationSetupUiState, ApplicationSetupReducerEvent>(
-            ApplicationSetupUiState(),
+            ApplicationSetupInputDraft(savedStateHandle).restoredState(),
         ) {
         /** 공고 id 는 앱 셸의 Nav3 키가 나른다 — entry 가 이 팩토리로 넘긴다. */
         @AssistedFactory
@@ -159,6 +162,7 @@ public class ApplicationSetupViewModel
 
         private var loadJob: Job? = null
         private var createJob: Job? = null
+        private val inputDraft = ApplicationSetupInputDraft(savedStateHandle)
 
         init {
             load()
@@ -200,7 +204,7 @@ public class ApplicationSetupViewModel
                 is ApplicationSetupReducerEvent.Loaded -> {
                     state.copy(
                         postingTitle = event.setup.postingTitle,
-                        items = event.setup.recognizedItems,
+                        items = event.items,
                         recognizedItems = event.setup.recognizedItems,
                         isLoading = false,
                         loadFailure = null,
@@ -258,13 +262,34 @@ public class ApplicationSetupViewModel
 
         private fun onEvent(event: ApplicationSetupEvent) {
             when (event) {
-                is ApplicationSetupEvent.ToneSelected -> dispatch(ApplicationSetupReducerEvent.ToneChanged(event.tone))
-                is ApplicationSetupEvent.ItemEditClicked -> openEditor(event.order)
-                is ApplicationSetupEvent.ItemDeleteClicked -> deleteItem(event.order)
-                ApplicationSetupEvent.ItemAddClicked -> openEditor(null)
-                ApplicationSetupEvent.StartClicked -> create()
-                ApplicationSetupEvent.RetryClicked -> load()
-                ApplicationSetupEvent.BackClicked -> Unit
+                is ApplicationSetupEvent.ToneSelected -> {
+                    dispatch(ApplicationSetupReducerEvent.ToneChanged(event.tone))
+                    inputDraft.save(currentState)
+                }
+
+                is ApplicationSetupEvent.ItemEditClicked -> {
+                    openEditor(event.order)
+                }
+
+                is ApplicationSetupEvent.ItemDeleteClicked -> {
+                    deleteItem(event.order)
+                }
+
+                ApplicationSetupEvent.ItemAddClicked -> {
+                    openEditor(null)
+                }
+
+                ApplicationSetupEvent.StartClicked -> {
+                    create()
+                }
+
+                ApplicationSetupEvent.RetryClicked -> {
+                    load()
+                }
+
+                ApplicationSetupEvent.BackClicked -> {
+                    Unit
+                }
             }
         }
 
@@ -335,6 +360,7 @@ public class ApplicationSetupViewModel
                     items.map { if (it.order == editor.order) it.copy(question = question, maxChars = maxChars) else it }
                 }
             dispatch(ApplicationSetupReducerEvent.ItemsChanged(next.renumbered()))
+            inputDraft.save(currentState)
             dispatch(ApplicationSetupReducerEvent.ItemEditorChanged(null))
         }
 
@@ -345,6 +371,7 @@ public class ApplicationSetupViewModel
                 return
             }
             dispatch(ApplicationSetupReducerEvent.ItemsChanged(items.filterNot { it.order == order }.renumbered()))
+            inputDraft.save(currentState)
         }
 
         private fun load() {
@@ -353,10 +380,12 @@ public class ApplicationSetupViewModel
             loadJob =
                 viewModelScope.launch {
                     getApplicationSetup(postingId)
-                        .onSuccess { dispatch(ApplicationSetupReducerEvent.Loaded(it)) }
-                        .onFailure { throwable ->
+                        .onSuccess {
+                            dispatch(ApplicationSetupReducerEvent.Loaded(it, inputDraft.restoredItems() ?: it.recognizedItems))
+                        }.onFailure { throwable ->
                             errorReporter.recordEditorFailure(EditorFailureStage.SetupLoad, throwable)
                             if (throwable is CoreDataFailure.Unauthorized) {
+                                inputDraft.clear()
                                 dispatch(ApplicationSetupReducerEvent.SessionEnded)
                             } else {
                                 dispatch(ApplicationSetupReducerEvent.LoadFailed(throwable.toFailureKind()))
@@ -378,6 +407,7 @@ public class ApplicationSetupViewModel
                         items = state.items,
                         recognizedItems = state.recognizedItems,
                     ).onSuccess { draft ->
+                        inputDraft.clear()
                         dispatch(
                             ApplicationSetupReducerEvent.DraftStarted(
                                 ApplicationDraftStarted(applicationId = draft.id, postingId = postingId),
@@ -387,6 +417,7 @@ public class ApplicationSetupViewModel
                         errorReporter.recordEditorFailure(EditorFailureStage.DraftCreate, throwable)
                         dispatch(ApplicationSetupReducerEvent.CreateFinished)
                         if (throwable is CoreDataFailure.Unauthorized) {
+                            inputDraft.clear()
                             dispatch(ApplicationSetupReducerEvent.SessionEnded)
                         } else {
                             dispatch(

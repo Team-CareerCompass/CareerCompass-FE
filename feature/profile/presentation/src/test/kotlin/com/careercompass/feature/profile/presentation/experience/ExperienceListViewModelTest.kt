@@ -16,8 +16,10 @@ import com.careercompass.feature.profile.domain.usecase.DeleteExperienceUseCase
 import com.careercompass.feature.profile.domain.usecase.GetExperiencesUseCase
 import com.careercompass.feature.profile.domain.usecase.UpdateExperienceUseCase
 import com.careercompass.feature.profile.presentation.home.ProfileSessionEnd
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -153,6 +155,56 @@ class ExperienceListViewModelTest {
 
         assertEquals(24, viewModel.state.value.cards.size)
         assertEquals(24, viewModel.state.value.totalCount)
+        assertNull(viewModel.state.value.nextCursor)
+    }
+
+    @Test
+    fun `이어 읽기 대기 중 새로고침하면 취소 뒤 다시 2페이지를 읽을 수 있다`() {
+        assertPaginationRecoversAfter(ExperienceListIntent.Refresh)
+    }
+
+    @Test
+    fun `이어 읽기 대기 중 필터를 바꾸면 새 필터의 2페이지를 읽을 수 있다`() {
+        assertPaginationRecoversAfter(
+            ExperienceListIntent.Screen(ExperienceListEvent.FilterSelected(ExperienceTypeFilter(ExperienceType.Award))),
+        )
+    }
+
+    private fun assertPaginationRecoversAfter(intent: ExperienceListIntent) {
+        var moreCalls = 0
+        var cancelled = false
+        val queries = mutableListOf<Pair<ExperienceType?, String?>>()
+        experienceRepository.onGetExperiences = { type, cursor, _ ->
+            queries += type to cursor
+            if (cursor != null && ++moreCalls == 1) {
+                try {
+                    awaitCancellation()
+                } finally {
+                    cancelled = true
+                }
+            }
+            Result.success(
+                if (cursor == null) {
+                    CursorPage(items = List(20) { card(it + 1L) }, nextCursor = "c1")
+                } else {
+                    CursorPage(items = listOf(card(21L)), nextCursor = null)
+                },
+            )
+        }
+        val viewModel = viewModel()
+        viewModel.onEvent(ExperienceListEvent.LoadMore)
+        assertTrue(viewModel.state.value.isLoadingMore)
+
+        viewModel.onIntent(intent)
+
+        assertTrue(cancelled)
+        assertFalse(viewModel.state.value.isLoadingMore)
+        assertTrue(viewModel.state.value.canLoadMore)
+        assertNull(viewModel.state.value.message)
+        viewModel.onEvent(ExperienceListEvent.LoadMore)
+        assertEquals(2, moreCalls)
+        assertEquals(21, viewModel.state.value.cards.size)
+        assertEquals(viewModel.state.value.filter.type to "c1", queries.last())
         assertNull(viewModel.state.value.nextCursor)
     }
 
@@ -325,6 +377,40 @@ class ExperienceListViewModelTest {
 
         assertEquals(1, experienceRepository.experiences.size)
         assertNull(viewModel.state.value.pendingDeletion)
+    }
+
+    @Test
+    fun `삭제 중 닫기와 재확인은 기존 대상을 유지하고 요청을 겹치지 않는다`() {
+        experienceRepository.experiences += listOf(card(3L), card(4L))
+        val server = CompletableDeferred<Unit>()
+        var calls = 0
+        experienceRepository.onDeleteExperience = {
+            calls++
+            server.await()
+            Result.failure(IOException("offline"))
+        }
+        val viewModel = viewModel()
+        viewModel.onEvent(ExperienceListEvent.DeleteClicked(3L))
+        viewModel.onIntent(ExperienceListIntent.ConfirmDelete)
+        assertTrue(viewModel.state.value.isDeleting)
+
+        viewModel.onIntent(ExperienceListIntent.DismissDelete)
+        viewModel.onEvent(ExperienceListEvent.DeleteClicked(4L))
+        viewModel.onIntent(ExperienceListIntent.ConfirmDelete)
+        assertEquals(
+            3L,
+            viewModel.state.value.pendingDeletion
+                ?.experienceId,
+        )
+        assertEquals(1, calls)
+
+        server.complete(Unit)
+        assertFalse(viewModel.state.value.isDeleting)
+        assertNull(viewModel.state.value.pendingDeletion)
+        assertEquals(ExperienceListMessage.DeleteFailed, viewModel.state.value.message)
+        viewModel.onEvent(ExperienceListEvent.DeleteClicked(3L))
+        viewModel.onIntent(ExperienceListIntent.ConfirmDelete)
+        assertEquals(2, calls)
     }
 
     private companion object {

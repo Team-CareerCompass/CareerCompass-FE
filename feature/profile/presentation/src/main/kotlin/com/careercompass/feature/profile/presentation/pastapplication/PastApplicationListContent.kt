@@ -59,7 +59,7 @@ private val TAG_MIN_TOUCH_HEIGHT = 48.dp
  * 7. **되돌릴 길** — 실패 화면에도 상단 바의 뒤로 가기가 남는다.
  */
 @Composable
-public fun PastApplicationListContent(
+internal fun PastApplicationListContent(
     state: PastApplicationListUiState,
     onEvent: (PastApplicationListEvent) -> Unit,
     modifier: Modifier = Modifier,

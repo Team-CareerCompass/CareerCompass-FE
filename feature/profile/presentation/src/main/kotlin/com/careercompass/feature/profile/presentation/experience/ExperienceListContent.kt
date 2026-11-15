@@ -49,7 +49,7 @@ import com.careercompass.feature.profile.presentation.experience.component.label
  * 7. **되돌릴 길** — 실패 화면에도 상단 바의 뒤로 가기와 유형 필터가 남는다.
  */
 @Composable
-public fun ExperienceListContent(
+internal fun ExperienceListContent(
     state: ExperienceListUiState,
     onEvent: (ExperienceListEvent) -> Unit,
     modifier: Modifier = Modifier,
