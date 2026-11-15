@@ -76,6 +76,7 @@ docker run --rm --platform linux/amd64 -v "$PWD":/workspace -w /workspace career
           :feature:feed:presentation:updateScreenshotTest \
           :feature:editor:presentation:updateScreenshotTest \
           :feature:foryou:presentation:updateScreenshotTest \
+          :feature:profile:presentation:updateScreenshotTest \
           :feature:notification:presentation:updateScreenshotTest \
             --rerun
 ```
@@ -95,6 +96,7 @@ docker run --rm --platform linux/amd64 -v "$PWD":/workspace -w /workspace career
           :feature:feed:presentation:validateScreenshotTest \
           :feature:editor:presentation:validateScreenshotTest \
           :feature:foryou:presentation:validateScreenshotTest \
+          :feature:profile:presentation:validateScreenshotTest \
           :feature:notification:presentation:validateScreenshotTest
 ```
 
