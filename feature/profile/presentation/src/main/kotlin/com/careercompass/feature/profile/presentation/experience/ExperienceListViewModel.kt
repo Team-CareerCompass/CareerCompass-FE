@@ -194,13 +194,33 @@ public class ExperienceListViewModel
 
         override fun onIntent(intent: ExperienceListIntent) {
             when (intent) {
-                is ExperienceListIntent.Screen -> onEvent(intent.event)
-                ExperienceListIntent.Refresh -> load(currentState.filter)
-                ExperienceListIntent.ConsumeMessage -> dispatch(ExperienceListReducerEvent.MessageConsumed)
-                is ExperienceListIntent.Editor -> onEditorEvent(intent.event)
-                ExperienceListIntent.ConfirmDelete -> confirmDelete()
-                ExperienceListIntent.DismissDelete -> dispatch(ExperienceListReducerEvent.DeletionRequested(null))
-                ExperienceListIntent.ConsumeSessionEnded -> dispatch(ExperienceListReducerEvent.SessionEndedConsumed)
+                is ExperienceListIntent.Screen -> {
+                    onEvent(intent.event)
+                }
+
+                ExperienceListIntent.Refresh -> {
+                    load(currentState.filter)
+                }
+
+                ExperienceListIntent.ConsumeMessage -> {
+                    dispatch(ExperienceListReducerEvent.MessageConsumed)
+                }
+
+                is ExperienceListIntent.Editor -> {
+                    onEditorEvent(intent.event)
+                }
+
+                ExperienceListIntent.ConfirmDelete -> {
+                    confirmDelete()
+                }
+
+                ExperienceListIntent.DismissDelete -> {
+                    if (!currentState.isDeleting) dispatch(ExperienceListReducerEvent.DeletionRequested(null))
+                }
+
+                ExperienceListIntent.ConsumeSessionEnded -> {
+                    dispatch(ExperienceListReducerEvent.SessionEndedConsumed)
+                }
             }
         }
 
@@ -211,6 +231,7 @@ public class ExperienceListViewModel
             when (event) {
                 is ExperienceListReducerEvent.LoadStarted -> {
                     // 같은 필터의 갱신은 목록을 남겨 LazyColumn 과 스크롤을 지킨다.
+                    // load() 가 이전 이어 읽기를 취소했으므로 그 진행 상태도 함께 끝낸다.
                     val sameFilter = state.filter == event.filter
                     state.copy(
                         filter = event.filter,
@@ -311,6 +332,7 @@ public class ExperienceListViewModel
                 }
 
                 is ExperienceListEvent.DeleteClicked -> {
+                    if (currentState.isDeleting) return
                     val card = currentState.cards.firstOrNull { it.id == event.id }
                     if (card != null) {
                         dispatch(

@@ -40,6 +40,7 @@ public data class PastApplicationListUiState(
     val isLoading: Boolean = false,
     val loadFailure: FailureKind? = null,
     val categoryEditor: PastApplicationItemCategoryState? = null,
+    val isUpdatingCategory: Boolean = false,
     val pendingDeletion: PastApplicationDeleteTarget? = null,
     val isDeleting: Boolean = false,
     val message: PastApplicationListMessage? = null,
@@ -86,6 +87,8 @@ public sealed interface PastApplicationListIntent : MviIntent {
 public sealed interface PastApplicationListReducerEvent : ReducerEvent {
     public data object LoadStarted : PastApplicationListReducerEvent
 
+    public data object LoadCancelled : PastApplicationListReducerEvent
+
     public data class Loaded(
         val applications: List<PastApplication>,
     ) : PastApplicationListReducerEvent
@@ -109,6 +112,13 @@ public sealed interface PastApplicationListReducerEvent : ReducerEvent {
         val item: PastApplicationItem,
     ) : PastApplicationListReducerEvent
 
+    public data class CategoryUpdateStarted(
+        val applicationId: Long,
+        val item: PastApplicationItem,
+    ) : PastApplicationListReducerEvent
+
+    public data object CategoryUpdateFinished : PastApplicationListReducerEvent
+
     public data class DeletionRequested(
         val target: PastApplicationDeleteTarget?,
     ) : PastApplicationListReducerEvent
@@ -116,6 +126,10 @@ public sealed interface PastApplicationListReducerEvent : ReducerEvent {
     public data object DeleteStarted : PastApplicationListReducerEvent
 
     public data object DeleteFinished : PastApplicationListReducerEvent
+
+    public data class Deleted(
+        val id: Long,
+    ) : PastApplicationListReducerEvent
 
     public data class MessageRaised(
         val message: PastApplicationListMessage,
@@ -149,7 +163,9 @@ public sealed interface PastApplicationListReducerEvent : ReducerEvent {
  * 화면이 못 하는 것」 표에 적었다.
  *
  * ### 분류 변경은 항목 하나만 갈아 낀다
- * 서버가 고친 항목을 돌려주므로 목록을 다시 읽지 않는다. 다시 읽으면 펼침 상태와 스크롤이 함께 흔들린다.
+ * 선택 즉시 시트를 닫고 항목을 바꾼다. 실패하면 원래 항목으로 되돌린다. 보통은 서버가 고친 항목만 반영하고,
+ * 쓰기 때문에 취소했거나 쓰기 중 들어온 재조회만 마지막 쓰기가 끝난 뒤 한 번 다시 읽는다.
+ * 이전 세대의 응답은 최신 목록에 착지할 수 없다. 펼침 id 는 여전히 존재하는 지원서에 한해 유지한다.
  */
 @HiltViewModel
 public class PastApplicationListViewModel
@@ -165,6 +181,8 @@ public class PastApplicationListViewModel
         private var loadJob: Job? = null
         private var categoryJob: Job? = null
         private var deleteJob: Job? = null
+        private var loadGeneration = 0L
+        private var reloadAfterMutation = false
 
         init {
             load()
@@ -219,6 +237,10 @@ public class PastApplicationListViewModel
                     state.copy(isLoading = true, loadFailure = null)
                 }
 
+                PastApplicationListReducerEvent.LoadCancelled -> {
+                    state.copy(isLoading = false)
+                }
+
                 is PastApplicationListReducerEvent.Loaded -> {
                     state.copy(
                         applications = event.applications,
@@ -242,19 +264,15 @@ public class PastApplicationListViewModel
                 }
 
                 is PastApplicationListReducerEvent.ItemCategoryUpdated -> {
-                    state.copy(
-                        categoryEditor = null,
-                        applications =
-                            state.applications.map { application ->
-                                if (application.id != event.applicationId) {
-                                    application
-                                } else {
-                                    application.copy(
-                                        items = application.items.map { if (it.id == event.item.id) event.item else it },
-                                    )
-                                }
-                            },
-                    )
+                    state.withItem(event.applicationId, event.item)
+                }
+
+                is PastApplicationListReducerEvent.CategoryUpdateStarted -> {
+                    state.withItem(event.applicationId, event.item).copy(categoryEditor = null, isUpdatingCategory = true)
+                }
+
+                PastApplicationListReducerEvent.CategoryUpdateFinished -> {
+                    state.copy(isUpdatingCategory = false)
                 }
 
                 is PastApplicationListReducerEvent.DeletionRequested -> {
@@ -269,6 +287,15 @@ public class PastApplicationListViewModel
                     state.copy(isDeleting = false, pendingDeletion = null)
                 }
 
+                is PastApplicationListReducerEvent.Deleted -> {
+                    state.copy(
+                        applications = state.applications.filterNot { it.id == event.id },
+                        expandedId = state.expandedId?.takeUnless { it == event.id },
+                        isDeleting = false,
+                        pendingDeletion = null,
+                    )
+                }
+
                 is PastApplicationListReducerEvent.MessageRaised -> {
                     state.copy(message = event.message)
                 }
@@ -278,7 +305,7 @@ public class PastApplicationListViewModel
                 }
 
                 is PastApplicationListReducerEvent.SessionEnded -> {
-                    state.copy(isLoading = false, isDeleting = false, sessionEnd = event.cause)
+                    state.copy(isLoading = false, isDeleting = false, isUpdatingCategory = false, sessionEnd = event.cause)
                 }
 
                 PastApplicationListReducerEvent.MessageConsumed -> {
@@ -338,20 +365,68 @@ public class PastApplicationListViewModel
         }
 
         private fun load() {
-            if (loadJob?.isActive == true) return
+            // 쓰기 중 읽은 서버 값은 아직 옛 값일 수 있다. 마지막 쓰기가 끝난 뒤 한 번만 갱신한다.
+            if (currentState.isUpdatingCategory || currentState.isDeleting) {
+                reloadAfterMutation = true
+                return
+            }
+            invalidateLoad()
+            val generation = loadGeneration
             dispatch(PastApplicationListReducerEvent.LoadStarted)
             loadJob =
                 viewModelScope.launch {
-                    getPastApplications()
+                    val result = getPastApplications()
+                    // 취소를 따르지 않는 응답도 최신 쓰기 결과 위에 착지하지 못한다.
+                    if (generation != loadGeneration) return@launch
+                    result
                         .onSuccess { dispatch(PastApplicationListReducerEvent.Loaded(it)) }
                         .onFailure(::onLoadFailure)
                 }
         }
 
+        private fun invalidateLoad() {
+            loadGeneration++
+            loadJob?.cancel()
+        }
+
+        private fun prepareMutation() {
+            reloadAfterMutation = reloadAfterMutation || currentState.isLoading
+            invalidateLoad()
+            dispatch(PastApplicationListReducerEvent.LoadCancelled)
+        }
+
+        private fun completeMutation(refresh: Boolean = false) {
+            if (currentState.sessionEnd != null) {
+                reloadAfterMutation = false
+                return
+            }
+            reloadAfterMutation = reloadAfterMutation || refresh
+            if (!currentState.isUpdatingCategory && !currentState.isDeleting && reloadAfterMutation) {
+                reloadAfterMutation = false
+                load()
+            }
+        }
+
+        private fun PastApplicationListUiState.withItem(
+            applicationId: Long,
+            item: PastApplicationItem,
+        ): PastApplicationListUiState =
+            copy(
+                applications =
+                    applications.map { application ->
+                        if (application.id == applicationId) {
+                            application.copy(items = application.items.map { if (it.id == item.id) item else it })
+                        } else {
+                            application
+                        }
+                    },
+            )
+
         private fun openCategoryEditor(
             applicationId: Long,
             itemId: Long,
         ) {
+            if (currentState.isUpdatingCategory) return
             val application = currentState.applications.firstOrNull { it.id == applicationId } ?: return
             val item = application.items.firstOrNull { it.id == itemId } ?: return
             dispatch(
@@ -375,6 +450,15 @@ public class PastApplicationListViewModel
                 return
             }
             val applicationId = editor.documentId.toLongOrNull() ?: return
+            val original =
+                currentState.applications
+                    .firstOrNull { it.id == applicationId }
+                    ?.items
+                    ?.firstOrNull { it.id == editor.itemId } ?: return
+            prepareMutation()
+            dispatch(
+                PastApplicationListReducerEvent.CategoryUpdateStarted(applicationId, original.copy(category = category, confident = true)),
+            )
             categoryJob =
                 viewModelScope.launch {
                     updateItemCategory(applicationId, editor.itemId, category)
@@ -382,7 +466,7 @@ public class PastApplicationListViewModel
                             dispatch(PastApplicationListReducerEvent.ItemCategoryUpdated(applicationId, item))
                         }.onFailure { cause ->
                             errorReporter.recordProfileFailure(ProfileFailureStage.PastApplicationCategory, cause)
-                            dispatch(PastApplicationListReducerEvent.CategoryEditorChanged(null))
+                            dispatch(PastApplicationListReducerEvent.ItemCategoryUpdated(applicationId, original))
                             if (cause is CoreDataFailure.Unauthorized) {
                                 dispatch(PastApplicationListReducerEvent.SessionEnded(ProfileSessionEnd.Expired))
                             } else {
@@ -393,20 +477,23 @@ public class PastApplicationListViewModel
                                 )
                             }
                         }
+                    dispatch(PastApplicationListReducerEvent.CategoryUpdateFinished)
+                    completeMutation()
                 }
         }
 
         private fun confirmDelete() {
             if (deleteJob?.isActive == true) return
             val id = currentState.pendingDeletion?.id ?: return
+            prepareMutation()
             dispatch(PastApplicationListReducerEvent.DeleteStarted)
             deleteJob =
                 viewModelScope.launch {
                     deletePastApplication(id)
                         .onSuccess {
-                            dispatch(PastApplicationListReducerEvent.DeleteFinished)
+                            dispatch(PastApplicationListReducerEvent.Deleted(id))
                             dispatch(PastApplicationListReducerEvent.MessageRaised(PastApplicationListMessage.Deleted))
-                            load()
+                            completeMutation(refresh = true)
                         }.onFailure { cause ->
                             dispatch(PastApplicationListReducerEvent.DeleteFinished)
                             errorReporter.recordProfileFailure(ProfileFailureStage.PastApplicationDelete, cause)
@@ -415,6 +502,7 @@ public class PastApplicationListViewModel
                             } else {
                                 dispatch(PastApplicationListReducerEvent.MessageRaised(PastApplicationListMessage.DeleteFailed))
                             }
+                            completeMutation()
                         }
                 }
         }
