@@ -42,10 +42,12 @@ public class AppState(
     public fun shouldShowBottomBar(
         topKey: NavKey?,
         isFeedStackAtRoot: Boolean,
+        isAnalysisStackAtRoot: Boolean = true,
     ): Boolean =
         when (topKey) {
             Route.Feed -> isFeedStackAtRoot
-            Route.AnalysisTab, Route.ApplicationsTab, Route.MyTab -> true
+            Route.AnalysisTab -> isAnalysisStackAtRoot
+            Route.ApplicationsTab, Route.MyTab -> true
             else -> false
         }
 

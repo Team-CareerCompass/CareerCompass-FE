@@ -41,6 +41,9 @@ import com.careercompass.core.model.posting.PostingType
 import com.careercompass.core.model.settings.ThemeMode
 import com.careercompass.core.model.user.JobInterest
 import com.careercompass.core.model.user.UserProfile
+import com.careercompass.feature.foryou.domain.model.RoadmapComparison
+import com.careercompass.feature.foryou.domain.model.RoadmapMetric
+import com.careercompass.feature.foryou.domain.testing.FakeForYouRepository
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.After
@@ -83,6 +86,9 @@ class AppNavigationAndroidTest {
     @Inject
     lateinit var fakeAppSettingsRepository: FakeAppSettingsRepository
 
+    @Inject
+    lateinit var fakeForYouRepository: FakeForYouRepository
+
     private var scenario: ActivityScenario<MainActivity>? = null
 
     @Before
@@ -117,6 +123,24 @@ class AppNavigationAndroidTest {
         composeRule.onNodeWithText("피드").assertIsDisplayed()
         composeRule.onNodeWithText("마이").performClick()
         composeRule.onNodeWithText("프로필 완성도").assertIsDisplayed()
+    }
+
+    @Test
+    fun analysisRoadmap_switchesCohortAndReturnsToAnalysisHome() {
+        fakeAuthRepository.loggedIn = true
+        fakeUserProfileRepository.profileState.value = profile(onboardingDone = true)
+        fakeForYouRepository.onGetRoadmapComparison = { cohort ->
+            Result.success(RoadmapComparison(cohort, 86, listOf(RoadmapMetric("프로젝트 수", 4.0, 2.0)), emptyList()))
+        }
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        composeRule.onNodeWithText("분석").performClick()
+        composeRule.onNodeWithText("커리어 로드맵").performClick()
+        composeRule.onNodeWithText("86명의 기록과 비교했어요").assertIsDisplayed()
+        composeRule.onNodeWithText("합격 선배 비교").performClick()
+        composeRule.onNodeWithText("합격 선배 평균").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("뒤로가기").performClick()
+        composeRule.onNodeWithText("나를 위한 분석").assertIsDisplayed()
+        composeRule.onNodeWithText("피드").assertIsDisplayed()
     }
 
     /**
