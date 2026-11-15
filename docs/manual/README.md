@@ -15,7 +15,7 @@
 | 2부 | [게시판](02-boards.md) | URL 등록, 구조 분석 결과, 이름·유형·수집 주기, 내 게시판 목록 |
 | 3부 | [피드와 적합도](03-feed-and-suitability.md) | 검색·필터·정렬·북마크, 적합도 4축, 공고 상세와 원문 보기 |
 | 5부 | [마이 탭](05-my-tab.md) | 마이 홈, 프로필 편집, 경험 카드, 과거 지원서, 지문 로그인·화면 테마·로그아웃 |
-| 7부 | [분석과 로드맵](07-analysis-and-roadmap.md) | 분석 탭, 코호트 비교, 표본 수, 내 기록, 학기별 제안 |
+| 7부 | [분석과 로드맵](07-analysis-and-roadmap.md) | 분석 탭, 코호트 비교, 표본 수, 내 기록, 학기별 제안, 강점 내보내기 |
 
 읽는 순서는 위에서 아래다. 1부를 마치면 계정이 생기고, 2부를 마치면 공고가 들어오기 시작하고, 3부는 들어온 공고를 고르는 법이다. **게시판을 하나도 등록하지 않으면 피드에 아무것도 쌓이지 않는다.** 앱이 스스로 공고를 찾아 오지 않는다는 것이 처음 쓰는 사람이 가장 많이 막히는 자리라, 2부를 건너뛰지 않기를 권한다. 5부는 순서에 매이지 않는다. 온보딩에서 넣은 것을 나중에 고칠 때 편다.
 
@@ -39,6 +39,7 @@
 | 피드·공고·게시판 | [`feature/feed/presentation/src/main/res/values/`](../../feature/feed/presentation/src/main/res/values) |
 | 마이 홈·프로필 편집·경험 카드·과거 지원서 | [`feature/profile/presentation/src/main/res/values/`](../../feature/profile/presentation/src/main/res/values) |
 | 실패·상태 화면 공통, 경험 입력 시트·분류 시트·학교와 졸업 예정 시트 | [`core/ui/src/main/res/values/`](../../core/ui/src/main/res/values) |
-| 준비 중 자리표시자(분석·지원서 탭, 피드 헤더의 알림, 알림 설정, 지원서 등록, 초안 작성) | [`app/src/main/res/values/placeholder_strings.xml`](../../app/src/main/res/values/placeholder_strings.xml) |
+| 분석·로드맵·강점 내보내기 | [`feature/foryou/presentation/src/main/res/values/`](../../feature/foryou/presentation/src/main/res/values) |
+| 준비 중 자리표시자(지원서 탭, 피드 헤더의 알림, 알림 설정, 지원서 등록) | [`app/src/main/res/values/placeholder_strings.xml`](../../app/src/main/res/values/placeholder_strings.xml) |
 
 화면별 엣지 상태(오프라인·로딩·빈 결과·점검·세션 만료)의 확정표는 [`docs/spec/edge-states.md`](../spec/edge-states.md), 서버 에러 코드의 문구 매핑은 [`docs/spec/error-copy.md`](../spec/error-copy.md) 에 있다.

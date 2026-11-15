@@ -11,6 +11,7 @@ class ForYouLocalNavActionsTest {
         val stack = NavBackStack<NavKey>(ForYouRoute.Home)
         var exits = 0
         var profiles = 0
+        var experiences = 0
         var sessions = 0
         val boundary =
             object : FeatureStackBoundary {
@@ -20,6 +21,10 @@ class ForYouLocalNavActionsTest {
             }
         val external =
             object : ForYouExternalActions {
+                override fun navigateToExperiences() {
+                    experiences++
+                }
+
                 override fun navigateToProfile() {
                     profiles++
                 }
@@ -36,6 +41,12 @@ class ForYouLocalNavActionsTest {
         actions.onSessionEnded()
         assertEquals(1, profiles)
         assertEquals(1, sessions)
+        actions.navigateToExport()
+        actions.navigateToExport()
+        assertEquals(listOf(ForYouRoute.Home, ForYouRoute.Roadmap, ForYouRoute.StrengthExport), stack.toList())
+        actions.navigateToExperiences()
+        assertEquals(1, experiences)
+        actions.popBack()
         actions.popBack()
         assertEquals(listOf(ForYouRoute.Home), stack.toList())
         actions.popBack()
