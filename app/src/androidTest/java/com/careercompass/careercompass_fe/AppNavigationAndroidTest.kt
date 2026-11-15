@@ -54,6 +54,9 @@ import com.careercompass.feature.editor.domain.model.ApplicationItemStatus
 import com.careercompass.feature.editor.domain.model.ApplicationStatus
 import com.careercompass.feature.editor.domain.model.ApplicationStreamEvent
 import com.careercompass.feature.editor.domain.testing.FakeApplicationRepository
+import com.careercompass.feature.foryou.domain.model.RoadmapComparison
+import com.careercompass.feature.foryou.domain.model.RoadmapMetric
+import com.careercompass.feature.foryou.domain.testing.FakeForYouRepository
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.CompletableDeferred
@@ -101,6 +104,9 @@ class AppNavigationAndroidTest {
     @Inject
     lateinit var fakeApplicationRepository: FakeApplicationRepository
 
+    @Inject
+    lateinit var fakeForYouRepository: FakeForYouRepository
+
     private var scenario: ActivityScenario<MainActivity>? = null
 
     @Before
@@ -135,6 +141,24 @@ class AppNavigationAndroidTest {
         composeRule.onNodeWithText("피드").assertIsDisplayed()
         composeRule.onNodeWithText("마이").performClick()
         composeRule.onNodeWithText("프로필 완성도").assertIsDisplayed()
+    }
+
+    @Test
+    fun analysisRoadmap_switchesCohortAndReturnsToAnalysisHome() {
+        fakeAuthRepository.loggedIn = true
+        fakeUserProfileRepository.profileState.value = profile(onboardingDone = true)
+        fakeForYouRepository.onGetRoadmapComparison = { cohort ->
+            Result.success(RoadmapComparison(cohort, 86, listOf(RoadmapMetric("프로젝트 수", 4.0, 2.0)), emptyList()))
+        }
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        composeRule.onNodeWithText("분석").performClick()
+        composeRule.onNodeWithText("커리어 로드맵").performClick()
+        composeRule.onNodeWithText("86명의 기록과 비교했어요").assertIsDisplayed()
+        composeRule.onNodeWithText("합격 선배 비교").performClick()
+        composeRule.onNodeWithText("합격 선배 평균").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("뒤로가기").performClick()
+        composeRule.onNodeWithText("나를 위한 분석").assertIsDisplayed()
+        composeRule.onNodeWithText("피드").assertIsDisplayed()
     }
 
     /**
@@ -348,7 +372,9 @@ class AppNavigationAndroidTest {
                 .isNotEmpty()
         }
         composeRule.onNodeWithText("지원서 초안 작성하기").performClick()
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("초안 작성 시작"))
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText("초안 작성 시작").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
         composeRule.onNodeWithText("초안 작성 시작").performClick()
         composeRule.waitUntil(10_000) { events.subscriptionCount.value == 1 }
         serverDraft =
@@ -405,7 +431,9 @@ class AppNavigationAndroidTest {
                 .isNotEmpty()
         }
         composeRule.onNodeWithText("지원서 초안 작성하기").performClick()
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("초안 작성 시작"))
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText("초안 작성 시작").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
         composeRule.onNodeWithText("초안 작성 시작").performClick()
         composeRule.waitUntil(10_000) {
             composeRule.onAllNodesWithText("이 항목 편집").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
@@ -450,7 +478,9 @@ class AppNavigationAndroidTest {
                 .isNotEmpty()
         }
         composeRule.onNodeWithText("지원서 초안 작성하기").performClick()
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("초안 작성 시작"))
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText("초안 작성 시작").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
         composeRule.onNodeWithText("초안 작성 시작").performClick()
         composeRule.waitUntil(10_000) {
             composeRule.onAllNodesWithText("이 항목 편집").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
