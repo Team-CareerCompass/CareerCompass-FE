@@ -16,8 +16,13 @@ import com.careercompass.feature.profile.domain.usecase.DeleteExperienceUseCase
 import com.careercompass.feature.profile.domain.usecase.GetExperiencesUseCase
 import com.careercompass.feature.profile.domain.usecase.UpdateExperienceUseCase
 import com.careercompass.feature.profile.presentation.home.ProfileSessionEnd
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -128,15 +133,119 @@ class ExperienceListViewModelTest {
     /** 필터된 목록의 길이를 전체인 양 적으면 상한 안내가 거짓이 된다. */
     @Test
     fun `필터가 걸려 있으면 전체 개수를 모른다고 둔다`() {
-        experienceRepository.onGetExperiences = { _, _, _ ->
-            Result.success(CursorPage(items = List(2) { card(it + 1L) }, nextCursor = null))
+        experienceRepository.onGetExperiences = { type, _, _ ->
+            Result.success(CursorPage(items = List(if (type == null) 29 else 2) { card(it + 1L) }, nextCursor = null))
         }
         val viewModel = viewModel()
+        assertEquals(29, viewModel.state.value.totalCount)
 
         viewModel.onEvent(ExperienceListEvent.FilterSelected(ExperienceTypeFilter(ExperienceType.Intern)))
 
-        assertEquals(2, viewModel.state.value.totalCount)
+        assertNull(viewModel.state.value.totalCount)
         assertFalse(viewModel.state.value.isLimitReached)
+        viewModel.onEvent(ExperienceListEvent.AddClicked)
+        assertTrue(viewModel.state.value.editor != null)
+    }
+
+    @Test
+    fun `29장 중 첫 20장만 읽었으면 그 수를 총계로 표시하지 않는다`() {
+        experienceRepository.onGetExperiences = { _, cursor, _ ->
+            Result.success(
+                if (cursor == null) {
+                    CursorPage(items = List(20) { card(it + 1L) }, nextCursor = "c1")
+                } else {
+                    CursorPage(items = List(9) { card(it + 21L) }, nextCursor = null)
+                },
+            )
+        }
+        val viewModel = viewModel()
+        assertEquals(20, viewModel.state.value.cards.size)
+        assertNull(viewModel.state.value.countLabelValue)
+
+        viewModel.onEvent(ExperienceListEvent.LoadMore)
+
+        assertEquals(29, viewModel.state.value.totalCount)
+    }
+
+    @Test
+    fun `전체 30장 조회 뒤 필터 안에서 삭제하면 상한 잠금이 남지 않는다`() {
+        experienceRepository.experiences += List(30) { card(it + 1L) }
+        experienceRepository.onGetExperiences = { type, _, _ ->
+            Result.success(
+                CursorPage(
+                    items =
+                        if (type ==
+                            null
+                        ) {
+                            experienceRepository.experiences.toList()
+                        } else {
+                            experienceRepository.experiences.take(2)
+                        },
+                    nextCursor = null,
+                ),
+            )
+        }
+        val viewModel = viewModel()
+        assertTrue(viewModel.state.value.isLimitReached)
+        viewModel.onEvent(ExperienceListEvent.FilterSelected(ExperienceTypeFilter(ExperienceType.Project)))
+        viewModel.onEvent(ExperienceListEvent.DeleteClicked(1L))
+        viewModel.onIntent(ExperienceListIntent.ConfirmDelete)
+
+        assertEquals(29, experienceRepository.experiences.size)
+        assertNull(viewModel.state.value.totalCount)
+        viewModel.onEvent(ExperienceListEvent.AddClicked)
+        assertTrue(viewModel.state.value.editor != null)
+    }
+
+    @Test
+    fun `24장을 읽은 뒤 저장과 삭제로 갱신해도 목록을 비우거나 첫 페이지로 줄이지 않는다`() {
+        experienceRepository.experiences += List(24) { card(it + 1L) }
+        var refreshGate: CompletableDeferred<Unit>? = null
+        experienceRepository.onGetExperiences = { _, cursor, _ ->
+            refreshGate?.await()
+            val all = experienceRepository.experiences.toList()
+            Result.success(
+                if (cursor == null) {
+                    CursorPage(items = all.take(20), nextCursor = "c1")
+                } else {
+                    CursorPage(items = all.drop(20), nextCursor = null)
+                },
+            )
+        }
+        val viewModel = viewModel()
+        viewModel.onEvent(ExperienceListEvent.LoadMore)
+        val states = mutableListOf<ExperienceListUiState>()
+        val scope = CoroutineScope(UnconfinedTestDispatcher())
+        val collection = scope.launch { viewModel.uiState.collect { states += it } }
+        try {
+            refreshGate = CompletableDeferred()
+            viewModel.onEvent(ExperienceListEvent.CardClicked(22L))
+            viewModel.onEditor(ExperienceQuickAddEvent.TitleChanged("수정한 22번째 카드"))
+            viewModel.onEditor(ExperienceQuickAddEvent.Submitted)
+            assertTrue(viewModel.state.value.isLoading)
+            assertEquals(24, viewModel.state.value.cards.size)
+            refreshGate.complete(Unit)
+            assertEquals(24, viewModel.state.value.totalCount)
+            assertEquals(
+                "수정한 22번째 카드",
+                viewModel.state.value.cards
+                    .single { it.id == 22L }
+                    .title,
+            )
+
+            refreshGate = CompletableDeferred()
+            viewModel.onEvent(ExperienceListEvent.DeleteClicked(23L))
+            viewModel.onIntent(ExperienceListIntent.ConfirmDelete)
+            assertEquals(24, viewModel.state.value.cards.size)
+            refreshGate.complete(Unit)
+            assertEquals(23, viewModel.state.value.cards.size)
+            assertEquals(23, viewModel.state.value.totalCount)
+            assertTrue(states.none { it.isInitialLoading || it.cards.isEmpty() })
+            assertTrue(states.none { it.totalCount == 20 })
+        } finally {
+            collection.cancel()
+            scope.cancel()
+        }
     }
 
     @Test
@@ -153,6 +262,56 @@ class ExperienceListViewModelTest {
 
         assertEquals(24, viewModel.state.value.cards.size)
         assertEquals(24, viewModel.state.value.totalCount)
+        assertNull(viewModel.state.value.nextCursor)
+    }
+
+    @Test
+    fun `이어 읽기 대기 중 새로고침하면 취소 뒤 다시 2페이지를 읽을 수 있다`() {
+        assertPaginationRecoversAfter(ExperienceListIntent.Refresh)
+    }
+
+    @Test
+    fun `이어 읽기 대기 중 필터를 바꾸면 새 필터의 2페이지를 읽을 수 있다`() {
+        assertPaginationRecoversAfter(
+            ExperienceListIntent.Screen(ExperienceListEvent.FilterSelected(ExperienceTypeFilter(ExperienceType.Award))),
+        )
+    }
+
+    private fun assertPaginationRecoversAfter(intent: ExperienceListIntent) {
+        var moreCalls = 0
+        var cancelled = false
+        val queries = mutableListOf<Pair<ExperienceType?, String?>>()
+        experienceRepository.onGetExperiences = { type, cursor, _ ->
+            queries += type to cursor
+            if (cursor != null && ++moreCalls == 1) {
+                try {
+                    awaitCancellation()
+                } finally {
+                    cancelled = true
+                }
+            }
+            Result.success(
+                if (cursor == null) {
+                    CursorPage(items = List(20) { card(it + 1L) }, nextCursor = "c1")
+                } else {
+                    CursorPage(items = listOf(card(21L)), nextCursor = null)
+                },
+            )
+        }
+        val viewModel = viewModel()
+        viewModel.onEvent(ExperienceListEvent.LoadMore)
+        assertTrue(viewModel.state.value.isLoadingMore)
+
+        viewModel.onIntent(intent)
+
+        assertTrue(cancelled)
+        assertFalse(viewModel.state.value.isLoadingMore)
+        assertTrue(viewModel.state.value.canLoadMore)
+        assertNull(viewModel.state.value.message)
+        viewModel.onEvent(ExperienceListEvent.LoadMore)
+        assertEquals(2, moreCalls)
+        assertEquals(21, viewModel.state.value.cards.size)
+        assertEquals(viewModel.state.value.filter.type to "c1", queries.last())
         assertNull(viewModel.state.value.nextCursor)
     }
 
@@ -325,6 +484,40 @@ class ExperienceListViewModelTest {
 
         assertEquals(1, experienceRepository.experiences.size)
         assertNull(viewModel.state.value.pendingDeletion)
+    }
+
+    @Test
+    fun `삭제 중 닫기와 재확인은 기존 대상을 유지하고 요청을 겹치지 않는다`() {
+        experienceRepository.experiences += listOf(card(3L), card(4L))
+        val server = CompletableDeferred<Unit>()
+        var calls = 0
+        experienceRepository.onDeleteExperience = {
+            calls++
+            server.await()
+            Result.failure(IOException("offline"))
+        }
+        val viewModel = viewModel()
+        viewModel.onEvent(ExperienceListEvent.DeleteClicked(3L))
+        viewModel.onIntent(ExperienceListIntent.ConfirmDelete)
+        assertTrue(viewModel.state.value.isDeleting)
+
+        viewModel.onIntent(ExperienceListIntent.DismissDelete)
+        viewModel.onEvent(ExperienceListEvent.DeleteClicked(4L))
+        viewModel.onIntent(ExperienceListIntent.ConfirmDelete)
+        assertEquals(
+            3L,
+            viewModel.state.value.pendingDeletion
+                ?.experienceId,
+        )
+        assertEquals(1, calls)
+
+        server.complete(Unit)
+        assertFalse(viewModel.state.value.isDeleting)
+        assertNull(viewModel.state.value.pendingDeletion)
+        assertEquals(ExperienceListMessage.DeleteFailed, viewModel.state.value.message)
+        viewModel.onEvent(ExperienceListEvent.DeleteClicked(3L))
+        viewModel.onIntent(ExperienceListIntent.ConfirmDelete)
+        assertEquals(2, calls)
     }
 
     private companion object {

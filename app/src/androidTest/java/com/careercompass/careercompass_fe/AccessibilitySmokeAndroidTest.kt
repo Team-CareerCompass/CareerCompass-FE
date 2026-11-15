@@ -14,6 +14,11 @@ import com.careercompass.careercompass_fe.test.FailureArtifactRule
 import com.careercompass.core.model.user.JobInterest
 import com.careercompass.core.model.user.UserProfile
 import com.careercompass.core.ui.theme.CareerCompassTheme
+import com.careercompass.feature.editor.domain.model.ApplicationItemDraft
+import com.careercompass.feature.editor.presentation.setup.ApplicationItemEditorState
+import com.careercompass.feature.editor.presentation.setup.ApplicationSetupContent
+import com.careercompass.feature.editor.presentation.setup.ApplicationSetupUiState
+import com.careercompass.feature.editor.presentation.setup.component.ApplicationItemEditSheet
 import com.careercompass.feature.feed.presentation.FeedContent
 import com.careercompass.feature.feed.presentation.FeedContentState
 import com.careercompass.feature.feed.presentation.FeedFilterUiModel
@@ -128,6 +133,33 @@ class AccessibilitySmokeAndroidTest {
     fun profileEdit_hasNoAutomatedAccessibilityErrors() {
         renderAndCheck {
             ProfileEditContent(state = profileEditState, onEvent = {})
+        }
+    }
+
+    /** 두 문항의 고치기·삭제 버튼이 반복되는 실제 loaded 상태를 검사한다(#415). */
+    @Test
+    fun applicationSetup_hasNoAutomatedAccessibilityErrors() {
+        renderAndCheck {
+            val items =
+                listOf(
+                    ApplicationItemDraft(order = 1, question = "지원 동기를 작성해 주세요", maxChars = 500),
+                    ApplicationItemDraft(order = 2, question = "본인의 강점과 약점을 서술해 주세요", maxChars = null),
+                )
+            ApplicationSetupContent(
+                state = ApplicationSetupUiState(postingTitle = "카카오 SW 인턴십", items = items, recognizedItems = items),
+                onEvent = {},
+            )
+        }
+    }
+
+    /** 시트는 Content 밖에서 합성되므로 별도로 검사한다. */
+    @Test
+    fun applicationItemEditor_hasNoAutomatedAccessibilityErrors() {
+        renderAndCheck {
+            ApplicationItemEditSheet(
+                state = ApplicationItemEditorState(order = 1, question = "지원 동기를 작성해 주세요", maxChars = "500"),
+                onEvent = {},
+            )
         }
     }
 
