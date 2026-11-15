@@ -193,13 +193,33 @@ public class ExperienceListViewModel
 
         override fun onIntent(intent: ExperienceListIntent) {
             when (intent) {
-                is ExperienceListIntent.Screen -> onEvent(intent.event)
-                ExperienceListIntent.Refresh -> load(currentState.filter)
-                ExperienceListIntent.ConsumeMessage -> dispatch(ExperienceListReducerEvent.MessageConsumed)
-                is ExperienceListIntent.Editor -> onEditorEvent(intent.event)
-                ExperienceListIntent.ConfirmDelete -> confirmDelete()
-                ExperienceListIntent.DismissDelete -> dispatch(ExperienceListReducerEvent.DeletionRequested(null))
-                ExperienceListIntent.ConsumeSessionEnded -> dispatch(ExperienceListReducerEvent.SessionEndedConsumed)
+                is ExperienceListIntent.Screen -> {
+                    onEvent(intent.event)
+                }
+
+                ExperienceListIntent.Refresh -> {
+                    load(currentState.filter)
+                }
+
+                ExperienceListIntent.ConsumeMessage -> {
+                    dispatch(ExperienceListReducerEvent.MessageConsumed)
+                }
+
+                is ExperienceListIntent.Editor -> {
+                    onEditorEvent(intent.event)
+                }
+
+                ExperienceListIntent.ConfirmDelete -> {
+                    confirmDelete()
+                }
+
+                ExperienceListIntent.DismissDelete -> {
+                    if (!currentState.isDeleting) dispatch(ExperienceListReducerEvent.DeletionRequested(null))
+                }
+
+                ExperienceListIntent.ConsumeSessionEnded -> {
+                    dispatch(ExperienceListReducerEvent.SessionEndedConsumed)
+                }
             }
         }
 
@@ -301,6 +321,7 @@ public class ExperienceListViewModel
                 }
 
                 is ExperienceListEvent.DeleteClicked -> {
+                    if (currentState.isDeleting) return
                     val card = currentState.cards.firstOrNull { it.id == event.id }
                     if (card != null) {
                         dispatch(

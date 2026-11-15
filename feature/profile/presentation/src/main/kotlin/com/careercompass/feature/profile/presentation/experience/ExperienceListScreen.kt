@@ -20,7 +20,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.careercompass.core.model.experience.MAX_EXPERIENCE_CARDS
-import com.careercompass.core.ui.component.ExperienceDeleteDialog
 import com.careercompass.core.ui.component.ExperienceDeleteEvent
 import com.careercompass.core.ui.component.ExperienceQuickAddEvent
 import com.careercompass.core.ui.component.ExperienceQuickAddSheet
@@ -103,8 +102,9 @@ public fun ExperienceListScreen(
     }
 
     state.pendingDeletion?.let { target ->
-        ExperienceDeleteDialog(
+        ExperienceListDeleteDialog(
             state = target,
+            isDeleting = state.isDeleting,
             onEvent = { event ->
                 when (event) {
                     ExperienceDeleteEvent.Confirmed -> viewModel.onIntent(ExperienceListIntent.ConfirmDelete)
