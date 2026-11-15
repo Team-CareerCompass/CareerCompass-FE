@@ -1,5 +1,6 @@
 package com.careercompass.feature.editor.presentation.setup
 
+import androidx.lifecycle.SavedStateHandle
 import com.careercompass.core.common.reporting.ErrorReporter
 import com.careercompass.core.domain.error.CoreDataFailure
 import com.careercompass.core.domain.testing.FakePostingRepository
@@ -363,6 +364,7 @@ class ApplicationSetupViewModelTest {
                 getApplicationSetup = GetApplicationSetupUseCase(postingRepository),
                 createApplicationDraft = CreateApplicationDraftUseCase(applicationRepository),
                 errorReporter = recordingReporter(),
+                savedStateHandle = SavedStateHandle(),
             )
         dispatcher.scheduler.advanceUntilIdle()
         return viewModel

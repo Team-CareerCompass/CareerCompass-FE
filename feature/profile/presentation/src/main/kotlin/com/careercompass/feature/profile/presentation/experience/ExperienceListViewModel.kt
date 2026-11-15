@@ -193,13 +193,33 @@ public class ExperienceListViewModel
 
         override fun onIntent(intent: ExperienceListIntent) {
             when (intent) {
-                is ExperienceListIntent.Screen -> onEvent(intent.event)
-                ExperienceListIntent.Refresh -> load(currentState.filter)
-                ExperienceListIntent.ConsumeMessage -> dispatch(ExperienceListReducerEvent.MessageConsumed)
-                is ExperienceListIntent.Editor -> onEditorEvent(intent.event)
-                ExperienceListIntent.ConfirmDelete -> confirmDelete()
-                ExperienceListIntent.DismissDelete -> dispatch(ExperienceListReducerEvent.DeletionRequested(null))
-                ExperienceListIntent.ConsumeSessionEnded -> dispatch(ExperienceListReducerEvent.SessionEndedConsumed)
+                is ExperienceListIntent.Screen -> {
+                    onEvent(intent.event)
+                }
+
+                ExperienceListIntent.Refresh -> {
+                    load(currentState.filter)
+                }
+
+                ExperienceListIntent.ConsumeMessage -> {
+                    dispatch(ExperienceListReducerEvent.MessageConsumed)
+                }
+
+                is ExperienceListIntent.Editor -> {
+                    onEditorEvent(intent.event)
+                }
+
+                ExperienceListIntent.ConfirmDelete -> {
+                    confirmDelete()
+                }
+
+                ExperienceListIntent.DismissDelete -> {
+                    if (!currentState.isDeleting) dispatch(ExperienceListReducerEvent.DeletionRequested(null))
+                }
+
+                ExperienceListIntent.ConsumeSessionEnded -> {
+                    dispatch(ExperienceListReducerEvent.SessionEndedConsumed)
+                }
             }
         }
 
@@ -210,7 +230,15 @@ public class ExperienceListViewModel
             when (event) {
                 is ExperienceListReducerEvent.LoadStarted -> {
                     // 필터를 바꾸면 커서도 처음으로 돌아간다 — 이전 필터의 페이지를 이어 붙이면 목록이 섞인다.
-                    state.copy(filter = event.filter, cards = emptyList(), nextCursor = null, isLoading = true, loadFailure = null)
+                    // load() 가 이전 이어 읽기를 취소했으므로 그 진행 상태도 함께 끝낸다.
+                    state.copy(
+                        filter = event.filter,
+                        cards = emptyList(),
+                        nextCursor = null,
+                        isLoading = true,
+                        isLoadingMore = false,
+                        loadFailure = null,
+                    )
                 }
 
                 is ExperienceListReducerEvent.Loaded -> {
@@ -301,6 +329,7 @@ public class ExperienceListViewModel
                 }
 
                 is ExperienceListEvent.DeleteClicked -> {
+                    if (currentState.isDeleting) return
                     val card = currentState.cards.firstOrNull { it.id == event.id }
                     if (card != null) {
                         dispatch(

@@ -6,6 +6,7 @@ import com.careercompass.core.network.service.AuthApiService
 import com.careercompass.core.network.service.BoardApiService
 import com.careercompass.core.network.service.BoardDetectApiService
 import com.careercompass.core.network.service.ExperienceApiService
+import com.careercompass.core.network.service.ForYouApiService
 import com.careercompass.core.network.service.PastApplicationApiService
 import com.careercompass.core.network.service.PostingApiService
 import com.careercompass.core.network.service.TokenApiService
@@ -52,6 +53,16 @@ public object ServiceModule {
     public fun providePastApplicationApiService(
         @Named(NetworkQualifiers.UPLOAD_RETROFIT) retrofit: Retrofit,
     ): PastApplicationApiService = retrofit.create()
+
+    /**
+     * §7 은 서버가 프로필·경험 카드를 읽어 계산하지만 응답은 요약본이라, 오래 걸리는 작업으로 보지 않는다.
+     * 실측 뒤 분 단위로 드러나면 `LongRunningOperation` 에 항목을 더한다.
+     */
+    @Provides
+    @Singleton
+    public fun provideForYouApiService(
+        @Named(NetworkQualifiers.MAIN_RETROFIT) retrofit: Retrofit,
+    ): ForYouApiService = retrofit.create()
 
     @Provides
     @Singleton
