@@ -1,19 +1,23 @@
 package com.careercompass.feature.editor.presentation.progress
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.careercompass.core.ui.component.CareerCompassButton
 import com.careercompass.core.ui.component.CareerCompassCard
 import com.careercompass.core.ui.component.CareerCompassTopAppBar
@@ -39,11 +43,26 @@ internal fun ApplicationProgressContent(
         CareerCompassTopAppBar(title = stringResource(R.string.editor_progress_title), onBackClick = onBackClick)
         LazyColumn(contentPadding = PaddingValues(spacing.large), verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
             item {
+                Text(
+                    stringResource(
+                        when {
+                            state.draft == null -> R.string.editor_progress_recovering
+                            state.draft?.hasLoadingItem == true -> R.string.editor_progress_generating_title
+
+                            state.draft?.items?.any {
+                                it.status == ApplicationItemStatus.Failed
+                            } == true -> R.string.editor_progress_failed_title
+
+                            else -> R.string.editor_progress_ready_title
+                        },
+                    ),
+                    style = CareerCompassTheme.typography.headline2,
+                )
                 Text(stringResource(R.string.editor_progress_description), style = CareerCompassTheme.typography.bodyMedium)
                 state.draft?.let { draft ->
                     Text(
                         stringResource(R.string.editor_progress_count, draft.completedItemCount, draft.items.size),
-                        style = CareerCompassTheme.typography.headline2,
+                        style = CareerCompassTheme.typography.labelMedium,
                     )
                 }
                 if (state.isRecovering || state.isStreaming) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -77,30 +96,44 @@ internal fun ApplicationProgressContent(
                 }
             }
             items(state.draft?.items.orEmpty(), key = { it.id }) { item ->
-                CareerCompassCard(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        stringResource(R.string.editor_progress_item_question, item.order, item.question),
-                        style = CareerCompassTheme.typography.headline2,
-                    )
-                    val retrying = item.id in state.retryingIds
-                    val status =
-                        when {
-                            retrying -> R.string.editor_progress_retrying
-                            item.status == ApplicationItemStatus.Done -> R.string.editor_progress_done
-                            item.status == ApplicationItemStatus.Failed -> R.string.editor_progress_failed
-                            state.isStreaming -> R.string.editor_progress_generating
-                            else -> R.string.editor_progress_waiting
-                        }
-                    Text(stringResource(status), style = CareerCompassTheme.typography.labelMedium)
-                    item.answer?.takeIf { it.isNotEmpty() }?.let { answer ->
-                        SelectionContainer { Text(answer, style = CareerCompassTheme.typography.bodyMedium) }
+                val statusColor =
+                    when (item.status) {
+                        ApplicationItemStatus.Done -> CareerCompassTheme.colors.primaryEmphasis
+                        ApplicationItemStatus.Failed -> CareerCompassTheme.colors.error
+                        ApplicationItemStatus.Loading -> CareerCompassTheme.colors.onSurfaceVariant
                     }
-                    if (item.status == ApplicationItemStatus.Failed) {
-                        CareerCompassButton(
-                            text = stringResource(R.string.editor_progress_retry_item),
-                            onClick = { onIntent(ApplicationProgressIntent.RetryItem(item.id)) },
-                            enabled = !retrying && !state.isRecovering && !state.identityMismatch,
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = CareerCompassTheme.shapes.card,
+                    color = CareerCompassTheme.colors.surface,
+                    contentColor = CareerCompassTheme.colors.onSurface,
+                    border = BorderStroke(1.dp, statusColor),
+                ) {
+                    Column(Modifier.padding(spacing.large), verticalArrangement = Arrangement.spacedBy(spacing.small)) {
+                        Text(
+                            stringResource(R.string.editor_progress_item_question, item.order, item.question),
+                            style = CareerCompassTheme.typography.labelMedium,
                         )
+                        val retrying = item.id in state.retryingIds
+                        val status =
+                            when {
+                                retrying -> R.string.editor_progress_retrying
+                                item.status == ApplicationItemStatus.Done -> R.string.editor_progress_done
+                                item.status == ApplicationItemStatus.Failed -> R.string.editor_progress_failed
+                                state.isStreaming -> R.string.editor_progress_generating
+                                else -> R.string.editor_progress_waiting
+                            }
+                        Text(stringResource(status), style = CareerCompassTheme.typography.caption, color = statusColor)
+                        item.answer?.takeIf { it.isNotEmpty() }?.let { answer ->
+                            SelectionContainer { Text(answer, style = CareerCompassTheme.typography.bodyMedium) }
+                        }
+                        if (item.status == ApplicationItemStatus.Failed) {
+                            CareerCompassButton(
+                                text = stringResource(R.string.editor_progress_retry_item),
+                                onClick = { onIntent(ApplicationProgressIntent.RetryItem(item.id)) },
+                                enabled = !retrying && !state.isRecovering && !state.identityMismatch,
+                            )
+                        }
                     }
                 }
             }

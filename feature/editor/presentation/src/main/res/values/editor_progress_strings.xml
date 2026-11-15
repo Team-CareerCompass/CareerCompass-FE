@@ -13,4 +13,7 @@
     <string name="editor_progress_waiting">대기 중</string>
     <string name="editor_progress_retrying">다시 생성 중</string>
     <string name="editor_progress_retry_item">이 항목 다시 시도</string>
+    <string name="editor_progress_generating_title">AI가 초안을 작성 중이에요</string>
+    <string name="editor_progress_failed_title">일부 항목 생성에 실패했어요</string>
+    <string name="editor_progress_ready_title">지원서 초안이 준비됐어요</string>
 </resources>
