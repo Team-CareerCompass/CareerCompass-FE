@@ -389,7 +389,11 @@ public class ApplicationSetupViewModel
                         if (throwable is CoreDataFailure.Unauthorized) {
                             dispatch(ApplicationSetupReducerEvent.SessionEnded)
                         } else {
-                            dispatch(ApplicationSetupReducerEvent.MessageRaised(ApplicationSetupMessage.CreateFailed))
+                            dispatch(
+                                ApplicationSetupReducerEvent.MessageRaised(
+                                    ApplicationSetupMessage.CreateFailed(throwable.toFailureKind()),
+                                ),
+                            )
                         }
                     }
                 }
