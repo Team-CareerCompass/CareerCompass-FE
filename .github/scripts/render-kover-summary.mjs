@@ -189,6 +189,21 @@ function assertCounter(counter, field) {
     }
 }
 
+function validateBaselineSource(source, field) {
+    if (!source || typeof source !== "object" || Array.isArray(source)) {
+        throw new Error(`${field} metadata is required`);
+    }
+    if (!/^[0-9a-f]{40}$/.test(source.sha ?? "")) {
+        throw new Error(`${field}.sha must be a full commit SHA`);
+    }
+    if (typeof source.ref !== "string" || source.ref.length === 0) {
+        throw new Error(`${field}.ref is required`);
+    }
+    if (typeof source.runUrl !== "string" || !source.runUrl.startsWith("https://")) {
+        throw new Error(`${field}.runUrl must be an HTTPS URL`);
+    }
+}
+
 export function validateCoveragePolicy(policy) {
     if (!policy || typeof policy !== "object" || Array.isArray(policy)) {
         throw new Error("Kover coverage policy must be a JSON object");
@@ -199,18 +214,7 @@ export function validateCoveragePolicy(policy) {
     if (!["warn", "enforce"].includes(policy.mode)) {
         throw new Error('Kover coverage policy mode must be "warn" or "enforce"');
     }
-    if (!policy.source || typeof policy.source !== "object" || Array.isArray(policy.source)) {
-        throw new Error("Kover coverage policy source metadata is required");
-    }
-    if (!/^[0-9a-f]{40}$/.test(policy.source.sha ?? "")) {
-        throw new Error("Kover coverage policy source.sha must be a full commit SHA");
-    }
-    if (typeof policy.source.ref !== "string" || policy.source.ref.length === 0) {
-        throw new Error("Kover coverage policy source.ref is required");
-    }
-    if (typeof policy.source.runUrl !== "string" || !policy.source.runUrl.startsWith("https://")) {
-        throw new Error("Kover coverage policy source.runUrl must be an HTTPS URL");
-    }
+    validateBaselineSource(policy.source, "Kover coverage policy source");
     if (!policy.modules || typeof policy.modules !== "object" || Array.isArray(policy.modules)) {
         throw new Error("Kover coverage policy modules must be an object");
     }
@@ -218,6 +222,9 @@ export function validateCoveragePolicy(policy) {
     for (const [module, baseline] of Object.entries(policy.modules)) {
         if (!module || !baseline || typeof baseline !== "object" || Array.isArray(baseline)) {
             throw new Error(`Invalid Kover coverage baseline for module ${module || "<empty>"}`);
+        }
+        if ("source" in baseline) {
+            validateBaselineSource(baseline.source, `Kover coverage baseline ${module}.source`);
         }
         for (const type of COVERAGE_TYPES) {
             const field = type.toLowerCase();
@@ -295,7 +302,7 @@ export function evaluateCoveragePolicy({ modules, policy, mode = policy.mode }) 
               : statuses.every((status) => status === "not-applicable")
                 ? "not-applicable"
                 : "pass";
-        return { name: module.name, metrics, result };
+        return { name: module.name, metrics, result, source: baseline?.source ?? policy.source };
     });
     const regressions = evaluatedModules.flatMap((module) =>
         COVERAGE_TYPES.filter((type) =>
@@ -406,6 +413,12 @@ export function renderSummary({ aggregate, modules, artifactUrl, policyEvaluatio
             for (const module of policyEvaluation.modules) {
                 lines.push(
                     `| \`${module.name}\` | ${formatPolicyMetric(module.metrics.LINE)} | ${formatPolicyMetric(module.metrics.BRANCH)} | ${formatPolicyResult(module.result, policyEvaluation.mode)} |`,
+                );
+            }
+            for (const module of policyEvaluation.modules.filter((module) => module.source !== policyEvaluation.source)) {
+                lines.push(
+                    "",
+                    `- \`${module.name}\` baseline: [\`${module.source.ref}@${module.source.sha.slice(0, 7)}\`](${module.source.runUrl})`,
                 );
             }
         }
