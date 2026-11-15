@@ -12,6 +12,8 @@
     <string name="editor_setup_item_delete">삭제</string>
     <string name="editor_setup_item_add">항목 추가</string>
     <string name="editor_setup_item_count">%1$d / %2$d개</string>
+    <string name="editor_setup_item_count_over_limit">문항 %1$d개</string>
+    <string name="editor_setup_item_limit_notice">문항이 %1$d개예요. 초안 작성을 시작하려면 %2$d개 이하로 줄여 주세요.</string>
     <string name="editor_setup_default_length_notice">글자 수 제한이 없는 항목은 %1$d~%2$d자로 작성해 드려요.</string>
     <string name="editor_setup_tone_label">문체</string>
     <string name="editor_setup_tone_formal">격식체</string>
