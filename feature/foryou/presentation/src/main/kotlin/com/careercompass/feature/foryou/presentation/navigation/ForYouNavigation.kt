@@ -12,16 +12,24 @@ public sealed interface ForYouRoute : NavKey {
     @Serializable public data object Home : ForYouRoute
 
     @Serializable public data object Roadmap : ForYouRoute
+
+    @Serializable public data object StrengthExport : ForYouRoute
 }
 
 public interface ForYouExternalActions {
     public fun navigateToProfile()
+
+    public fun navigateToExperiences()
 
     public fun onSessionEnded()
 }
 
 internal interface ForYouNavActions {
     fun navigateToRoadmap()
+
+    fun navigateToExport()
+
+    fun navigateToExperiences()
 
     fun popBack()
 
@@ -36,6 +44,10 @@ internal class ForYouLocalNavActions(
     private val externalActions: ForYouExternalActions,
 ) : ForYouNavActions {
     override fun navigateToRoadmap() = backStack.pushSingleTop(ForYouRoute.Roadmap)
+
+    override fun navigateToExport() = backStack.pushSingleTop(ForYouRoute.StrengthExport)
+
+    override fun navigateToExperiences() = externalActions.navigateToExperiences()
 
     override fun popBack() = backStack.popOrExit(boundary)
 
