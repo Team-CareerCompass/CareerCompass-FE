@@ -21,7 +21,6 @@
     <string name="editor_setup_loading">공고를 읽고 있어요…</string>
     <string name="editor_setup_limit_reached">항목은 최대 %1$d개까지 넣을 수 있어요</string>
     <string name="editor_setup_last_item_kept">마지막 항목은 지울 수 없어요. 내용을 고쳐 주세요</string>
-    <string name="editor_setup_create_failed">초안 작성을 시작하지 못했어요. 잠시 후 다시 시도해 주세요</string>
 
     <string name="editor_item_editor_add_title">항목 추가</string>
     <string name="editor_item_editor_edit_title">항목 고치기</string>
