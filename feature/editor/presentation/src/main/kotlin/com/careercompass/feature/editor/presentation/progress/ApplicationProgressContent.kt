@@ -47,6 +47,7 @@ internal fun ApplicationProgressContent(
                     stringResource(
                         when {
                             state.draft == null -> R.string.editor_progress_recovering
+
                             state.draft?.hasLoadingItem == true -> R.string.editor_progress_generating_title
 
                             state.draft?.items?.any {
