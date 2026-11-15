@@ -11,6 +11,7 @@ import com.careercompass.feature.profile.domain.usecase.DeletePastApplicationUse
 import com.careercompass.feature.profile.domain.usecase.GetPastApplicationsUseCase
 import com.careercompass.feature.profile.domain.usecase.UpdatePastApplicationItemCategoryUseCase
 import com.careercompass.feature.profile.presentation.home.ProfileSessionEnd
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -24,6 +25,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.IOException
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PastApplicationListViewModelTest {
@@ -168,6 +172,216 @@ class PastApplicationListViewModelTest {
         )
         assertEquals(PastApplicationListMessage.CategoryUpdateFailed, viewModel.state.value.message)
         assertEquals("past_application_category", reporter.recorded.single()["profile_stage"])
+    }
+
+    @Test
+    fun `분류 선택 즉시 시트를 닫고 반영하며 실패하면 원래 항목으로 되돌린다`() {
+        repository.applications += application(1L)
+        val server = CompletableDeferred<Result<PastApplicationItem>>()
+        var calls = 0
+        repository.onUpdateItemCategory = { _, _, _ ->
+            calls++
+            server.await()
+        }
+        val viewModel = viewModel()
+        val original =
+            viewModel.state.value.applications
+                .single()
+                .items
+                .first()
+        viewModel.onEvent(PastApplicationListEvent.ItemCategoryClicked(1L, 11L))
+
+        viewModel.onIntent(PastApplicationListIntent.CategorySelected(PastApplicationCategory.Growth))
+
+        assertNull(viewModel.state.value.categoryEditor)
+        assertTrue(viewModel.state.value.isUpdatingCategory)
+        assertEquals(
+            PastApplicationCategory.Growth,
+            viewModel.state.value.applications
+                .single()
+                .items
+                .first()
+                .category,
+        )
+        // 응답 전 재진입은 잠긴 칩과 같은 규칙을 따른다.
+        viewModel.onEvent(PastApplicationListEvent.ItemCategoryClicked(1L, 11L))
+        viewModel.onIntent(PastApplicationListIntent.CategorySelected(PastApplicationCategory.Motivation))
+        assertNull(viewModel.state.value.categoryEditor)
+        assertEquals(1, calls)
+
+        server.complete(Result.failure(IOException("offline")))
+
+        assertFalse(viewModel.state.value.isUpdatingCategory)
+        assertEquals(
+            original,
+            viewModel.state.value.applications
+                .single()
+                .items
+                .first(),
+        )
+        assertEquals(PastApplicationListMessage.CategoryUpdateFailed, viewModel.state.value.message)
+    }
+
+    @Test
+    fun `조회 중 분류를 고친 뒤 옛 응답이 돌아와도 새 분류를 유지한다`() {
+        repository.applications += application(1L)
+        val viewModel = viewModel()
+        val stale = repository.applications.toList()
+        lateinit var delayedRead: Continuation<Result<List<PastApplication>>>
+        // 취소에 협조하지 않는 응답까지 세대 가드가 막아야 한다.
+        repository.onGetPastApplications = { suspendCoroutine { delayedRead = it } }
+        viewModel.onIntent(PastApplicationListIntent.Refresh)
+        repository.onGetPastApplications = null
+        viewModel.onEvent(PastApplicationListEvent.ItemCategoryClicked(1L, 11L))
+        viewModel.onIntent(PastApplicationListIntent.CategorySelected(PastApplicationCategory.Growth))
+
+        delayedRead.resume(Result.success(stale))
+
+        assertEquals(
+            PastApplicationCategory.Growth,
+            viewModel.state.value.applications
+                .single()
+                .items
+                .first()
+                .category,
+        )
+        assertFalse(viewModel.state.value.isLoading)
+        assertNull(viewModel.state.value.loadFailure)
+    }
+
+    @Test
+    fun `조회 중 삭제한 지원서를 늦은 응답이 되살리지 않는다`() {
+        repository.applications += listOf(application(1L), application(2L))
+        val viewModel = viewModel()
+        val stale = repository.applications.toList()
+        lateinit var delayedRead: Continuation<Result<List<PastApplication>>>
+        repository.onGetPastApplications = { suspendCoroutine { delayedRead = it } }
+        viewModel.onIntent(PastApplicationListIntent.Refresh)
+        repository.onGetPastApplications = null
+
+        viewModel.onEvent(PastApplicationListEvent.DeleteClicked(1L))
+        viewModel.onIntent(PastApplicationListIntent.ConfirmDelete)
+        delayedRead.resume(Result.success(stale))
+
+        assertEquals(
+            listOf(2L),
+            viewModel.state.value.applications
+                .map { it.id },
+        )
+        assertEquals(PastApplicationListMessage.Deleted, viewModel.state.value.message)
+        assertFalse(viewModel.state.value.isLoading)
+    }
+
+    @Test
+    fun `연속 삭제의 첫 재조회가 두 번째 삭제를 되돌리지 않는다`() {
+        repository.applications += listOf(application(1L), application(2L))
+        val viewModel = viewModel()
+        lateinit var delayedRead: Continuation<Result<List<PastApplication>>>
+        repository.onGetPastApplications = { suspendCoroutine { delayedRead = it } }
+        viewModel.onEvent(PastApplicationListEvent.DeleteClicked(1L))
+        viewModel.onIntent(PastApplicationListIntent.ConfirmDelete)
+        val stale = repository.applications.toList()
+        repository.onGetPastApplications = null
+
+        viewModel.onEvent(PastApplicationListEvent.DeleteClicked(2L))
+        viewModel.onIntent(PastApplicationListIntent.ConfirmDelete)
+        delayedRead.resume(Result.success(stale))
+
+        assertTrue(viewModel.state.value.isEmpty)
+        assertEquals(0, viewModel.state.value.count)
+    }
+
+    @Test
+    fun `분류 저장 중 재개 조회는 보류하고 완료 뒤 한 번만 최신 값을 읽는다`() {
+        repository.applications += application(1L)
+        val viewModel = viewModel()
+        val server = CompletableDeferred<Unit>()
+        var reads = 0
+        repository.onGetPastApplications = {
+            reads++
+            Result.success(repository.applications.toList())
+        }
+        repository.onUpdateItemCategory = { _, _, category ->
+            server.await()
+            val application = repository.applications.single()
+            val item = application.items.first().copy(category = category, confident = true)
+            repository.applications[0] = application.copy(items = listOf(item) + application.items.drop(1))
+            Result.success(item)
+        }
+        viewModel.onEvent(PastApplicationListEvent.ItemCategoryClicked(1L, 11L))
+        viewModel.onIntent(PastApplicationListIntent.CategorySelected(PastApplicationCategory.Growth))
+
+        repeat(2) { viewModel.onIntent(PastApplicationListIntent.Refresh) }
+
+        assertEquals(0, reads)
+        assertEquals(
+            PastApplicationCategory.Growth,
+            viewModel.state.value.applications
+                .single()
+                .items
+                .first()
+                .category,
+        )
+        server.complete(Unit)
+        assertEquals(1, reads)
+        assertEquals(
+            PastApplicationCategory.Growth,
+            viewModel.state.value.applications
+                .single()
+                .items
+                .first()
+                .category,
+        )
+        assertFalse(viewModel.state.value.isUpdatingCategory)
+    }
+
+    @Test
+    fun `분류 저장과 삭제가 겹쳐도 둘 다 끝난 뒤 한 번만 재조회한다`() {
+        repository.applications += listOf(application(1L), application(2L))
+        val viewModel = viewModel()
+        val categoryServer = CompletableDeferred<Unit>()
+        val deleteServer = CompletableDeferred<Unit>()
+        var reads = 0
+        repository.onGetPastApplications = {
+            reads++
+            Result.success(repository.applications.toList())
+        }
+        repository.onUpdateItemCategory = { _, _, category ->
+            categoryServer.await()
+            val application = repository.applications.first()
+            val item = application.items.first().copy(category = category, confident = true)
+            repository.applications[0] = application.copy(items = listOf(item) + application.items.drop(1))
+            Result.success(item)
+        }
+        repository.onDelete = { id ->
+            deleteServer.await()
+            repository.applications.removeIf { it.id == id }
+            Result.success(Unit)
+        }
+        viewModel.onEvent(PastApplicationListEvent.ItemCategoryClicked(1L, 11L))
+        viewModel.onIntent(PastApplicationListIntent.CategorySelected(PastApplicationCategory.Growth))
+        viewModel.onEvent(PastApplicationListEvent.DeleteClicked(2L))
+        viewModel.onIntent(PastApplicationListIntent.ConfirmDelete)
+        viewModel.onIntent(PastApplicationListIntent.Refresh)
+
+        categoryServer.complete(Unit)
+        assertEquals(0, reads)
+        deleteServer.complete(Unit)
+
+        assertEquals(1, reads)
+        assertEquals(
+            listOf(1L),
+            viewModel.state.value.applications
+                .map { it.id },
+        )
+        assertEquals(
+            PastApplicationCategory.Growth,
+            viewModel.state.value.applications
+                .single()
+                .items
+                .first()
+                .category,
+        )
     }
 
     @Test
