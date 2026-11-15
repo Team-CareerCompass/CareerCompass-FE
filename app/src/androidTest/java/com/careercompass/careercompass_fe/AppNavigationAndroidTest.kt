@@ -138,7 +138,7 @@ class AppNavigationAndroidTest {
         composeRule.onNodeWithText("86명의 기록과 비교했어요").assertIsDisplayed()
         composeRule.onNodeWithText("합격 선배 비교").performClick()
         composeRule.onNodeWithText("합격 선배 평균").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("뒤로 가기").performClick()
+        composeRule.onNodeWithContentDescription("뒤로가기").performClick()
         composeRule.onNodeWithText("나를 위한 분석").assertIsDisplayed()
         composeRule.onNodeWithText("피드").assertIsDisplayed()
     }
