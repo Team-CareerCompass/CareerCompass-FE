@@ -20,6 +20,7 @@ import com.careercompass.core.ui.navigation.FeatureNavDisplay
 import com.careercompass.core.ui.navigation.FeatureStackBoundary
 import com.careercompass.core.ui.theme.CareerCompassTheme
 import com.careercompass.feature.foryou.presentation.R
+import com.careercompass.feature.foryou.presentation.export.StrengthExportScreen
 import com.careercompass.feature.foryou.presentation.roadmap.RoadmapScreen
 
 @Composable
@@ -36,7 +37,21 @@ public fun ForYouNavHost(
         modifier = modifier,
         entryProvider =
             entryProvider {
-                entry<ForYouRoute.Home> { AnalysisHomeContent(onRoadmapClick = actions::navigateToRoadmap) }
+                entry<ForYouRoute.Home> {
+                    AnalysisHomeContent(
+                        onRoadmapClick = actions::navigateToRoadmap,
+                        onExportClick = actions::navigateToExport,
+                    )
+                }
+                entry<ForYouRoute.StrengthExport> {
+                    StrengthExportScreen(
+                        onBackClick = actions::popBack,
+                        onAddExperience = actions::navigateToExperiences,
+                        onCompleteProfile = actions::navigateToProfile,
+                        onSessionEnded = actions::onSessionEnded,
+                        viewModel = hiltViewModel(),
+                    )
+                }
                 entry<ForYouRoute.Roadmap> {
                     RoadmapScreen(
                         onBackClick = actions::popBack,
@@ -53,6 +68,7 @@ public fun ForYouNavHost(
 @Composable
 internal fun AnalysisHomeContent(
     onRoadmapClick: () -> Unit,
+    onExportClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spacing = CareerCompassTheme.spacing
@@ -63,6 +79,10 @@ internal fun AnalysisHomeContent(
             CareerCompassCard(modifier = Modifier.fillMaxWidth(), onClick = onRoadmapClick) {
                 Text(stringResource(R.string.foryou_roadmap_title), style = CareerCompassTheme.typography.headline2)
                 Text(stringResource(R.string.foryou_roadmap_entry_description), style = CareerCompassTheme.typography.bodyMedium)
+            }
+            CareerCompassCard(modifier = Modifier.fillMaxWidth(), onClick = onExportClick) {
+                Text(stringResource(R.string.foryou_export_title), style = CareerCompassTheme.typography.headline2)
+                Text(stringResource(R.string.foryou_export_entry_description), style = CareerCompassTheme.typography.bodyMedium)
             }
         }
     }
