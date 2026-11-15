@@ -16,7 +16,9 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -51,7 +53,24 @@ internal fun StrengthExportContent(
     Column(modifier = modifier.fillMaxSize().background(CareerCompassTheme.colors.subtleSurface)) {
         CareerCompassTopAppBar(title = stringResource(R.string.foryou_export_title), onBackClick = onBackClick)
         LazyColumn(contentPadding = PaddingValues(spacing.large), verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
-            item { Text(stringResource(R.string.foryou_export_description), style = CareerCompassTheme.typography.bodyMedium) }
+            item {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+                    ExportFormat.entries.forEach { format ->
+                        FilterChip(
+                            selected = state.format == format,
+                            onClick = { onIntent(StrengthExportIntent.SelectFormat(format)) },
+                            enabled = !state.isGenerating,
+                            label = { Text(stringResource(format.labelRes())) },
+                            shape = CareerCompassTheme.shapes.pill,
+                            colors =
+                                FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = CareerCompassTheme.colors.inverseSurface,
+                                    selectedLabelColor = CareerCompassTheme.colors.inverseOnSurface,
+                                ),
+                        )
+                    }
+                }
+            }
             if (state.hasExperiences == false) {
                 item {
                     CareerCompassCard(modifier = Modifier.fillMaxWidth()) {
@@ -69,36 +88,25 @@ internal fun StrengthExportContent(
                 }
             }
             item {
-                Text(stringResource(R.string.foryou_export_sections), style = CareerCompassTheme.typography.headline2)
-                ExportSection.entries.forEach { section ->
-                    Row(
-                        modifier =
-                            Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(
-                                value = section in state.sections,
-                                enabled = !state.isGenerating,
-                                role = Role.Checkbox,
-                                onValueChange = { onIntent(StrengthExportIntent.ToggleSection(section)) },
-                            ),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Checkbox(checked = section in state.sections, onCheckedChange = null, enabled = !state.isGenerating)
-                        Text(stringResource(section.labelRes()), style = CareerCompassTheme.typography.bodyMedium)
+                CareerCompassCard(modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.foryou_export_sections), style = CareerCompassTheme.typography.labelMedium)
+                    ExportSection.entries.forEach { section ->
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(
+                                    value = section in state.sections,
+                                    enabled = !state.isGenerating,
+                                    role = Role.Checkbox,
+                                    onValueChange = { onIntent(StrengthExportIntent.ToggleSection(section)) },
+                                ),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(checked = section in state.sections, onCheckedChange = null, enabled = !state.isGenerating)
+                            Text(stringResource(section.labelRes()), style = CareerCompassTheme.typography.bodyMedium)
+                        }
                     }
-                }
-                if (state.sections.isEmpty()) {
-                    Text(stringResource(R.string.foryou_export_select_section), color = CareerCompassTheme.colors.error)
-                }
-            }
-            item {
-                Text(stringResource(R.string.foryou_export_format), style = CareerCompassTheme.typography.headline2)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-                    ExportFormat.entries.forEach { format ->
-                        FilterChip(
-                            selected = state.format == format,
-                            onClick = { onIntent(StrengthExportIntent.SelectFormat(format)) },
-                            enabled = !state.isGenerating,
-                            label = { Text(stringResource(format.labelRes())) },
-                        )
+                    if (state.sections.isEmpty()) {
+                        Text(stringResource(R.string.foryou_export_select_section), color = CareerCompassTheme.colors.error)
                     }
                 }
             }
@@ -138,9 +146,16 @@ internal fun StrengthExportContent(
                         Text(stringResource(R.string.foryou_export_empty), style = CareerCompassTheme.typography.bodyMedium)
                         CareerCompassButton(text = stringResource(R.string.foryou_export_add_experience), onClick = onAddExperience)
                     } else {
-                        CareerCompassCard(modifier = Modifier.fillMaxWidth()) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = CareerCompassTheme.shapes.card,
+                            color = CareerCompassTheme.colors.inverseSurface,
+                            contentColor = CareerCompassTheme.colors.inverseOnSurface,
+                        ) {
                             // HTML도 문자열 그대로 미리 보고 복사한다. 서버 본문을 WebView에서 실행하지 않는다.
-                            SelectionContainer { Text(preview.content, style = CareerCompassTheme.typography.bodyMedium) }
+                            SelectionContainer(modifier = Modifier.padding(spacing.large)) {
+                                Text(preview.content, style = CareerCompassTheme.typography.bodyMedium)
+                            }
                         }
                     }
                     CareerCompassButton(
