@@ -2,6 +2,8 @@ package com.careercompass.feature.editor.presentation.setup
 
 import com.careercompass.core.model.user.ProfileFieldViolation
 import com.careercompass.core.ui.failure.FailureKind
+import com.careercompass.feature.editor.domain.model.ApplicationDraft
+import com.careercompass.feature.editor.domain.model.ApplicationItemDraft
 import com.careercompass.feature.editor.domain.model.ApplicationTone
 
 /** 스낵바 한 줄로 끝나는 알림. */
@@ -71,9 +73,13 @@ public sealed interface ApplicationSetupEvent {
 
 /** 초안 생성이 시작됐다 — 앱 셸이 진행 화면으로 보낸다(#184). */
 public data class ApplicationDraftStarted(
-    val applicationId: Long,
+    val draft: ApplicationDraft,
     val postingId: Long,
-)
+    val tone: ApplicationTone,
+    val requestItems: List<ApplicationItemDraft>?,
+) {
+    val applicationId: Long get() = draft.id
+}
 
 /** 세션이 끝났다(401). 앱 셸이 로그인으로 보낸다. */
 public data object ApplicationSetupSessionEnd
