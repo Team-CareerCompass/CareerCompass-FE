@@ -1,4 +1,4 @@
-package com.careercompass.feature.onboarding.domain.usecase
+package com.careercompass.core.domain.usecase
 
 import com.careercompass.core.domain.repository.PastApplicationRepository
 import com.careercompass.core.model.application.PastApplication

@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.careercompass.core.common.reporting.ErrorReporter
 import com.careercompass.core.domain.error.CoreDataFailure
+import com.careercompass.core.domain.usecase.UploadPastApplicationUseCase
 import com.careercompass.core.model.application.MAX_PAST_APPLICATIONS
 import com.careercompass.core.model.application.PastApplication
 import com.careercompass.core.model.application.PastApplicationCategory
@@ -46,6 +47,7 @@ public data class PastApplicationListUiState(
     val applications: List<PastApplication> = emptyList(),
     val expandedId: Long? = null,
     val isLoading: Boolean = false,
+    val hasLoadedApplications: Boolean = false,
     val loadFailure: FailureKind? = null,
     val categoryEditor: PastApplicationItemCategoryState? = null,
     val isUpdatingCategory: Boolean = false,
@@ -53,6 +55,9 @@ public data class PastApplicationListUiState(
     val isDeleting: Boolean = false,
     val message: PastApplicationListMessage? = null,
     val directInput: DirectInputState? = null,
+    val fileUpload: PastApplicationFileUploadState = PastApplicationFileUploadState(),
+    val showAddOptions: Boolean = false,
+    val filePickerRequested: Boolean = false,
     val sessionEnd: ProfileSessionEnd? = null,
 ) : UiState {
     val isInitialLoading: Boolean get() = applications.isEmpty() && loadFailure == null && isLoading
@@ -92,10 +97,32 @@ public sealed interface PastApplicationListIntent : MviIntent {
         val event: DirectInputEvent,
     ) : PastApplicationListIntent
 
+    public data class FileUpload(
+        val event: PastApplicationFileUploadIntent,
+    ) : PastApplicationListIntent
+
+    public data object ConsumeFilePicker : PastApplicationListIntent
+
     public data object ConsumeSessionEnded : PastApplicationListIntent
 }
 
 public sealed interface PastApplicationListReducerEvent : ReducerEvent {
+    public data class FileUploadChanged(
+        val value: PastApplicationFileUploadState,
+    ) : PastApplicationListReducerEvent
+
+    public data class AddOptionsChanged(
+        val visible: Boolean,
+    ) : PastApplicationListReducerEvent
+
+    public data class FilePickerChanged(
+        val requested: Boolean,
+    ) : PastApplicationListReducerEvent
+
+    public data class ApplicationUploaded(
+        val application: PastApplication,
+    ) : PastApplicationListReducerEvent
+
     public data object LoadStarted : PastApplicationListReducerEvent
 
     public data object LoadCancelled : PastApplicationListReducerEvent
@@ -187,6 +214,7 @@ public class PastApplicationListViewModel
         private val updateItemCategory: UpdatePastApplicationItemCategoryUseCase,
         private val deletePastApplication: DeletePastApplicationUseCase,
         private val uploadPastApplicationText: UploadPastApplicationTextUseCase,
+        uploadPastApplication: UploadPastApplicationUseCase,
         private val errorReporter: ErrorReporter,
         savedStateHandle: SavedStateHandle,
     ) : MviViewModel<PastApplicationListIntent, PastApplicationListUiState, PastApplicationListReducerEvent>(
@@ -199,13 +227,51 @@ public class PastApplicationListViewModel
         private var uploadJob: Job? = null
         private var loadGeneration = 0L
         private var reloadAfterMutation = false
+        private var sessionClosed = false
+        private val fileUploads =
+            PastApplicationFileUploadController(
+                scope = viewModelScope,
+                handle = savedStateHandle,
+                state = { currentState.fileUpload },
+                canStart = {
+                    !sessionClosed && !currentState.isDeleting && !currentState.isUpdatingCategory && currentState.directInput == null
+                },
+                isLimitReached = { currentState.isLimitReached },
+                limitReached = { dispatch(PastApplicationListReducerEvent.MessageRaised(PastApplicationListMessage.LimitReached)) },
+                upload = uploadPastApplication,
+                changed = { dispatch(PastApplicationListReducerEvent.FileUploadChanged(it)) },
+                prepare = ::prepareMutation,
+                finished = { completeMutation() },
+                added = {
+                    dispatch(PastApplicationListReducerEvent.ApplicationUploaded(it))
+                    dispatch(PastApplicationListReducerEvent.MessageRaised(PastApplicationListMessage.Uploaded))
+                },
+                failed = { cause ->
+                    errorReporter.recordProfileFailure(ProfileFailureStage.PastApplicationUpload, cause)
+                    if (cause is CoreDataFailure.Unauthorized) endSession()
+                    if (cause is CoreDataFailure.LimitExceeded) {
+                        dispatch(PastApplicationListReducerEvent.MessageRaised(PastApplicationListMessage.LimitReached))
+                    }
+                },
+            )
 
         init {
             load()
         }
 
         override fun onIntent(intent: PastApplicationListIntent) {
+            if (sessionClosed && intent != PastApplicationListIntent.ConsumeSessionEnded) return
             when (intent) {
+                is PastApplicationListIntent.FileUpload -> {
+                    if (intent.event != PastApplicationFileUploadIntent.Submit || currentState.hasLoadedApplications) {
+                        fileUploads.accept(intent.event)
+                    }
+                }
+
+                PastApplicationListIntent.ConsumeFilePicker -> {
+                    dispatch(PastApplicationListReducerEvent.FilePickerChanged(false))
+                }
+
                 is PastApplicationListIntent.Screen -> {
                     onEvent(intent.event)
                 }
@@ -249,6 +315,25 @@ public class PastApplicationListViewModel
             event: PastApplicationListReducerEvent,
         ): PastApplicationListUiState =
             when (event) {
+                is PastApplicationListReducerEvent.FileUploadChanged -> {
+                    state.copy(fileUpload = event.value)
+                }
+
+                is PastApplicationListReducerEvent.AddOptionsChanged -> {
+                    state.copy(showAddOptions = event.visible)
+                }
+
+                is PastApplicationListReducerEvent.FilePickerChanged -> {
+                    state.copy(filePickerRequested = event.requested)
+                }
+
+                is PastApplicationListReducerEvent.ApplicationUploaded -> {
+                    state.copy(
+                        applications = state.applications.filterNot { it.id == event.application.id } + event.application,
+                        loadFailure = null,
+                    )
+                }
+
                 PastApplicationListReducerEvent.LoadStarted -> {
                     state.copy(isLoading = true, loadFailure = null)
                 }
@@ -260,6 +345,7 @@ public class PastApplicationListViewModel
                 is PastApplicationListReducerEvent.Loaded -> {
                     state.copy(
                         applications = event.applications,
+                        hasLoadedApplications = true,
                         isLoading = false,
                         loadFailure = null,
                         // 사라진 지원서를 펼친 채로 두지 않는다.
@@ -326,6 +412,8 @@ public class PastApplicationListViewModel
                         isDeleting = false,
                         isUpdatingCategory = false,
                         directInput = null,
+                        showAddOptions = false,
+                        filePickerRequested = false,
                         sessionEnd = event.cause,
                     )
                 }
@@ -364,9 +452,23 @@ public class PastApplicationListViewModel
                 }
 
                 PastApplicationListEvent.AddClicked -> {
-                    if (currentState.isLimitReached) {
-                        dispatch(PastApplicationListReducerEvent.MessageRaised(PastApplicationListMessage.LimitReached))
-                    } else {
+                    if (canAdd()) dispatch(PastApplicationListReducerEvent.AddOptionsChanged(true))
+                }
+
+                PastApplicationListEvent.DismissAddOptions -> {
+                    dispatch(PastApplicationListReducerEvent.AddOptionsChanged(false))
+                }
+
+                PastApplicationListEvent.FileUploadClicked -> {
+                    if (canAdd()) {
+                        dispatch(PastApplicationListReducerEvent.AddOptionsChanged(false))
+                        dispatch(PastApplicationListReducerEvent.FilePickerChanged(true))
+                    }
+                }
+
+                PastApplicationListEvent.DirectInputClicked -> {
+                    if (canAdd()) {
+                        dispatch(PastApplicationListReducerEvent.AddOptionsChanged(false))
                         dispatch(PastApplicationListReducerEvent.DirectInputChanged(inputDraft.restore()))
                     }
                 }
@@ -380,6 +482,16 @@ public class PastApplicationListViewModel
                     Unit
                 }
             }
+        }
+
+        private fun canAdd(): Boolean {
+            if (currentState.isLimitReached) {
+                dispatch(PastApplicationListReducerEvent.MessageRaised(PastApplicationListMessage.LimitReached))
+                return false
+            }
+            return !sessionClosed && !currentState.isLoading && !currentState.isFailureVisible &&
+                !currentState.isDeleting && !currentState.isUpdatingCategory &&
+                currentState.fileUpload.file == null && currentState.directInput == null
         }
 
         /**
@@ -414,6 +526,7 @@ public class PastApplicationListViewModel
 
         private fun submitDirectInput(input: DirectInputState) {
             if (uploadJob?.isActive == true) return
+            prepareMutation()
             dispatch(PastApplicationListReducerEvent.DirectInputChanged(input.copy(isSubmitting = true)))
             uploadJob =
                 viewModelScope.launch {
@@ -422,8 +535,11 @@ public class PastApplicationListViewModel
                             inputDraft.clear()
                             dispatch(PastApplicationListReducerEvent.DirectInputChanged(null))
                             dispatch(PastApplicationListReducerEvent.MessageRaised(PastApplicationListMessage.Uploaded))
-                            load()
-                        }.onFailure { cause -> onUploadFailure(input, cause) }
+                            completeMutation(refresh = true)
+                        }.onFailure { cause ->
+                            onUploadFailure(input, cause)
+                            completeMutation()
+                        }
                 }
         }
 
@@ -467,7 +583,9 @@ public class PastApplicationListViewModel
 
         private fun load() {
             // 쓰기 중 읽은 서버 값은 아직 옛 값일 수 있다. 마지막 쓰기가 끝난 뒤 한 번만 갱신한다.
-            if (currentState.isUpdatingCategory || currentState.isDeleting) {
+            if (currentState.isUpdatingCategory || currentState.isDeleting || currentState.fileUpload.isSubmitting ||
+                currentState.directInput?.isSubmitting == true
+            ) {
                 reloadAfterMutation = true
                 return
             }
@@ -502,7 +620,10 @@ public class PastApplicationListViewModel
                 return
             }
             reloadAfterMutation = reloadAfterMutation || refresh
-            if (!currentState.isUpdatingCategory && !currentState.isDeleting && reloadAfterMutation) {
+            if (!currentState.isUpdatingCategory && !currentState.isDeleting && !currentState.fileUpload.isSubmitting &&
+                currentState.directInput?.isSubmitting != true &&
+                reloadAfterMutation
+            ) {
                 reloadAfterMutation = false
                 load()
             }
@@ -609,6 +730,10 @@ public class PastApplicationListViewModel
         }
 
         private fun endSession() {
+            sessionClosed = true
+            invalidateLoad()
+            uploadJob?.cancel()
+            fileUploads.cancelForSession()
             inputDraft.clear()
             dispatch(PastApplicationListReducerEvent.SessionEnded(ProfileSessionEnd.Expired))
         }

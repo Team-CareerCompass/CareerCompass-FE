@@ -35,9 +35,9 @@ internal fun OnboardingFailureReason.toMessage(): String =
         OnboardingFailureReason.Unknown,
         -> FailureKind.Unexpected.display().sentence()
 
-        OnboardingFailureReason.UnsupportedFile -> stringResource(R.string.onboarding_failure_unsupported_file)
+        OnboardingFailureReason.UnsupportedFile -> stringResource(com.careercompass.core.ui.R.string.core_ui_upload_unsupported_file)
 
-        OnboardingFailureReason.FileTooLarge -> stringResource(R.string.onboarding_failure_file_too_large)
+        OnboardingFailureReason.FileTooLarge -> stringResource(com.careercompass.core.ui.R.string.core_ui_upload_file_too_large)
     }
 
 /**

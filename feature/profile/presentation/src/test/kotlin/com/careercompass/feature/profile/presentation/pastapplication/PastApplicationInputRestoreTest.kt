@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import com.careercompass.core.common.reporting.ErrorReporter
 import com.careercompass.core.domain.error.CoreDataFailure
 import com.careercompass.core.domain.testing.FakePastApplicationRepository
+import com.careercompass.core.domain.usecase.UploadPastApplicationUseCase
 import com.careercompass.core.ui.component.DirectInputEvent
 import com.careercompass.feature.profile.domain.usecase.DeletePastApplicationUseCase
 import com.careercompass.feature.profile.domain.usecase.GetPastApplicationsUseCase
@@ -199,7 +200,8 @@ class PastApplicationInputRestoreTest {
         )
     }
 
-    private fun PastApplicationListViewModel.open() = onIntent(PastApplicationListIntent.Screen(PastApplicationListEvent.AddClicked))
+    private fun PastApplicationListViewModel.open() =
+        onIntent(PastApplicationListIntent.Screen(PastApplicationListEvent.DirectInputClicked))
 
     private fun PastApplicationListViewModel.input(event: DirectInputEvent) = onIntent(PastApplicationListIntent.DirectInput(event))
 
@@ -220,6 +222,7 @@ class PastApplicationInputRestoreTest {
             updateItemCategory = UpdatePastApplicationItemCategoryUseCase(repository),
             deletePastApplication = DeletePastApplicationUseCase(repository),
             uploadPastApplicationText = UploadPastApplicationTextUseCase(repository),
+            uploadPastApplication = UploadPastApplicationUseCase(repository),
             errorReporter = reporter,
             savedStateHandle = savedStateHandle,
         )

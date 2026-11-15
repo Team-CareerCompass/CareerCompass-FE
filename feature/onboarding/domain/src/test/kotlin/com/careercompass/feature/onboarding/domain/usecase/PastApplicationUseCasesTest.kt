@@ -1,6 +1,7 @@
 package com.careercompass.feature.onboarding.domain.usecase
 
 import com.careercompass.core.domain.testing.FakePastApplicationRepository
+import com.careercompass.core.domain.usecase.UploadPastApplicationUseCase
 import com.careercompass.core.model.application.PastApplication
 import com.careercompass.core.model.application.PastApplicationCategory
 import com.careercompass.core.model.application.PastApplicationItem

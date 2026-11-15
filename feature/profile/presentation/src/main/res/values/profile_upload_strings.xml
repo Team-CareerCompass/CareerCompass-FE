@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_upload_choose_title">지원서 추가</string>
+    <string name="profile_upload_file_action">파일 올리기</string>
+    <string name="profile_upload_direct_action">직접 쓰기</string>
+    <string name="profile_upload_formats">PDF, DOCX, TXT · 최대 10MB</string>
+    <string name="profile_upload_title">지원서 이름 확인</string>
+    <string name="profile_upload_selected_file">선택한 파일: %1$s</string>
+    <string name="profile_upload_label">지원서 이름</string>
+    <string name="profile_upload_hint">최대 50자 · 업로드 후에는 이름을 변경할 수 없어요.</string>
+    <string name="profile_upload_submit">업로드</string>
+    <string name="profile_upload_progress">업로드 중…</string>
+</resources>

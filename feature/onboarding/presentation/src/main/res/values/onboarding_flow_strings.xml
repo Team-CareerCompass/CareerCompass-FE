@@ -3,8 +3,6 @@
     <!-- §9 코드의 배너 문구는 실패 표(core_ui_failure_*, #204)를 읽는다(#236). 여기 남는 것은 화면 고유 사유와 카드 상태 줄뿐이다. -->
     <!-- 로그인 화면의 세션 만료 안내(#128) 전용. 온보딩 흐름은 만료를 그리지 않고 이 화면으로 보낸다(#211). -->
     <string name="onboarding_failure_session_expired">로그인이 만료됐어요. 다시 로그인해 주세요</string>
-    <string name="onboarding_failure_unsupported_file">PDF, DOCX, TXT 파일만 올릴 수 있어요</string>
-    <string name="onboarding_failure_file_too_large">파일은 10MB 이하만 올릴 수 있어요</string>
     <string name="onboarding_upload_failed_network">연결 실패</string>
     <string name="onboarding_upload_failed_limit">상한 초과</string>
     <string name="onboarding_upload_failed_invalid">지원하지 않는 파일</string>

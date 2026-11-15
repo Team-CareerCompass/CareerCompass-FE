@@ -6,6 +6,7 @@ import com.careercompass.core.domain.testing.FakeAuthRepository
 import com.careercompass.core.domain.testing.FakeExperienceRepository
 import com.careercompass.core.domain.testing.FakePastApplicationRepository
 import com.careercompass.core.domain.testing.FakeUserProfileRepository
+import com.careercompass.core.domain.usecase.UploadPastApplicationUseCase
 import com.careercompass.core.model.application.UploadFile
 import com.careercompass.core.model.user.JobInterest
 import com.careercompass.core.model.user.UserProfile
@@ -25,7 +26,6 @@ import com.careercompass.feature.onboarding.domain.usecase.SaveBasicInfoUseCase
 import com.careercompass.feature.onboarding.domain.usecase.SaveJobPreferencesUseCase
 import com.careercompass.feature.onboarding.domain.usecase.UpdateExperienceUseCase
 import com.careercompass.feature.onboarding.domain.usecase.UpdatePastApplicationItemCategoryUseCase
-import com.careercompass.feature.onboarding.domain.usecase.UploadPastApplicationUseCase
 import com.careercompass.feature.onboarding.presentation.OnboardingStep1Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep2Event
 import com.careercompass.feature.onboarding.presentation.OnboardingStep4Event
