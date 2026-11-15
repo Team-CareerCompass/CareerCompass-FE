@@ -21,7 +21,11 @@ import com.careercompass.feature.editor.domain.model.ApplicationTone
 import com.careercompass.feature.editor.domain.model.settled
 import com.careercompass.feature.editor.domain.repository.ApplicationRepository
 import com.careercompass.feature.editor.domain.usecase.ObserveApplicationDraftUseCase
+import com.careercompass.feature.editor.domain.usecase.SaveApplicationUseCase
+import com.careercompass.feature.editor.domain.usecase.UpdateApplicationItemAnswerUseCase
 import com.careercompass.feature.editor.presentation.editor.ApplicationEditorInput
+import com.careercompass.feature.editor.presentation.save.ApplicationSaveController
+import com.careercompass.feature.editor.presentation.save.ApplicationSaveState
 import com.careercompass.feature.editor.presentation.setup.ApplicationDraftStarted
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -46,6 +50,8 @@ public data class ApplicationProgressUiState(
     val editedAnswers: Map<Long, String> = emptyMap(),
     val selectedItemId: Long? = null,
     val inputLimitReached: Boolean = false,
+    val save: ApplicationSaveState = ApplicationSaveState(),
+    val savedNavigationPending: Boolean = false,
 ) : UiState
 
 public sealed interface ApplicationProgressIntent : MviIntent {
@@ -71,6 +77,20 @@ public sealed interface ApplicationProgressIntent : MviIntent {
         val itemId: Long,
         val answer: String,
     ) : ApplicationProgressIntent
+
+    public data object EditorResumed : ApplicationProgressIntent
+
+    public data object EditorPaused : ApplicationProgressIntent
+
+    public data object SaveFinal : ApplicationProgressIntent
+
+    public data object ConfirmOverLimitSave : ApplicationProgressIntent
+
+    public data object DismissOverLimitSave : ApplicationProgressIntent
+
+    public data object RetrySave : ApplicationProgressIntent
+
+    public data object ConsumeSaved : ApplicationProgressIntent
 
     public data object ConsumeSessionEnded : ApplicationProgressIntent
 }
@@ -101,6 +121,16 @@ public sealed interface ApplicationProgressReducerEvent : ReducerEvent {
         val limitReached: Boolean = false,
     ) : ApplicationProgressReducerEvent
 
+    public data class SaveChanged(
+        val value: ApplicationSaveState,
+    ) : ApplicationProgressReducerEvent
+
+    public data class Saved(
+        val draft: ApplicationDraft,
+    ) : ApplicationProgressReducerEvent
+
+    public data object SavedConsumed : ApplicationProgressReducerEvent
+
     public data object IdentityMismatch : ApplicationProgressReducerEvent
 
     public data object SessionEnded : ApplicationProgressReducerEvent
@@ -116,6 +146,8 @@ public class ApplicationProgressViewModel
         @Assisted private val postingId: Long,
         private val repository: ApplicationRepository,
         private val observeDraft: ObserveApplicationDraftUseCase,
+        updateAnswer: UpdateApplicationItemAnswerUseCase,
+        saveApplication: SaveApplicationUseCase,
         private val reporter: ErrorReporter,
         private val handle: SavedStateHandle,
     ) : MviViewModel<ApplicationProgressIntent, ApplicationProgressUiState, ApplicationProgressReducerEvent>(
@@ -138,6 +170,36 @@ public class ApplicationProgressViewModel
         private var resumed = false
         private var needsRecovery = identity.applicationId != null
         private var ended = false
+        private var editing = false
+        private val saves =
+            ApplicationSaveController(
+                scope = viewModelScope,
+                state = { currentState },
+                updateAnswer = updateAnswer,
+                saveApplication = saveApplication,
+                changed = { dispatch(ApplicationProgressReducerEvent.SaveChanged(it)) },
+                patched = { updated ->
+                    retryOverrides[updated.id] = updated
+                    currentState.draft?.let { current ->
+                        val items = current.items.map { if (it.id == updated.id) updated else it }
+                        dispatch(ApplicationProgressReducerEvent.DraftChanged(current.copy(items = items)))
+                    }
+                },
+                saved = { stored ->
+                    streamJob?.cancel()
+                    generation++
+                    identity.clear()
+                    input.clear()
+                    dispatch(ApplicationProgressReducerEvent.Saved(stored))
+                },
+                failed = { failure ->
+                    if (failure is CoreDataFailure.Unauthorized) {
+                        fail("save", failure)
+                    } else {
+                        reporter.recordStagedFailure(stageKey = "editor_stage", stage = "save", throwable = failure)
+                    }
+                },
+            )
 
         override fun onIntent(intent: ApplicationProgressIntent) {
             if (ended && intent != ApplicationProgressIntent.ConsumeSessionEnded) return
@@ -154,11 +216,13 @@ public class ApplicationProgressViewModel
                 ApplicationProgressIntent.Resumed -> {
                     if (resumed) return
                     resumed = true
+                    saves.setActive(editing)
                     if (needsRecovery || currentState.draft == null) recover() else startStream()
                 }
 
                 ApplicationProgressIntent.Paused -> {
                     resumed = false
+                    saves.setActive(false)
                     if (streamJob?.isActive == true || recoverJob?.isActive == true) {
                         needsRecovery = true
                         generation++
@@ -177,12 +241,14 @@ public class ApplicationProgressViewModel
                 }
 
                 is ApplicationProgressIntent.SelectItem -> {
+                    if (currentState.save.isFinalSaving || currentState.save.completed) return
                     if (currentState.draft?.items?.none { it.id == intent.itemId } != false) return
                     input.save(currentState.editedAnswers, intent.itemId)
                     dispatch(ApplicationProgressReducerEvent.InputChanged(currentState.editedAnswers, intent.itemId))
                 }
 
                 is ApplicationProgressIntent.EditAnswer -> {
+                    if (currentState.save.isFinalSaving || currentState.save.completed) return
                     if (currentState.identityMismatch || currentState.draft?.items?.none { it.id == intent.itemId } != false) return
                     val answers = currentState.editedAnswers + (intent.itemId to intent.answer)
                     val exceedsLimit = answers.values.sumOf { it.length.toLong() } > ApplicationEditorInput.MAX_CHARS
@@ -196,6 +262,36 @@ public class ApplicationProgressViewModel
                     )
                 }
 
+                ApplicationProgressIntent.EditorResumed -> {
+                    editing = true
+                    saves.setActive(resumed)
+                }
+
+                ApplicationProgressIntent.EditorPaused -> {
+                    editing = false
+                    saves.setActive(false)
+                }
+
+                ApplicationProgressIntent.SaveFinal -> {
+                    saves.requestFinal()
+                }
+
+                ApplicationProgressIntent.ConfirmOverLimitSave -> {
+                    saves.confirmFinal()
+                }
+
+                ApplicationProgressIntent.DismissOverLimitSave -> {
+                    saves.dismissConfirmation()
+                }
+
+                ApplicationProgressIntent.RetrySave -> {
+                    saves.retry()
+                }
+
+                ApplicationProgressIntent.ConsumeSaved -> {
+                    dispatch(ApplicationProgressReducerEvent.SavedConsumed)
+                }
+
                 ApplicationProgressIntent.ConsumeSessionEnded -> {
                     dispatch(ApplicationProgressReducerEvent.SessionEndConsumed)
                 }
@@ -203,6 +299,7 @@ public class ApplicationProgressViewModel
         }
 
         private fun recover() {
+            if (currentState.save.isSaving || currentState.save.completed) return
             val expectedId = identity.applicationId ?: return
             if (recoverJob?.isActive == true || retryJobs.values.any { it.isActive } || currentState.identityMismatch) return
             streamJob?.cancel()
@@ -293,6 +390,7 @@ public class ApplicationProgressViewModel
         }
 
         private fun retryItem(id: Long) {
+            if (currentState.save.isSaving || currentState.save.completed) return
             val draft = currentState.draft ?: return
             val item = draft.items.firstOrNull { it.id == id } ?: return
             if (item.status != ApplicationItemStatus.Failed || currentState.isRecovering || id in currentState.retryingIds) return
@@ -352,6 +450,7 @@ public class ApplicationProgressViewModel
             reporter.recordStagedFailure(stageKey = "editor_stage", stage = stage, throwable = failure)
             if (failure is CoreDataFailure.Unauthorized) {
                 ended = true
+                saves.cancel()
                 generation++
                 streamJob?.cancel()
                 recoverJob?.cancel()
@@ -406,6 +505,24 @@ public class ApplicationProgressViewModel
                         selectedItemId = event.selectedItemId,
                         inputLimitReached = event.limitReached,
                     )
+                }
+
+                is ApplicationProgressReducerEvent.SaveChanged -> {
+                    state.copy(save = event.value)
+                }
+
+                is ApplicationProgressReducerEvent.Saved -> {
+                    state.copy(
+                        draft = event.draft,
+                        editedAnswers = emptyMap(),
+                        selectedItemId = null,
+                        isStreaming = false,
+                        savedNavigationPending = true,
+                    )
+                }
+
+                ApplicationProgressReducerEvent.SavedConsumed -> {
+                    state.copy(savedNavigationPending = false)
                 }
 
                 ApplicationProgressReducerEvent.IdentityMismatch -> {

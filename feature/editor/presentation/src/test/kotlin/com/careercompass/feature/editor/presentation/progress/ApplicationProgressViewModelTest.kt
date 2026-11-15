@@ -26,6 +26,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -432,6 +433,55 @@ class ApplicationProgressViewModelTest {
             assertNull(vm.uiState.value.selectedItemId)
         }
 
+    @Test fun `최종 저장 중 새 편집을 막고 성공 뒤 입력과 복구 식별자를 지운다`() =
+        runTest(dispatcher) {
+            val handle = SavedStateHandle()
+            val model = vm(handle)
+            val ready = draft().copy(status = ApplicationStatus.Ready, items = listOf(item(1, ApplicationItemStatus.Done, "서버 답")))
+            model.onIntent(ApplicationProgressIntent.Started(ApplicationDraftStarted(ready, 101, ApplicationTone.Formal, null)))
+            model.onIntent(ApplicationProgressIntent.EditAnswer(1, "최종 답"))
+            repository.onUpdateItemAnswer = { _, id, answer -> Result.success(item(id, ApplicationItemStatus.Done, answer)) }
+            val later = CompletableDeferred<Result<ApplicationDraft>>()
+            repository.onSave = { later.await() }
+            model.onIntent(ApplicationProgressIntent.SaveFinal)
+            model.onIntent(ApplicationProgressIntent.EditAnswer(1, "저장 중 무시할 편집"))
+            runCurrent()
+            assertTrue(model.uiState.value.save.isFinalSaving)
+            assertEquals("최종 답", model.uiState.value.editedAnswers[1L])
+            later.complete(Result.success(ready.copy(status = ApplicationStatus.Saved)))
+            runCurrent()
+            assertTrue(model.uiState.value.save.completed)
+            assertTrue(model.uiState.value.savedNavigationPending)
+            assertTrue(
+                model.uiState.value.editedAnswers
+                    .isEmpty(),
+            )
+            assertNull(ProgressIdentity(handle).applicationId)
+            model.onIntent(ApplicationProgressIntent.ConsumeSaved)
+            model.onIntent(ApplicationProgressIntent.SaveFinal)
+            assertFalse(model.uiState.value.savedNavigationPending)
+            assertEquals(1, repository.saveCalls.size)
+        }
+
+    @Test fun `자동 저장 401은 타이머와 개인 입력을 함께 정리한다`() =
+        runTest(dispatcher) {
+            val model = start(draft().copy(items = listOf(item(1, ApplicationItemStatus.Done, "서버 답"))))
+            model.onIntent(ApplicationProgressIntent.EditAnswer(1, "개인 초안"))
+            repository.onUpdateItemAnswer = { _, _, _ -> Result.failure(CoreDataFailure.Unauthorized("AUTH_REQUIRED", IOException())) }
+            model.onIntent(ApplicationProgressIntent.EditorResumed)
+            advanceTimeBy(30_000)
+            runCurrent()
+            assertTrue(model.uiState.value.sessionEnded)
+            assertTrue(
+                model.uiState.value.editedAnswers
+                    .isEmpty(),
+            )
+            assertNull(model.uiState.value.draft)
+            advanceTimeBy(120_000)
+            runCurrent()
+            assertEquals(1, repository.updateAnswerCalls.size)
+        }
+
     private fun start(draft: ApplicationDraft = draft()): ApplicationProgressViewModel =
         vm().also {
             it.onIntent(ApplicationProgressIntent.Started(ApplicationDraftStarted(draft, 101, ApplicationTone.Formal, null)))
@@ -443,6 +493,10 @@ class ApplicationProgressViewModelTest {
             101,
             repository,
             ObserveApplicationDraftUseCase(repository),
+            com.careercompass.feature.editor.domain.usecase
+                .UpdateApplicationItemAnswerUseCase(repository),
+            com.careercompass.feature.editor.domain.usecase
+                .SaveApplicationUseCase(repository),
             object : ErrorReporter {
                 override fun writeFailure(
                     throwable: Throwable,
