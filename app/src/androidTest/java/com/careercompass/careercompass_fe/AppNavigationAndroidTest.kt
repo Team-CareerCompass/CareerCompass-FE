@@ -392,7 +392,9 @@ class AppNavigationAndroidTest {
                 .isNotEmpty()
         }
         composeRule.onNodeWithText("지원서 초안 작성하기").performClick()
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("초안 작성 시작"))
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText("초안 작성 시작").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
         composeRule.onNodeWithText("초안 작성 시작").performClick()
         composeRule.waitUntil(10_000) { events.subscriptionCount.value == 1 }
         serverDraft =
