@@ -14,6 +14,8 @@ public sealed interface EditorRoute : NavKey {
     @Serializable public data object Progress : EditorRoute
 
     @Serializable public data object Editor : EditorRoute
+
+    @Serializable public data object Saved : EditorRoute
 }
 
 public interface EditorExternalActions {
@@ -26,6 +28,8 @@ internal interface EditorNavActions {
     fun showProgress()
 
     fun showEditor()
+
+    fun showSaved()
 
     fun popBack()
 
@@ -44,6 +48,8 @@ internal class EditorLocalNavActions(
     override fun showEditor() {
         if (stack.lastOrNull() != EditorRoute.Editor) stack.add(EditorRoute.Editor)
     }
+
+    override fun showSaved() = stack.replaceAllWith(EditorRoute.Saved)
 
     override fun popBack() = stack.popOrExit(boundary)
 

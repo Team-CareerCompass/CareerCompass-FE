@@ -30,11 +30,14 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.careercompass.core.ui.component.CareerCompassButton
+import com.careercompass.core.ui.component.CareerCompassButtonVariant
 import com.careercompass.core.ui.component.CareerCompassTopAppBar
 import com.careercompass.core.ui.theme.CareerCompassTheme
 import com.careercompass.feature.editor.presentation.R
 import com.careercompass.feature.editor.presentation.progress.ApplicationProgressIntent
 import com.careercompass.feature.editor.presentation.progress.ApplicationProgressUiState
+import com.careercompass.feature.editor.presentation.save.ApplicationSaveStatus
+import com.careercompass.feature.editor.presentation.save.canSaveFinal
 
 @Composable
 internal fun ApplicationEditorContent(
@@ -62,7 +65,9 @@ internal fun ApplicationEditorContent(
                         .width(IntrinsicSize.Max)
                         .widthIn(min = 88.dp)
                         .heightIn(min = 48.dp)
-                        .selectable(isSelected, role = Role.Tab, onClick = { onIntent(ApplicationProgressIntent.SelectItem(item.id)) })
+                        .selectable(isSelected, enabled = !state.save.isFinalSaving, role = Role.Tab, onClick = {
+                            onIntent(ApplicationProgressIntent.SelectItem(item.id))
+                        })
                         .padding(horizontal = spacing.medium, vertical = spacing.small),
                     verticalArrangement = Arrangement.spacedBy(spacing.small),
                 ) {
@@ -105,7 +110,7 @@ internal fun ApplicationEditorContent(
                 minLines = 10,
                 maxLines = 16,
                 isError = overflow,
-                enabled = !state.identityMismatch && !state.sessionEnded,
+                enabled = !state.identityMismatch && !state.sessionEnded && !state.save.isFinalSaving,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             )
             Text(
@@ -115,11 +120,10 @@ internal fun ApplicationEditorContent(
             )
             if (overflow) Text(stringResource(R.string.editor_edit_overflow), color = colors.error)
             if (state.inputLimitReached) Text(stringResource(R.string.editor_edit_input_limit), color = colors.error)
-            Text(
-                stringResource(R.string.editor_edit_local_notice),
-                style = CareerCompassTheme.typography.caption,
-                color = colors.onSurfaceVariant,
-            )
+            ApplicationSaveStatus(state.save, onIntent)
+            if (!state.canSaveFinal && !state.save.isSaving) {
+                Text(stringResource(R.string.editor_save_wait_generation), style = CareerCompassTheme.typography.caption)
+            }
             if (state.failure != null || state.identityMismatch) {
                 Text(stringResource(R.string.editor_edit_progress_notice), color = colors.error)
             }
@@ -133,7 +137,15 @@ internal fun ApplicationEditorContent(
                     onBackClick()
                 }
             },
-            modifier = Modifier.fillMaxWidth().padding(spacing.large),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.large, vertical = spacing.small),
+            enabled = !state.save.isSaving,
+            variant = CareerCompassButtonVariant.Secondary,
+        )
+        CareerCompassButton(
+            text = stringResource(R.string.editor_save_final),
+            onClick = { onIntent(ApplicationProgressIntent.SaveFinal) },
+            enabled = state.canSaveFinal,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.large, vertical = spacing.small),
         )
     }
 }

@@ -1,5 +1,6 @@
 package com.careercompass.feature.editor.presentation.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -16,6 +17,7 @@ import com.careercompass.feature.editor.presentation.editor.ApplicationEditorScr
 import com.careercompass.feature.editor.presentation.progress.ApplicationProgressIntent
 import com.careercompass.feature.editor.presentation.progress.ApplicationProgressScreen
 import com.careercompass.feature.editor.presentation.progress.ApplicationProgressViewModel
+import com.careercompass.feature.editor.presentation.save.ApplicationSavedScreen
 import com.careercompass.feature.editor.presentation.setup.ApplicationSetupScreen
 import com.careercompass.feature.editor.presentation.setup.ApplicationSetupViewModel
 
@@ -42,6 +44,12 @@ public fun EditorNavHost(
         consumed = ApplicationProgressIntent.ConsumeSessionEnded,
         onIntent = progress::onIntent,
     ) { actions.endSession() }
+    ObserveSignal(
+        signal = state.savedNavigationPending.takeIf { it },
+        consumed = ApplicationProgressIntent.ConsumeSaved,
+        onIntent = progress::onIntent,
+    ) { actions.showSaved() }
+    val back = { if (!progress.uiState.value.save.isSaving) actions.popBack() }
     FeatureNavDisplay(
         backStack = stack,
         boundary = boundary,
@@ -65,7 +73,7 @@ public fun EditorNavHost(
                 entry<EditorRoute.Progress> {
                     ApplicationProgressScreen(
                         progress,
-                        actions::popBack,
+                        back,
                         actions::completeProfile,
                         onEditItem = { id ->
                             progress.onIntent(ApplicationProgressIntent.SelectItem(id))
@@ -74,8 +82,13 @@ public fun EditorNavHost(
                     )
                 }
                 entry<EditorRoute.Editor> {
-                    ApplicationEditorScreen(progress, actions::popBack)
+                    ApplicationEditorScreen(progress, back)
+                }
+                entry<EditorRoute.Saved> {
+                    ApplicationSavedScreen(actions::popBack)
                 }
             },
     )
+    // FeatureNavDisplay와 루트 스택보다 나중에 등록해 시스템 뒤로가기까지 막는다.
+    BackHandler(enabled = state.save.isSaving) { }
 }
