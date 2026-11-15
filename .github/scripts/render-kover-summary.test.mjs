@@ -259,6 +259,62 @@ test("leaves a module unmeasured only while it ships no production source", asyn
     assert.ok(unmeasured.length < Object.keys(policy.modules).length / 2);
 });
 
+test("pins For You counters and separate CI evidence without replacing older baselines", async () => {
+    const policy = await loadCoveragePolicy(COMMITTED_POLICY_PATH);
+    const domainSource = {
+        ref: "feat/190-foryou-data-domain",
+        sha: "22d1b7a51f9a4f2c6815c7fd68e766e85ac1ec60",
+        runUrl: "https://github.com/Team-CareerCompass/CareerCompass-FE/actions/runs/43669758813",
+    };
+    assert.deepEqual(policy.modules["feature/foryou/data"], {
+        line: { missed: 1, covered: 40 },
+        branch: { missed: 0, covered: 14 },
+        source: domainSource,
+    });
+    assert.deepEqual(policy.modules["feature/foryou/domain"], {
+        line: { missed: 10, covered: 71 },
+        branch: { missed: 3, covered: 13 },
+        source: domainSource,
+    });
+    assert.deepEqual(policy.modules["feature/foryou/presentation"], {
+        line: { missed: 118, covered: 417 },
+        branch: { missed: 165, covered: 195 },
+        source: {
+            ref: "feat/193-strength-export",
+            sha: "bc0a3999afc9d0f17ee2e132de708b5022b97849",
+            runUrl: "https://github.com/Team-CareerCompass/CareerCompass-FE/actions/runs/43679808993",
+        },
+    });
+});
+
+test("validates module source metadata and links the evidence actually used for comparison", () => {
+    const policy = structuredClone(POLICY);
+    policy.modules.app.source = {
+        ref: "feat/measured",
+        sha: "b".repeat(40),
+        runUrl: "https://example.test/module-measurement",
+    };
+    const modules = [moduleCoverage("app", { missed: 20, covered: 80 }, { missed: 2, covered: 8 })];
+    const evaluation = evaluateCoveragePolicy({ policy, modules });
+    assert.deepEqual(evaluation.modules[0].source, policy.modules.app.source);
+    const summary = renderSummary({
+        aggregate: { LINE: { missed: 20, covered: 80 }, BRANCH: { missed: 2, covered: 8 } },
+        modules,
+        artifactUrl: "https://example.test/artifact",
+        policyEvaluation: evaluation,
+    });
+    assert.match(summary, /`app` baseline: \[`feat\/measured@bbbbbbb`\]\(https:\/\/example.test\/module-measurement\)/);
+    for (const [field, value] of [["sha", "short"], ["ref", ""], ["runUrl", "file:///private"]]) {
+        const invalid = structuredClone(policy);
+        invalid.modules.app.source[field] = value;
+        assert.throws(() => validateCoveragePolicy(invalid), new RegExp(`baseline app.source.${field}`));
+    }
+    assert.deepEqual(
+        evaluateCoveragePolicy({ policy: POLICY, modules }).modules[0].source,
+        POLICY.source,
+    );
+});
+
 test("compares changed modules against the committed baseline instead of calling them new", async () => {
     const policy = await loadCoveragePolicy(COMMITTED_POLICY_PATH);
     const measured = Object.entries(policy.modules).filter(([, baseline]) => baseline.line !== null);
