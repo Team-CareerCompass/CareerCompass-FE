@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="editor_progress_title">지원서 초안</string>
+    <string name="editor_progress_description">항목이 완성되는 대로 보여드려요. 받은 답은 연결이 끊겨도 이 화면에 남아요.</string>
+    <string name="editor_progress_count">%1$d / %2$d개 항목 완료</string>
+    <string name="editor_progress_recovering">진행하던 지원서를 확인하고 있어요</string>
+    <string name="editor_progress_interrupted">연결이 끊겼어요. 다시 시도하면 받은 답을 유지한 채 이어서 확인해요.</string>
+    <string name="editor_progress_mismatch">기존 지원서를 확인하지 못했어요. 받은 답은 그대로 두었어요. 뒤로 돌아가 지원서를 다시 확인해 주세요.</string>
+    <string name="editor_progress_item_question">%1$d. %2$s</string>
+    <string name="editor_progress_done">완료</string>
+    <string name="editor_progress_failed">생성 실패</string>
+    <string name="editor_progress_generating">생성 중</string>
+    <string name="editor_progress_waiting">대기 중</string>
+    <string name="editor_progress_retrying">다시 생성 중</string>
+    <string name="editor_progress_retry_item">이 항목 다시 시도</string>
+    <string name="editor_progress_generating_title">AI가 초안을 작성 중이에요</string>
+    <string name="editor_progress_failed_title">일부 항목 생성에 실패했어요</string>
+    <string name="editor_progress_ready_title">지원서 초안이 준비됐어요</string>
+</resources>

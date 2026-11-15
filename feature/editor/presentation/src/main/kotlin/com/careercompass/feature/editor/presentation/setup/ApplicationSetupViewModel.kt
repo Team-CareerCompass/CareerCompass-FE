@@ -410,7 +410,12 @@ public class ApplicationSetupViewModel
                         inputDraft.clear()
                         dispatch(
                             ApplicationSetupReducerEvent.DraftStarted(
-                                ApplicationDraftStarted(applicationId = draft.id, postingId = postingId),
+                                ApplicationDraftStarted(
+                                    draft = draft,
+                                    postingId = postingId,
+                                    tone = state.tone,
+                                    requestItems = state.items.takeIf { it != state.recognizedItems },
+                                ),
                             ),
                         )
                     }.onFailure { throwable ->

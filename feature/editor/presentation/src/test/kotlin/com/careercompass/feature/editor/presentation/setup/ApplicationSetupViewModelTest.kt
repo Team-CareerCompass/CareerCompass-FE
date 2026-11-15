@@ -252,7 +252,7 @@ class ApplicationSetupViewModelTest {
             assertEquals(ApplicationTone.Casual, call.tone)
             assertEquals(listOf("지원 동기를 작성해 주세요"), call.items?.map { it.question })
             assertEquals(
-                ApplicationDraftStarted(applicationId = 77L, postingId = TEST_POSTING_ID),
+                ApplicationDraftStarted(createdDraft(id = 77L), TEST_POSTING_ID, ApplicationTone.Casual, call.items),
                 viewModel.uiState.value.draftStarted,
             )
         }
