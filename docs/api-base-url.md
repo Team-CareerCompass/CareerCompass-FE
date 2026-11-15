@@ -1,6 +1,6 @@
 # API 주소와 빌드 타입
 
-앱이 우리 서버로 보내는 API 요청의 도착지는 `core/network` 의 `BuildConfig.BASE_URL` 하나로 정해진다. `NetworkModule` 이 만드는 Retrofit 네 개(일반·재발급·업로드·구조 감지)가 모두 이 값을 `baseUrl` 로 받는다. 앱이 보내는 HTTP 요청 전부는 아니다. 소셜 로그인 SDK(카카오·구글)와 Firebase(Crashlytics·FCM)는 각자 자기 서버로 가고 이 값과 무관하다.
+앱이 우리 서버로 보내는 API 요청의 도착지는 `core/network` 의 `BuildConfig.BASE_URL` 하나로 정해진다. `NetworkModule` 이 만드는 Retrofit 다섯 개(일반·재발급·업로드·구조 감지·지원서 스트림)가 모두 이 값을 `baseUrl` 로 받는다. 앱이 보내는 HTTP 요청 전부는 아니다. 소셜 로그인 SDK(카카오·구글)와 Firebase(Crashlytics·FCM)는 각자 자기 서버로 가고 이 값과 무관하다.
 
 ## 어느 빌드가 어느 주소를 쓰나
 

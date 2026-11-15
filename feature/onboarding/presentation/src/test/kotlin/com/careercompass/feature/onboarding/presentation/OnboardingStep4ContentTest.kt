@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
@@ -96,7 +97,7 @@ public class OnboardingStep4ContentTest {
             .onNodeWithTag("onboarding_step4_item_2")
             .assertHeightIsAtLeast(48.dp)
 
-        itemRow("기타").performScrollTo().performClick()
+        itemRow(2L).performScrollTo().performClick()
         collapseToggle().performScrollTo().performClick()
 
         assertEquals(
@@ -153,7 +154,7 @@ public class OnboardingStep4ContentTest {
         )
 
         collapseToggle().assertIsNotEnabled().performClick()
-        itemRow("지원 동기").performScrollTo().assertIsNotEnabled().performClick()
+        itemRow(1L).performScrollTo().assertIsNotEnabled().performClick()
 
         assertTrue(events.isEmpty())
     }
@@ -212,7 +213,7 @@ public class OnboardingStep4ContentTest {
         composeRule.setStep4Content(state = state)
 
         assertFalse(state.isCompleteEnabled)
-        composeRule.onNodeWithContentDescription("지원서 파일 업로드").assertIsEnabled()
+        uploadTarget().assertIsEnabled()
         composeRule.onAllNodesWithText("업로드한 지원서 (0/10)").assertCountEquals(0)
         skipButton().assertIsEnabled()
         completeButton().assertIsNotEnabled()
@@ -272,7 +273,7 @@ public class OnboardingStep4ContentTest {
         composeRule.setStep4Content(state = fullState)
 
         assertFalse(fullState.isUploadEnabled)
-        composeRule.onNodeWithContentDescription("지원서 파일 업로드").assertIsNotEnabled()
+        uploadTarget().assertIsNotEnabled()
         directInputButton().assertIsEnabled()
         completeButton().assertIsEnabled()
     }
@@ -285,14 +286,14 @@ public class OnboardingStep4ContentTest {
             onEvent = events::add,
         )
 
-        composeRule.onNodeWithContentDescription("지원서 파일 업로드").assertIsNotEnabled()
+        uploadTarget().assertIsNotEnabled()
         directInputButton().assertIsNotEnabled()
         retryButton().assertIsNotEnabled()
         documentMenuButton().assertIsNotEnabled()
         skipButton().assertIsNotEnabled()
         completeButton().assertIsNotEnabled()
 
-        composeRule.onNodeWithContentDescription("지원서 파일 업로드").performClick()
+        uploadTarget().performClick()
         directInputButton().performClick()
         retryButton().performClick()
         documentMenuButton().performClick()
@@ -307,7 +308,7 @@ public class OnboardingStep4ContentTest {
         val events = mutableListOf<OnboardingStep4Event>()
         composeRule.setStep4Content(state = uploadedState, onEvent = events::add)
 
-        composeRule.onNodeWithContentDescription("지원서 파일 업로드").performClick()
+        uploadTarget().performClick()
         directInputButton().performScrollTo().performClick()
         documentMenuButton().performScrollTo().performClick()
         composeRule.onNodeWithContentDescription("뒤로가기").performClick()
@@ -441,17 +442,32 @@ public class OnboardingStep4ContentTest {
     }
 
     @Test
-    public fun uploadTarget_exposesButtonRoleAndAccessibleName() {
+    public fun uploadTarget_namesItselfWithItsOwnBodyNotWithAContentDescription() {
         composeRule.setStep4Content(state = OnboardingStep4UiState())
 
-        composeRule
-            .onNodeWithContentDescription("지원서 파일 업로드")
+        uploadTarget()
             .assert(
                 SemanticsMatcher.expectValue(
                     SemanticsProperties.Role,
                     Role.Button,
                 ),
-            )
+            ).assert(hasNoContentDescription())
+            .assert(hasText("파일을 드래그하거나 탭하세요"))
+            .assert(hasText("PDF · DOCX · TXT · 최대 10MB"))
+            .assert(hasClickLabel("지원서 파일 업로드"))
+    }
+
+    @Test
+    public fun classifiedItemRow_keepsReviewBadgeAndPreviewAudible() {
+        composeRule.setStep4Content(state = expandedState)
+
+        itemRow(2L)
+            .performScrollTo()
+            .assert(hasNoContentDescription())
+            .assert(hasText("기타"))
+            .assert(hasText("분류 확인 필요"))
+            .assert(hasText(sampleItems.last().contentPreview))
+            .assert(hasClickLabel("기타 분류 바꾸기"))
     }
 
     @Test
@@ -469,7 +485,7 @@ public class OnboardingStep4ContentTest {
             fontScale = 2f,
         )
 
-        composeRule.onNodeWithContentDescription("지원서 파일 업로드").assertIsDisplayed()
+        uploadTarget().assertIsDisplayed()
         val directInputButton =
             directInputButton()
                 .performScrollTo()
@@ -545,7 +561,12 @@ public class OnboardingStep4ContentTest {
 
     private fun collapseToggle() = composeRule.onNodeWithContentDescription("${sampleDocument.fileName} 분류 항목 접기")
 
-    private fun itemRow(categoryLabel: String) = composeRule.onNodeWithContentDescription("$categoryLabel 분류 바꾸기")
+    private fun uploadTarget() =
+        composeRule.onNode(
+            hasText("파일을 드래그하거나 탭하세요") and hasClickAction(),
+        )
+
+    private fun itemRow(itemId: Long) = composeRule.onNodeWithTag("onboarding_step4_item_$itemId")
 
     private fun documentMenuButton() = composeRule.onNodeWithContentDescription("${sampleDocument.fileName} 메뉴")
 
@@ -558,6 +579,19 @@ public class OnboardingStep4ContentTest {
         composeRule.onNode(
             hasText("완료") and hasClickAction(),
         )
+
+    /**
+     * 병합 노드에 `contentDescription` 이 얹혀 있지 않은지 본다.
+     *
+     * 얹혀 있으면 스크린 리더는 그 한 줄만 읽고 [hasText] 로 확인한 본문은 듣지 못한다. 본문이 붙어
+     * 있다는 것만으로는 발화를 보장하지 못하므로 두 단언을 함께 건다(#346).
+     */
+    private fun hasNoContentDescription(): SemanticsMatcher = SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription)
+
+    private fun hasClickLabel(label: String): SemanticsMatcher =
+        SemanticsMatcher("click action label is '$label'") { node ->
+            node.config.getOrNull(SemanticsActions.OnClick)?.label == label
+        }
 
     private fun assertBoundsContained(
         parent: SemanticsNodeInteraction,

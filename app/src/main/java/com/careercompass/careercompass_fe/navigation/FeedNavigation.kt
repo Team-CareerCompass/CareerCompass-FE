@@ -22,7 +22,7 @@ internal fun rememberFeedExternalActions(
         object : FeedExternalActions {
             override fun navigateToNotifications() = appState.navigateToNotifications()
 
-            /** 프로필 입력 안내 — 마이 탭(profile 모듈 진입점이 생기기 전까지 자리표시자). */
+            /** 프로필 입력 안내 — 마이 탭(profile 모듈의 마이 홈, #175). */
             override fun navigateToProfileTab() = appState.navigateToTab(CareerCompassBottomTab.My)
 
             /** 지원서 초안 작성 — editor 모듈의 문항 확인 화면(#183). */

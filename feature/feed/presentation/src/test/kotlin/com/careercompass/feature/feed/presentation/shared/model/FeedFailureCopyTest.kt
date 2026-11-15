@@ -3,6 +3,8 @@ package com.careercompass.feature.feed.presentation.shared.model
 import com.careercompass.core.domain.error.CoreDataFailure
 import com.careercompass.core.model.board.MAX_BOARDS
 import com.careercompass.core.ui.failure.FailureKind
+import com.careercompass.core.ui.failure.FailureSurface
+import com.careercompass.core.ui.failure.display
 import com.careercompass.feature.feed.presentation.board.BoardDetectionFailure
 import com.careercompass.feature.feed.presentation.board.BoardRegisterMessage
 import com.careercompass.feature.feed.presentation.board.isRetryable
@@ -15,6 +17,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 
 /**
@@ -41,12 +44,66 @@ class FeedFailureCopyTest {
         assertEquals(FailureKind.Unexpected, unknown.toFeedFailureReason().failureKind)
     }
 
+    /**
+     * 사유를 모르는 실패와, 사유가 있는데 버린 실패는 다르다(#342).
+     *
+     * 전에는 404·403·429 가 전부 `Generic` 으로 접히며 갈래까지 [FailureKind.Unexpected] 로 굳었다.
+     * 삭제된 공고에 들어간 사용자가 「문제가 생겼어요 / 잠시 후 다시 시도해 주세요」를 보고 눌러도 같은
+     * 404 를 다시 만난 것이 그 결과다.
+     */
+    @Test
+    fun `전용 화면이 없는 실패도 제 갈래를 그대로 들고 간다`() {
+        val notFound = CoreDataFailure.NotFound("POSTING_NOT_FOUND", cause)
+        val forbidden = CoreDataFailure.Forbidden("PERMISSION_DENIED", cause)
+        val rateLimited = CoreDataFailure.RateLimited("RATE_LIMITED", cause)
+
+        assertEquals(FeedFailureReason.Generic(FailureKind.NotFound), notFound.toFeedFailureReason())
+        assertEquals(FailureKind.PermissionDenied, forbidden.toFeedFailureReason().failureKind)
+        assertEquals(FailureKind.RateLimited, rateLimited.toFeedFailureReason().failureKind)
+    }
+
+    /** 갈래가 실리면 재시도 유무도 표의 판정을 그대로 따라온다. 화면이 뒤집을 것이 없다(#342). */
+    @Test
+    fun `재시도 유무는 실린 갈래의 표 판정을 따른다`() {
+        val display =
+            CoreDataFailure
+                .NotFound("POSTING_NOT_FOUND", cause)
+                .toFeedFailureReason()
+                .failureKind
+                .display(FailureSurface.Posting)
+
+        assertEquals("공고를 찾을 수 없어요", resources.getString(display.titleRes))
+        assertFalse(display.isRetryable)
+        assertTrue(
+            CoreDataFailure
+                .RateLimited("RATE_LIMITED", cause)
+                .toFeedFailureReason()
+                .failureKind
+                .display()
+                .isRetryable,
+        )
+    }
+
+    /**
+     * 타임아웃은 여전히 [FailureKind.NoConnection] 으로 간다. #134 의 판정을 #342 가 건드리지 않았다.
+     *
+     * 「우리가 먼저 끊었다」를 갈라 안내하는 화면은 게시판 구조 감지뿐이고, 그 화면은 이 사유를 거치지 않고
+     * `CoreDataFailure.NetworkUnavailable.isTimeout` 을 직접 본다.
+     */
+    @Test
+    fun `타임아웃은 연결 없음 행으로 남는다`() {
+        val timeout = CoreDataFailure.NetworkUnavailable(SocketTimeoutException("too slow"))
+
+        assertEquals(FeedFailureReason.NetworkUnavailable, timeout.toFeedFailureReason())
+        assertEquals(FailureKind.NoConnection, timeout.toFeedFailureReason().failureKind)
+    }
+
     /** 문구를 표로 옮긴 것이 #144 의 판정을 건드리지 않았다는 확인. */
     @Test
     fun `표로 옮겨도 조건 초기화 판정은 그대로다`() {
         assertFalse(FeedFailureReason.NetworkUnavailable.isQueryAttributable)
         assertTrue(FeedFailureReason.Maintenance.isQueryAttributable)
-        assertTrue(FeedFailureReason.Generic.isQueryAttributable)
+        assertTrue(FeedFailureReason.Generic(FailureKind.Unexpected).isQueryAttributable)
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.careercompass.core.datastore
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * 앱의 모든 Preferences DataStore 를 만들어 나눠주는 단일 창구.
@@ -14,6 +15,15 @@ import androidx.datastore.preferences.core.Preferences
  * 반환 타입은 [DataStore] 그대로다 — 타입드 접근자(스키마)는 각 DataSource 가 유지한다.
  */
 public interface LocalStoreRegistry {
+    /**
+     * 세션 세대 — [clearScope] 가 [StoreScope.SESSION] 을 비울 때마다 오른다(로그아웃·세션 정리·새 로그인).
+     *
+     * 세션 경계를 넘긴 쓰기를 가려내는 기준이다. 서버 응답을 기다리는 동안 세션이 끝나면 그 응답은 다음 계정의
+     * 저장소에 들어가서는 안 되므로, SESSION 스코프 쓰기는 시작 시점의 이 값을 들고 갔다가 커밋 직전에
+     * 대조한다([editWithinSession]). 구독하면 지금 세대를 먼저 한 번 내고, 이후 경계마다 낸다.
+     */
+    public val sessionGeneration: StateFlow<Long>
+
     /**
      * `files/datastore/<name>.preferences_pb` 를 쓰는 DataStore 를 만들어 돌려주고, [scope] 를 수명으로
      * 등록한다. 같은 [name] 재요청은 같은 인스턴스를 돌려주며, 같은 [name] 을 다른 [scope] 로 재요청하면
@@ -34,4 +44,14 @@ public interface LocalStoreRegistry {
      * 프로세스에서 안 연" 저장소가 새는 구멍이 있다.
      */
     public suspend fun clearScope(scope: StoreScope)
+
+    public companion object {
+        /**
+         * 세션 정리에서 가장 먼저 비우는 저장소 이름.
+         *
+         * 정리가 중간에 끊겨 한 저장소만 비우게 되더라도 그 하나는 토큰이어야 한다. 토큰이 남으면 화면은
+         * 로그아웃됐는데 시작 판정이 남은 토큰으로 세션을 다시 세운다(#367).
+         */
+        public const val TOKEN_STORE_NAME: String = "Token"
+    }
 }

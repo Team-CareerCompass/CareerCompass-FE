@@ -71,7 +71,7 @@ public class TokenAuthenticator
                 }
 
                 is TokenReissuer.Outcome.Failure -> {
-                    throw TokenReissueFailureException(outcome.exception)
+                    throw outcome.toRequestFailure()
                 }
             }
         }
@@ -84,10 +84,50 @@ private fun ErrorReporter.recordAuthContractViolation(authStage: String) {
     )
 }
 
-/** 재발급의 기술 원문을 UI 에 노출하지 않고 현재 요청만 실패시키는 예외. */
+/**
+ * 재발급의 기술 원문을 UI 에 노출하지 않고 현재 요청만 실패시키는 예외.
+ *
+ * OkHttp 의 `Authenticator`·`Interceptor` 는 `IOException` 만 던질 수 있어 이 실패는 전송 실패와 타입이 같아진다.
+ * 그래서 [TokenReissuer] 가 이미 가른 사유를 [reason] 으로, 서버가 준 코드·상태를 cause 로 함께 싣는다 — 둘이
+ * 없으면 소비처는 재발급 5xx 도 429 도 「인터넷 연결을 확인해 주세요」로 말하게 된다(#361). 사유를 화면용
+ * 값으로 옮기는 자리는 `mapDataFailure` 한 곳이다.
+ */
 internal class TokenReissueFailureException(
+    val reason: Reason,
     cause: Throwable,
-) : IOException(null, cause)
+) : IOException(null, cause) {
+    /** 재발급이 어떻게 끝났는지 — [TokenReissuer.Outcome] 의 갈래를 요청 실패까지 들고 오는 값이다. */
+    enum class Reason {
+        /** 이 세션으로는 더 갈 수 없다 — refresh 가 거절됐거나 세션이 교체됐다. */
+        SessionEnded,
+
+        /** 재발급 요청이 서버 응답 없이 전송 계층에서 끝났다. */
+        Transport,
+
+        /** 서버가 5xx 로 답했다. */
+        Server,
+
+        /** 위 어느 것도 아닌 실패 — 응답 파싱 실패나 분류되지 않은 상태 코드다. */
+        Unexpected,
+    }
+}
+
+/** 세션이 끝났거나 교체됐을 때도 같은 예외로 요청만 끝낸다 — 재로그인 말고는 답이 없는 갈래다. */
+internal fun TokenReissuer.Outcome.SessionChanged.toRequestFailure(): TokenReissueFailureException =
+    TokenReissueFailureException(reason = TokenReissueFailureException.Reason.SessionEnded, cause = exception)
+
+/** 재발급 실패를 현재 요청의 `IOException` 으로 옮긴다 — [TokenReissuer] 가 가른 사유는 그대로 들고 간다. */
+internal fun TokenReissuer.Outcome.Failure.toRequestFailure(): TokenReissueFailureException =
+    TokenReissueFailureException(
+        reason =
+            when (this) {
+                is TokenReissuer.Outcome.AuthenticationRejected -> TokenReissueFailureException.Reason.SessionEnded
+                is TokenReissuer.Outcome.TransportFailure -> TokenReissueFailureException.Reason.Transport
+                is TokenReissuer.Outcome.ServerFailure -> TokenReissueFailureException.Reason.Server
+                is TokenReissuer.Outcome.UnexpectedFailure -> TokenReissueFailureException.Reason.Unexpected
+            },
+        cause = exception,
+    )
 
 /** 액세스 토큰만 갈아 끼운 재시도용 요청 사본. */
 internal fun Request.withBearer(accessToken: String): Request =

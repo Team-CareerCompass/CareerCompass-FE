@@ -113,12 +113,19 @@ public data class OnboardingStep2FormState(
     }
 }
 
-/** Step 3 목록 상태. [isLoaded] 가 false 면 아직 서버 목록을 받지 않았다. */
+/**
+ * Step 3 목록 상태. [isLoaded] 가 false 면 아직 서버 목록을 받지 않았다.
+ *
+ * @property isLoading 서버 목록을 읽는 중이다. 조회가 도는 동안 카드 추가를 잠그고, 조회를 두 번 걸지 않게
+ *   막는다(#356). 조회가 실패하면 [isLoaded] 는 false 인 채로 이 값만 풀린다 — 실패한 조회가 추가를 영영
+ *   막아서는 안 되고, 다음 단계 진입이 다시 읽는다.
+ */
 @Immutable
 public data class OnboardingStep3FormState(
     val selectedType: ExperienceType = ExperienceType.Project,
     val experiences: List<Experience> = emptyList(),
     val isLoaded: Boolean = false,
+    val isLoading: Boolean = false,
 ) {
     init {
         require(experiences.map(Experience::id).distinct().size == experiences.size) { "experience ids must be unique" }
@@ -178,11 +185,13 @@ public data class OnboardingUploadDocument(
  * Step 4 목록 상태.
  *
  * @property expandedDocumentId 항목 목록을 펼친 문서. 한 번에 하나만 펼친다 — 목록이 길어지면 아래 액션이 밀린다.
+ * @property isLoading 서버 목록을 읽는 중이다. Step 3 의 같은 값과 뜻이 같다(#356).
  */
 @Immutable
 public data class OnboardingStep4FormState(
     val documents: List<OnboardingUploadDocument> = emptyList(),
     val isLoaded: Boolean = false,
+    val isLoading: Boolean = false,
     val expandedDocumentId: String? = null,
 ) {
     init {

@@ -30,6 +30,23 @@ export const DATA_EXTRACTION_RULES_RESOURCE = '@xml/data_extraction_rules';
 
 export const BACKUP_SECTIONS = Object.freeze(['cloud-backup', 'device-transfer']);
 
+// 백업 에이전트는 앱 데이터를 도메인별로 나눠 순회한다. root 순회는 files/·databases/·shared_prefs/ 를 먼저
+// 빼고, 그 셋은 file·database·sharedpref 도메인으로 따로 순회한다(AOSP BackupAgent#onFullBackup). 제외 판정도
+// 경로 문자열의 정확 일치라(BackupAgent#manifestExcludesContainFilePath) 상위를 뺐다고 그 아래가 따라 빠지지
+// 않는다. 그래서 root 하나가 아니라 문서가 적어 둔 아홉 도메인을 모두 요구한다.
+// https://developer.android.com/identity/data/autobackup
+export const BACKUP_EXCLUDED_DOMAINS = Object.freeze([
+  'root',
+  'file',
+  'database',
+  'sharedpref',
+  'external',
+  'device_root',
+  'device_file',
+  'device_database',
+  'device_sharedpref',
+]);
+
 export const DISABLED_FIREBASE_AUTO_INIT = new Set([
   'firebase_analytics_collection_enabled',
   'firebase_messaging_auto_init_enabled',
@@ -92,6 +109,9 @@ export function inspectPrivacyDefaults(source) {
  *
  * 매니페스트가 파일을 가리키기만 하고 안이 비어 있으면 D2D 는 그대로 열려 있다. 섹션이 없으면 그 모드가
  * 전부 허용이라는 것이 문서의 기본값이라, "없음" 을 통과로 읽지 않는다.
+ *
+ * 섹션 하나마다 [BACKUP_EXCLUDED_DOMAINS] 아홉 도메인의 path="." 제외를 모두 요구한다. root 만 빼면
+ * files/·databases/·shared_prefs/ 는 별도 도메인으로 그대로 나간다.
  */
 export function inspectDataExtractionRules(source) {
   const violations = [];
@@ -110,8 +130,13 @@ export function inspectDataExtractionRules(source) {
         ]),
       ),
     );
-    if (!rules.some((rule) => rule.domain === 'root' && rule.path === '.')) {
-      violations.push(`${section} must exclude the whole app data directory`);
+    const missingDomains = BACKUP_EXCLUDED_DOMAINS.filter(
+      (domain) => !rules.some((rule) => rule.domain === domain && rule.path === '.'),
+    );
+    if (missingDomains.length > 0) {
+      violations.push(
+        `${section} must exclude path="." for every backup domain, missing: ${missingDomains.join(', ')}`,
+      );
     }
   }
   return violations;

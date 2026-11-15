@@ -15,6 +15,14 @@ public interface AuthRepository {
     public val isLoggedIn: Flow<Boolean>
 
     /**
+     * 세션 경계를 세는 값 — 세션이 끝나거나([logout]·[clearSession]) 새로 시작할 때마다([saveSession]) 오른다.
+     *
+     * 구독하면 지금 세대를 먼저 한 번 내고, 이후 경계마다 낸다. 앞 세션을 보고 만든 화면 상태를 다음 계정이
+     * 물려받으면 안 되는 자리에서, 버릴 시점을 이 값의 변화로 안다(#335).
+     */
+    public val sessionGeneration: Flow<Long>
+
+    /**
      * 이 기기에 지문 로그인을 등록한 사용자가 **현재 세션 사용자와 같은지**.
      *
      * 등록 사용자 id 는 DEVICE 스코프, 현재 사용자 id 는 SESSION 스코프 프로필 캐시에서 읽어 대조한다. 그래서
@@ -48,10 +56,10 @@ public interface AuthRepository {
     /** `POST /auth/refresh` — 저장된 refresh 토큰으로 회전하고 새 토큰을 저장한다. */
     public suspend fun rotateToken(): Result<TokenBundle>
 
-    /** `POST /auth/logout` best-effort 후 SESSION 스코프 저장소를 비운다. */
+    /** `POST /auth/logout` best-effort 후 SESSION 스코프 저장소와 소셜 SDK 세션을 비운다. */
     public suspend fun logout(): Result<Unit>
 
-    /** 서버 호출 없이 로컬 세션만 정리한다 — refresh 거절 등 되돌릴 수 없는 실패용. */
+    /** 서버 호출 없이 로컬 세션만 정리한다 — refresh 거절 등 되돌릴 수 없는 실패용. 소셜 SDK 세션도 함께 비운다. */
     public suspend fun clearSession(): Result<Unit>
 
     /**

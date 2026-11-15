@@ -254,10 +254,11 @@ jobs:
           "$GITHUB_WORKSPACE"
           "${{ steps.classify-documentation-changes.outputs.files_json }}"
 
-      # PR 이 src/main 에 새로 넣은 함수가 main 어디서도 참조되지 않으면 — 테스트만 부르거나 아무도
-      # 안 부르면 — 실패시킨다 (#1895). ProductionVisibilityKonsistTest 는 최상위 선언만 보므로
-      # 멤버 함수가 샜다(#1583 의 onReceiverRegisterStart). 면제는 PR 라벨
-      # test-only-production-exempt — issue-assignee-exempt 와 같은 자리다.
+      # PR 이 src/main 에 새로 넣은 함수가 main 어디서도 참조되지 않으면(테스트만 부르거나 아무도
+      # 안 부르면) 실패시킨다. 애프터노트 #1895 를 #243 으로 들여왔다. konsist 가드는 계층 의존과
+      # 계약 모양만 보고 선언에 소비처가 있는지는 세지 않아 멤버 함수가 샌다. 면제는 PR 라벨
+      # test-only-production-exempt 로, issue-assignee-exempt 와 같은 자리다.
+      # 규약은 docs/convention/production-visibility.md.
       - name: Reject test-only production declarations
         if: inputs.pull_request_number > 0
         run: >-

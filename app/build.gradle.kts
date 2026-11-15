@@ -98,7 +98,7 @@ android {
                             """
                             |RELEASE_STORE_FILE 이 가리키는 release keystore 를 찾을 수 없습니다: $releaseKeystore
                             |파일을 해당 경로에 두거나, RELEASE_* 네 키를 모두 지우세요.
-                            |생성·설정 방법은 README '비개발자 APK 배포' 섹션 참고.
+                            |인계·설정 방법은 docs/release/distribution.md 의 「운영 자격 인계」 절 참고.
                             """.trimMargin(),
                         )
                     }
@@ -114,7 +114,7 @@ android {
                         |release 서명 설정이 불완전합니다.
                         |루트 local.properties 누락 항목: ${(releaseSigningKeys - provided.keys).joinToString()}
                         |네 키는 하나의 단위입니다 — 모두 채우거나 모두 지우세요.
-                        |생성·설정 방법은 README '비개발자 APK 배포' 섹션 참고.
+                        |인계·설정 방법은 docs/release/distribution.md 의 「운영 자격 인계」 절 참고.
                         """.trimMargin(),
                     )
                 }
@@ -156,7 +156,7 @@ android {
                             """
                             |DEBUG_STORE_FILE 이 가리키는 공유 debug keystore 를 찾을 수 없습니다: $sharedKeystore
                             |파일을 해당 경로에 두거나, DEBUG_* 네 키를 모두 지워 기본 debug keystore 로 되돌리세요.
-                            |설정 방법은 README '공유 debug keystore' 섹션 참고.
+                            |keystore 파일은 팀에서 개인 채널로 받는다. 카카오 키 해시는 docs/release/credentials.md 의 「카카오」 절 참고.
                             """.trimMargin(),
                         )
                     }
@@ -172,7 +172,7 @@ android {
                         |공유 debug keystore 설정이 불완전합니다.
                         |루트 local.properties 누락 항목: ${(debugSigningKeys - provided.keys).joinToString()}
                         |네 키는 하나의 단위입니다 — 모두 채우거나 모두 지우세요(모두 지우면 기본 debug keystore 로 서명).
-                        |설정 방법은 README '공유 debug keystore' 섹션 참고.
+                        |keystore 파일은 팀에서 개인 채널로 받는다. 카카오 키 해시는 docs/release/credentials.md 의 「카카오」 절 참고.
                         """.trimMargin(),
                     )
                 }

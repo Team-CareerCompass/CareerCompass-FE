@@ -6,9 +6,9 @@ import kotlinx.serialization.Serializable
 /**
  * 앱 셸이 소유하는 루트 Navigation 3 백스택의 키.
  *
- * 피처 그래프는 각자의 로컬 스택을 갖고([Onboarding] · [Feed] 가 그 host 다), 여기에는 그 host 와 다른 담당 모듈이
- * 진입점을 제공하기 전까지 셸이 대신 그리는 자리표시자만 둔다. `@Serializable` 은 프로세스 재생성 뒤 루트 스택을
- * 복원하는 데 쓰인다(#260).
+ * 피처 그래프는 각자의 로컬 스택을 갖고([Onboarding] · [Feed] 가 그 host 다), 여기에는 그 host 와 로컬 스택 밖에
+ * 쌓이는 다른 모듈의 화면, 그리고 아직 화면이 없는 자리에 셸이 대신 그리는 자리표시자를 둔다. `@Serializable` 은
+ * 프로세스 재생성 뒤 루트 스택을 복원하는 데 쓰인다(#260).
  */
 @Serializable
 public sealed interface Route : NavKey {
@@ -31,7 +31,7 @@ public sealed interface Route : NavKey {
     /**
      * 하단 탭 「마이」 — profile 모듈의 마이 홈([com.careercompass.feature.profile.presentation.home.ProfileHomeScreen]).
      *
-     * 이 키만 탭이고, 마이 홈의 메뉴가 가리키는 네 화면은 아래 자리표시자로 그 위에 쌓인다.
+     * 이 키만 탭이고, 마이 홈의 메뉴가 가리키는 네 화면은 아래 키들로 그 위에 쌓인다.
      */
     @Serializable
     public data object MyTab : Route
@@ -43,9 +43,10 @@ public sealed interface Route : NavKey {
     /**
      * 마이 홈 → 프로필 편집 — profile 모듈의 화면(#176).
      *
-     * 마이 홈 메뉴가 가리키는 네 화면은 전부 피드 위 한 칸으로 쌓이므로 바텀바가 저절로 숨는다
+     * 마이 홈 메뉴가 가리키는 네 화면은 전부 마이 탭 위 한 칸으로 쌓이므로 바텀바가 저절로 숨는다
      * ([AppState.shouldShowBottomBar] 의 `else`). 알림 화면([NotificationsPlaceholder])이 이미 쓰던 자리와
-     * 같은 모양이라 판정을 새로 만들지 않는다. 아직 화면이 없는 셋은 자리표시자로 남는다.
+     * 같은 모양이라 판정을 새로 만들지 않는다. 넷 중 알림 설정([NotificationSettingsPlaceholder])만 아직
+     * 자리표시자다.
      */
     @Serializable
     public data object ProfileEdit : Route

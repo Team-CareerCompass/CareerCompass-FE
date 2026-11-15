@@ -411,6 +411,48 @@ class MainViewModelTest {
         assertNull(viewModel.pendingDeepLink)
     }
 
+    /**
+     * 로그아웃 상태에서 알림으로 로그인 화면에 온 뒤 카카오 앱에 다녀오는 사이 프로세스가 죽는 경로(#352).
+     *
+     * `MainActivity` 는 재생성에서 intent 를 다시 읽지 않으므로(`savedInstanceState != null`) 저장 상태가
+     * 유일한 출처다. 여기 남지 않으면 로그인을 마쳐도 공고 상세 대신 피드 홈이 뜬다.
+     */
+    @Test
+    fun `보관 중인 딥링크는 프로세스 재생성을 건넌다`() {
+        val handle = SavedStateHandle()
+        val before = mainViewModel(FakeAuthRepository(loggedIn = false), FakeUserProfileRepository.strict(), handle)
+        before.onDeepLink(AppDeepLink.PostingDetail(101))
+
+        val after = mainViewModel(FakeAuthRepository(loggedIn = false), FakeUserProfileRepository.strict(), handle)
+
+        assertEquals(AppDeepLink.PostingDetail(101), after.pendingDeepLink)
+    }
+
+    @Test
+    fun `소비한 딥링크는 재생성 뒤에 되살아나지 않는다`() {
+        val handle = SavedStateHandle()
+        val before = mainViewModel(FakeAuthRepository(loggedIn = true), FakeUserProfileRepository(profile(true)), handle)
+        before.onDeepLink(AppDeepLink.PostingDetail(101))
+        before.consumeDeepLink()
+
+        val after = mainViewModel(FakeAuthRepository(loggedIn = true), FakeUserProfileRepository(profile(true)), handle)
+
+        assertNull(after.pendingDeepLink)
+    }
+
+    @Test
+    fun `세션 종료로 버린 딥링크는 재생성 뒤에도 돌아오지 않는다`() {
+        // 인메모리에서만 버리면 다른 계정으로 로그인한 뒤 프로세스가 한 번 죽는 것으로 남의 공고가 되살아난다.
+        val handle = SavedStateHandle()
+        val before = mainViewModel(FakeAuthRepository(loggedIn = false), FakeUserProfileRepository.strict(), handle)
+        before.onDeepLink(AppDeepLink.PostingDetail(101))
+        before.onSessionEnded(SessionEndCause.LoggedOut)
+
+        val after = mainViewModel(FakeAuthRepository(loggedIn = false), FakeUserProfileRepository.strict(), handle)
+
+        assertNull(after.pendingDeepLink)
+    }
+
     // ── 세션 만료 안내 (#128) ─────────────────────────────────────────────────
 
     @Test

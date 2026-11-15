@@ -258,6 +258,9 @@ test("close notifier executes only trusted default-branch policy", () => {
 
 test("live CLOSED warns upper PRs while OPEN or MERGED resolves the same bot comment", () => {
     assert.match(stackNotify, /issues: write/);
+    // 코멘트 대상이 PR 이면 GitHub 은 pull-requests 쓰기를 요구한다. 이 칸이 read 로
+    // 머무는 회귀를 방지한다(#433).
+    assert.match(stackNotify, /pull-requests: write/);
     assert.match(stackNotify, /live_state=\$\(jq -r '\.state'/);
     assert.match(stackNotify, /CLOSED\)[\s\S]*notice_state="active"/);
     assert.match(stackNotify, /OPEN\)[\s\S]*notice_state="resolved"/);

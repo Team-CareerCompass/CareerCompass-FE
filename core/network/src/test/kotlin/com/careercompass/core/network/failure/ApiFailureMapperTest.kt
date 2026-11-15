@@ -2,6 +2,7 @@ package com.careercompass.core.network.failure
 
 import com.careercompass.core.domain.error.CoreAuthFailure
 import com.careercompass.core.domain.error.CoreDataFailure
+import com.careercompass.core.network.interceptor.TokenReissueFailureException
 import com.careercompass.core.network.model.ApiException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -73,6 +74,54 @@ class ApiFailureMapperTest {
         assertTrue(Result.failure<Unit>(api("AUTH_INVALID", 401)).mapAuthFailure().exceptionOrNull() is CoreAuthFailure.SocialLoginRejected)
         assertTrue(Result.failure<Unit>(api("INTERNAL_ERROR", 500)).mapAuthFailure().exceptionOrNull() is CoreDataFailure.ServerError)
     }
+
+    @Test
+    fun `재발급이 503 으로 끝난 요청은 서버 점검이 된다`() {
+        val reissueFailed =
+            TokenReissueFailureException(
+                reason = TokenReissueFailureException.Reason.Server,
+                cause = api("LLM_UNAVAILABLE", 503),
+            )
+
+        val failure = Result.failure<Unit>(reissueFailed).mapDataFailure().exceptionOrNull()
+
+        assertTrue(failure is CoreDataFailure.ServiceUnavailable)
+        assertEquals("LLM_UNAVAILABLE", (failure as CoreDataFailure).code)
+    }
+
+    @Test
+    fun `재발급이 서버 응답으로 끝났으면 그 응답의 사유를 쓴다`() {
+        assertTrue(reissueFailure(TokenReissueFailureException.Reason.Server, api("HTTP_500", 500)) is CoreDataFailure.ServerError)
+        assertTrue(reissueFailure(TokenReissueFailureException.Reason.Server, api("HTTP_503", 503)) is CoreDataFailure.ServiceUnavailable)
+        // 429 는 재발급 쪽에서 5xx 로도 거절로도 갈리지 않아 Unexpected 로 실려 온다.
+        assertTrue(reissueFailure(TokenReissueFailureException.Reason.Unexpected, api("RATE_LIMITED", 429)) is CoreDataFailure.RateLimited)
+    }
+
+    @Test
+    fun `재발급이 전송 실패로 끝나면 원본 전송 예외로 타임아웃까지 갈린다`() {
+        val timedOut = reissueFailure(TokenReissueFailureException.Reason.Transport, SocketTimeoutException())
+        val offline = reissueFailure(TokenReissueFailureException.Reason.Transport, UnknownHostException())
+
+        assertTrue((timedOut as CoreDataFailure.NetworkUnavailable).isTimeout)
+        assertFalse((offline as CoreDataFailure.NetworkUnavailable).isTimeout)
+    }
+
+    @Test
+    fun `사유를 확인하지 못한 재발급 실패는 원본을 남긴다`() {
+        // 응답을 읽지 못한 실패다 — 네트워크 문구로 접으면 연결이 멀쩡한 사용자가 연결을 확인하러 간다.
+        val parseFailed =
+            TokenReissueFailureException(
+                reason = TokenReissueFailureException.Reason.Unexpected,
+                cause = IllegalStateException("응답을 읽지 못했습니다."),
+            )
+
+        assertSame(parseFailed, Result.failure<Unit>(parseFailed).mapDataFailure().exceptionOrNull())
+    }
+
+    private fun reissueFailure(
+        reason: TokenReissueFailureException.Reason,
+        cause: Throwable,
+    ): Throwable = Result.failure<Unit>(TokenReissueFailureException(reason = reason, cause = cause)).mapDataFailure().exceptionOrNull()!!
 
     private fun failure(exception: ApiException): Throwable = Result.failure<Unit>(exception).mapDataFailure().exceptionOrNull()!!
 }

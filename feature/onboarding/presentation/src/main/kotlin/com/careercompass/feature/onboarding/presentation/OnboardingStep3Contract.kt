@@ -43,6 +43,7 @@ public data class OnboardingStep3UiState(
     public val selectedExperienceTypeId: String,
     public val experiences: List<OnboardingExperience> = emptyList(),
     public val isInputEnabled: Boolean = true,
+    public val isListLoading: Boolean = false,
     public val currentStep: Int = 3,
     public val totalSteps: Int = 4,
 ) {
@@ -78,9 +79,14 @@ public data class OnboardingStep3UiState(
     public val isNextEnabled: Boolean
         get() = isInputEnabled
 
-    /** 상한(F1-3, 30개)에 닿으면 추가만 막는다 — 하나를 지우면 다시 열린다. */
+    /**
+     * 상한(F1-3, 30개)에 닿으면 추가만 막는다 — 하나를 지우면 다시 열린다.
+     *
+     * 목록을 읽는 중에도 막는다. 아직 받지 못한 목록으로 상한을 판정하면 이미 30개인 계정에서 시트가
+     * 열리고, 사용자가 다 쓴 뒤에야 서버가 거절한다(#356).
+     */
     public val isAddEnabled: Boolean
-        get() = isInputEnabled && experiences.size < ONBOARDING_MAX_EXPERIENCE_CARDS
+        get() = isInputEnabled && !isListLoading && experiences.size < ONBOARDING_MAX_EXPERIENCE_CARDS
 }
 
 /** User intentions emitted by [OnboardingStep3Content]. */

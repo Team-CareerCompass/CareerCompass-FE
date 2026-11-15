@@ -33,6 +33,10 @@ import com.careercompass.core.model.board.MAX_BOARDS
 import com.careercompass.core.ui.component.CareerCompassButton
 import com.careercompass.core.ui.component.CareerCompassButtonSize
 import com.careercompass.core.ui.component.CareerCompassButtonVariant
+import com.careercompass.core.ui.failure.FailureKind
+import com.careercompass.core.ui.failure.FailureSurface
+import com.careercompass.core.ui.failure.display
+import com.careercompass.core.ui.failure.sentence
 import com.careercompass.core.ui.theme.CareerCompassTheme
 import com.careercompass.feature.feed.presentation.R
 import com.careercompass.feature.feed.presentation.shared.component.FeedTopBar
@@ -85,7 +89,7 @@ public fun BoardListScreen(
         if (message == null) return@LaunchedEffect
         viewModel.onIntent(BoardListIntent.ConsumeMessage)
         val host = if (state.editDraft != null) sheetSnackbarHostState else snackbarHostState
-        snackbarScope.launch { host.showSnackbar(resources.getString(message.messageRes())) }
+        snackbarScope.launch { host.showSnackbar(message.toLabel(resources)) }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -102,7 +106,11 @@ public fun BoardListScreen(
             BoardListLoadState.Loading,
             is BoardListLoadState.Loaded,
             -> {
-                val uiState = remember(loadState, resources) { loadState.toUiState(resources, viewModel.clock) }
+                val retryingBoardIds = state.retryingBoardIds
+                val uiState =
+                    remember(loadState, retryingBoardIds, resources) {
+                        loadState.toUiState(resources, viewModel.clock, retryingBoardIds)
+                    }
                 BoardListContent(
                     state = uiState,
                     onEvent = { viewModel.onIntent(BoardListIntent.Screen(it)) },
@@ -194,6 +202,7 @@ private fun BoardListErrorChrome(
 internal fun BoardListLoadState.toUiState(
     resources: Resources,
     clock: Clock,
+    retryingBoardIds: Set<Long>,
 ): BoardListUiState =
     BoardListUiState(
         content =
@@ -202,7 +211,11 @@ internal fun BoardListLoadState.toUiState(
                     if (boards.isEmpty()) {
                         BoardListContentState.Empty
                     } else {
-                        BoardListContentState.Loaded(boards.distinctBy { it.id }.map { it.toBoardUiModel(resources, clock) })
+                        BoardListContentState.Loaded(
+                            boards.distinctBy { it.id }.map { board ->
+                                board.toBoardUiModel(resources, clock).copy(isRetrying = board.id in retryingBoardIds)
+                            },
+                        )
                     }
                 }
 
@@ -228,12 +241,36 @@ internal fun BoardEditDraft.toUiState(resources: Resources): BoardEditUiState =
         hasChanges = !toUpdate().isEmpty,
     )
 
-private fun BoardListMessage.messageRes(): Int =
+/**
+ * 안내 문구. 실패는 실패 표에서 읽고(#204·#360), 「다시 수집을 시작했어요」처럼 이 화면만 하는 말은 여기 남는다.
+ *
+ * 사유를 확인하지 못한 실패([FailureKind.Unexpected])만 화면 고유 문구를 쓴다. 표의 그 행은 게시판 문맥에서
+ * 「게시판을 불러오지 못했어요」라 조회 실패를 가리키는 문장이고, 목록에서 시킨 삭제·수정·토글·재시도에 그대로
+ * 붙이면 사용자가 무엇이 실패했는지 잘못 읽는다. 사유가 좁혀진 실패는 표의 제 행이 이긴다.
+ */
+private fun BoardListMessage.toLabel(resources: Resources): String =
     when (this) {
-        BoardListMessage.ToggleFailed -> R.string.feed_board_toggle_failed
-        BoardListMessage.RetryFailed -> R.string.feed_board_retry_failed
-        BoardListMessage.RetryRequested -> R.string.feed_board_retry_requested
-        BoardListMessage.DeleteFailed -> R.string.feed_board_delete_failed
-        BoardListMessage.Updated -> R.string.feed_board_updated
-        BoardListMessage.UpdateFailed -> R.string.feed_board_update_failed
+        BoardListMessage.RetryRequested -> {
+            resources.getString(R.string.feed_board_retry_requested)
+        }
+
+        BoardListMessage.Updated -> {
+            resources.getString(R.string.feed_board_updated)
+        }
+
+        is BoardListMessage.Failed -> {
+            if (kind == FailureKind.Unexpected) {
+                resources.getString(action.unexpectedRes())
+            } else {
+                kind.display(FailureSurface.Board).sentence(resources)
+            }
+        }
+    }
+
+private fun BoardListAction.unexpectedRes(): Int =
+    when (this) {
+        BoardListAction.Toggle -> R.string.feed_board_toggle_failed
+        BoardListAction.Retry -> R.string.feed_board_retry_failed
+        BoardListAction.Delete -> R.string.feed_board_delete_failed
+        BoardListAction.Update -> R.string.feed_board_update_failed
     }

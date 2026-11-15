@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 import {
+    CLASSPATH_SCOPES,
     classifyUpdate,
+    classpathScopesOf,
     compareVersions,
     consistencyFindings,
     detectCatalogUsage,
@@ -35,6 +38,62 @@ test("parses version catalog coordinates and refs", () => {
     assert.equal(catalog.versions.kotlin, "2.4.0");
     assert.equal(catalog.libraries["androidx-compose-runtime"].coordinate, "androidx.compose.runtime:runtime");
     assert.equal(catalog.plugins["kotlin-compose"].id, "org.jetbrains.kotlin.plugin.compose");
+});
+
+test("reads escaped quotes, backslashes and # inside TOML strings", () => {
+    const catalog = parseVersionCatalog(String.raw`
+[versions]
+hash = "1.0#2" # comment
+quoted = "1.0\"rc\\"
+
+[libraries]
+escaped = { module = "g:a\"b#c", version = "1\\2", version.ref = "hash" } # "comment"
+split = { group = "g", name = "n\\" }
+
+[plugins]
+escaped = { id = "x.y", version = "3\"4" }
+`);
+    assert.deepEqual(catalog.versions, { hash: "1.0#2", quoted: String.raw`1.0\"rc\\` });
+    assert.deepEqual(catalog.libraries.escaped, {
+        alias: "escaped",
+        coordinate: 'g:a"b#c',
+        version: "1\\2",
+        versionRef: "hash",
+    });
+    assert.equal(catalog.libraries.split.coordinate, "g:n\\");
+    assert.equal(catalog.plugins.escaped.version, '3"4');
+});
+
+// 정규식 역추적은 이벤트 루프를 막아 node:test 시간 제한이 듣지 않는다. 자식 프로세스를 OS가 끊게 한다.
+function importInChild(moduleName, body, timeout = 10_000) {
+    const moduleUrl = new URL(moduleName, import.meta.url).href;
+    const execution = spawnSync(
+        process.execPath,
+        ["--input-type=module", "--eval", `import * as target from ${JSON.stringify(moduleUrl)};\n${body}`],
+        { encoding: "utf8", timeout, killSignal: "SIGKILL" },
+    );
+    assert.equal(execution.signal, null, `${timeout}ms 안에 끝나지 않았습니다.`);
+    assert.equal(execution.status, 0, execution.stderr);
+    return JSON.parse(execution.stdout);
+}
+
+test("#2218: unterminated TOML strings finish in bounded time without becoming values", () => {
+    const unterminated = "\\!".repeat(48);
+    const parsed = importInChild(
+        "./collect-dependency-audit.mjs",
+        `const [libraries, versions] = ${JSON.stringify([
+            `[libraries]\na = { module = "${unterminated}`,
+            `[versions]\na = "${unterminated}`,
+        ])};
+        console.log(JSON.stringify({
+            library: target.parseVersionCatalog(libraries).libraries.a,
+            versions: target.parseVersionCatalog(versions).versions,
+        }));`,
+    );
+    assert.deepEqual(parsed, {
+        library: { alias: "a", coordinate: null, version: null, versionRef: null },
+        versions: {},
+    });
 });
 
 test("finds generated accessors and convention-plugin string aliases only", () => {
@@ -81,6 +140,28 @@ test("extracts BOM-managed versions", () => {
     assert.equal(managed["androidx.compose.runtime:runtime"], "1.11.4");
 });
 
+test("decodes BOM property entities once and keeps unknown entities", () => {
+    const managed = parseBomPom(`
+        <project>
+          <properties>
+            <escaped.version>1.0&amp;quot;&amp;apos;&amp;lt;</escaped.version>
+            <basic.version>&lt;&gt;&amp;&quot;&apos;</basic.version>
+            <unknown.version>1&nbsp;2&#38;3&amp;amp;</unknown.version>
+          </properties>
+          <dependencyManagement><dependencies>
+            <dependency><groupId>g</groupId><artifactId>escaped</artifactId><version>\${escaped.version}</version></dependency>
+            <dependency><groupId>g</groupId><artifactId>basic</artifactId><version>\${basic.version}</version></dependency>
+            <dependency><groupId>g</groupId><artifactId>unknown</artifactId><version>\${unknown.version}</version></dependency>
+          </dependencies></dependencyManagement>
+        </project>
+    `);
+    assert.deepEqual(managed, {
+        "g:escaped": "1.0&quot;&apos;&lt;",
+        "g:basic": "<>&\"'",
+        "g:unknown": "1&nbsp;2&#38;3&amp;",
+    });
+});
+
 test("extracts selected Gradle versions after conflict resolution", () => {
     const dependencies = parseResolvedDependencies(
         "+--- androidx.compose.runtime:runtime:1.10.6 -> 1.11.4\n" +
@@ -94,12 +175,14 @@ test("extracts selected Gradle versions after conflict resolution", () => {
             requestedVersion: "1.10.6",
             selectedVersion: "1.11.4",
             source: "app-runtime.txt",
+            scope: "project",
         },
         {
             coordinate: "com.squareup.okhttp3:okhttp",
             requestedVersion: "5.4.0",
             selectedVersion: "5.4.0",
             source: "app-runtime.txt",
+            scope: "project",
         },
     ]);
 });
@@ -126,6 +209,94 @@ test("flags BOM and resolved-version mismatches", () => {
     assert.deepEqual(
         findings.map((finding) => finding.type).sort(),
         ["bom-override-mismatch", "declared-resolved-mismatch"],
+    );
+});
+
+test("tags resolved dependencies with the classpath the report describes", () => {
+    const dependencies = parseResolvedDependencies(
+        "+--- org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0",
+        "root-build-environment.txt",
+        CLASSPATH_SCOPES.build,
+    );
+    assert.equal(dependencies[0].scope, "build");
+    assert.equal(
+        parseResolvedDependencies("+--- a:b:1.0.0", "app-runtime.txt")[0].scope,
+        "project",
+    );
+});
+
+test("derives a catalog entry's classpath from where it is used", () => {
+    assert.deepEqual(
+        [...classpathScopesOf({ kind: "plugin", alias: "kotlin-jvm", references: ["build.gradle.kts:38"] })],
+        ["build"],
+    );
+    assert.deepEqual(
+        [...classpathScopesOf({ kind: "library", references: ["build-logic/build.gradle.kts:16"] })],
+        ["build"],
+    );
+    assert.deepEqual(
+        [...classpathScopesOf({ kind: "library", references: ["core/domain/build.gradle.kts:8"] })],
+        ["project"],
+    );
+    assert.deepEqual(
+        [...classpathScopesOf({
+            kind: "library",
+            references: ["build-logic/build.gradle.kts:21", "core/domain/build.gradle.kts:14"],
+        })].sort(),
+        ["build", "project"],
+    );
+    assert.deepEqual([...classpathScopesOf({ kind: "library" })].sort(), ["build", "project"]);
+});
+
+// #312: KGP·AGP 가 플러그인 클래스패스에 끌어온 coroutines 1.9.0 을 앱 라이브러리 선언 1.11.0 과
+// 견줘 «선언과 해석이 다르다» 고 오탐했다. 같은 클래스패스끼리만 비교해야 한다.
+test("does not compare a project library against the plugin classpath", () => {
+    const catalog = parseVersionCatalog(catalogText);
+    const coroutines = {
+        alias: "coroutines-core",
+        kind: "library",
+        coordinate: "org.jetbrains.kotlinx:kotlinx-coroutines-core",
+        currentVersion: "1.11.0",
+        references: ["core/domain/build.gradle.kts:8"],
+    };
+    const resolved = [
+        { coordinate: "org.jetbrains.kotlinx:kotlinx-coroutines-core", version: "1.9.0", scopes: ["build"] },
+        { coordinate: "org.jetbrains.kotlinx:kotlinx-coroutines-core", version: "1.11.0", scopes: ["project"] },
+    ];
+    assert.deepEqual(consistencyFindings([coroutines], resolved, catalog), []);
+
+    // 같은 클래스패스에서 어긋나면 여전히 잡는다 — 프로젝트 쪽과 플러그인 쪽 각각.
+    const projectDrift = [
+        { coordinate: "org.jetbrains.kotlinx:kotlinx-coroutines-core", version: "1.10.2", scopes: ["project"] },
+    ];
+    assert.deepEqual(
+        consistencyFindings([coroutines], projectDrift, catalog).map((finding) => finding.selectedVersion),
+        ["1.10.2"],
+    );
+    const kotlinGradlePlugin = {
+        alias: "kotlin-gradlePlugin",
+        kind: "library",
+        coordinate: "org.jetbrains.kotlin:kotlin-gradle-plugin",
+        currentVersion: "2.4.0",
+        references: ["build-logic/build.gradle.kts:16"],
+    };
+    const buildDrift = [
+        { coordinate: "org.jetbrains.kotlin:kotlin-gradle-plugin", version: "2.3.0", scopes: ["build"] },
+        { coordinate: "org.jetbrains.kotlin:kotlin-gradle-plugin", version: "2.4.0", scopes: ["project"] },
+    ];
+    assert.deepEqual(
+        consistencyFindings([kotlinGradlePlugin], buildDrift, catalog).map((finding) => finding.selectedVersion),
+        ["2.3.0"],
+    );
+
+    // scope 가 없는 해석 결과(옛 호출자)는 예전처럼 모든 항목과 견준다.
+    assert.equal(
+        consistencyFindings(
+            [coroutines],
+            [{ coordinate: "org.jetbrains.kotlinx:kotlinx-coroutines-core", version: "1.9.0" }],
+            catalog,
+        ).length,
+        1,
     );
 });
 

@@ -1,13 +1,11 @@
 <!--
   Play 스토어 아이콘 512×512. 런처 아이콘(app/src/main/res/drawable/ic_launcher_foreground.xml)과 같은 나침반 마크이고,
-  마스크가 없는 스토어 아이콘이라 안전 영역 대신 캔버스에 맞춰 1.45배로 키웠다. 배경은 브랜드 에메랄드(Brand500 #10B981).
+  마스크가 없는 스토어 아이콘이라 안전 영역 대신 캔버스에 맞춰 1.28배로 키웠다. 배경은 브랜드 에메랄드(Brand500 #10B981).
 -->
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 108 108">
   <rect width="108" height="108" fill="#10B981"/>
-  <g transform="translate(54 54) scale(1.45) translate(-54 -54)">
-    <path fill="none" stroke="#FFFFFF" stroke-width="5" d="M54,30 a24,24 0 1,1 -0.01,0 z"/>
-    <path fill="#FFFFFF" d="M54,36 L60,54 L54,50.5 L48,54 Z"/>
-    <path fill="#047857" d="M54,72 L48,54 L54,57.5 L60,54 Z"/>
-    <path fill="#FFFFFF" d="M54,51.5 a2.5,2.5 0 1,1 -0.01,0 z"/>
+  <g transform="translate(54 54) scale(1.28) translate(-54 -54)">
+    <path fill="none" stroke="#FFFFFF" stroke-width="7.5" d="M54,31 a23,23 0 1,1 -0.01,0 z"/>
+    <path fill="#FFFFFF" d="M54,22 L67,69 L54,58 L41,69 Z"/>
   </g>
 </svg>

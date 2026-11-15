@@ -6,6 +6,8 @@ import com.careercompass.core.common.reporting.ErrorReporter
 import com.careercompass.core.domain.error.CoreDataFailure
 import com.careercompass.core.model.board.BoardRegistration
 import com.careercompass.core.model.board.MAX_BOARDS
+import com.careercompass.core.ui.failure.FailureKind
+import com.careercompass.core.ui.failure.toFailureKind
 import com.careercompass.core.ui.mvi.MviIntent
 import com.careercompass.core.ui.mvi.MviViewModel
 import com.careercompass.core.ui.mvi.ReducerEvent
@@ -37,7 +39,16 @@ public sealed interface BoardRegisterMessage {
 
     public data object DetectFailed : BoardRegisterMessage
 
-    public data object RegisterFailed : BoardRegisterMessage
+    /**
+     * 등록 제출이 실패했다. 실패 표(#204)의 어느 행이었는지([kind])를 그대로 들고 간다.
+     *
+     * 전에는 사유를 가리지 않는 문구 하나였다. `BOARD_BLOCKED`·`RATE_LIMITED`·`INVALID_INPUT` 이 모두
+     * 「게시판을 등록하지 못했어요. 잠시 후 다시 시도해 주세요」로 접혀, 수집을 막아 둔 사이트를 등록하려던
+     * 사용자는 잠시 후 같은 주소로 다시 시도하라는 말을 들었다(#360).
+     */
+    public data class RegisterFailed(
+        val kind: FailureKind,
+    ) : BoardRegisterMessage
 
     /**
      * 서버 점검(503 `LLM_UNAVAILABLE`)으로 **등록 제출**이 실패했다는 안내.
@@ -401,7 +412,7 @@ public class BoardRegisterViewModel
                             }
 
                             FeedFailureReason.NetworkUnavailable,
-                            FeedFailureReason.Generic,
+                            is FeedFailureReason.Generic,
                             -> {
                                 BoardRegisterReducerEvent.DetectionFinished(
                                     BoardDetectionState.Idle,
@@ -482,7 +493,9 @@ public class BoardRegisterViewModel
                     }
 
                     else -> {
-                        BoardRegisterReducerEvent.RegistrationFailed(message = BoardRegisterMessage.RegisterFailed)
+                        BoardRegisterReducerEvent.RegistrationFailed(
+                            message = BoardRegisterMessage.RegisterFailed(throwable.toFailureKind()),
+                        )
                     }
                 }
             dispatch(event)

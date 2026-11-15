@@ -9,6 +9,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.careercompass.core.ui.failure.FailureKind
 import com.careercompass.core.ui.theme.CareerCompassTheme
 import com.careercompass.feature.feed.presentation.shared.model.FeedFailureReason
 import org.junit.Assert.assertEquals
@@ -71,7 +72,7 @@ class FeedFailureContentTest {
     fun generic_showsRetryNoticeWithoutMaintenanceCopy() {
         var retryCount = 0
         composeRule.setFailureContent(
-            reason = FeedFailureReason.Generic,
+            reason = FeedFailureReason.Generic(FailureKind.Unexpected),
             onRetryClick = { retryCount += 1 },
         )
 
@@ -123,13 +124,60 @@ class FeedFailureContentTest {
     fun genericWithQueryReset_keepsReasonNoticeIntact() {
         // 사유 화면은 탈출구가 붙어도 바뀌지 않는다 — 아래에 한 겹 덧붙일 뿐이다.
         composeRule.setFailureContent(
-            reason = FeedFailureReason.Generic,
+            reason = FeedFailureReason.Generic(FailureKind.Unexpected),
             onResetQueryClick = {},
         )
 
         composeRule.onNodeWithText("공고를 불러오지 못했어요").assertIsDisplayed()
         composeRule.onNode(hasText("다시 시도") and hasClickAction()).assertIsDisplayed()
         composeRule.onNodeWithText("조건 지우고 다시 보기").assertIsDisplayed()
+    }
+
+    /** 429 는 「잠깐 쉬었다 다시」다. 사유를 말해야 사용자가 왜 기다리는지 안다(#342). */
+    @Test
+    fun rateLimited_saysWhyAndKeepsRetry() {
+        var retryCount = 0
+        composeRule.setFailureContent(
+            reason = FeedFailureReason.Generic(FailureKind.RateLimited),
+            onRetryClick = { retryCount += 1 },
+        )
+
+        composeRule.onNodeWithText("요청이 너무 많아요").assertIsDisplayed()
+        composeRule.onNode(hasText("다시 시도") and hasClickAction()).performClick()
+
+        composeRule.runOnIdle { assertEquals(1, retryCount) }
+    }
+
+    /**
+     * 403 은 다시 보내도 같은 답이 온다. 표가 「할 수 있는 일 없음」이라고 하면 버튼을 그리지 않는다(#342).
+     *
+     * 조건 초기화는 별개다. 그 판정은 사유(`FeedFailureReason.isQueryAttributable`)가 하지 갈래가 하지 않는다.
+     */
+    @Test
+    fun permissionDenied_dropsRetryButKeepsQueryReset() {
+        composeRule.setFailureContent(
+            reason = FeedFailureReason.Generic(FailureKind.PermissionDenied),
+            onResetQueryClick = {},
+        )
+
+        composeRule.onNodeWithText("접근할 수 없어요").assertIsDisplayed()
+        composeRule.onAllNodesWithText("다시 시도").assertCountEquals(0)
+        composeRule.onNodeWithText("조건 지우고 다시 보기").assertIsDisplayed()
+    }
+
+    /**
+     * 표가 이 화면에 없는 길을 가리키면 버튼을 그리지 않는다(#342).
+     *
+     * 이 자리에서 넘길 수 있는 콜백은 재조회 하나뿐이다. 그대로 넘기면 「프로필 입력하기」라고 적힌
+     * 버튼이 재조회를 하게 되고, 사용자는 프로필 화면을 기다리다 같은 실패 화면을 다시 본다.
+     */
+    @Test
+    fun profileIncomplete_dropsActionThisScreenCannotPerform() {
+        composeRule.setFailureContent(reason = FeedFailureReason.Generic(FailureKind.ProfileIncomplete))
+
+        composeRule.onNodeWithText("프로필이 아직 비어 있어요").assertIsDisplayed()
+        composeRule.onAllNodesWithText("프로필 입력하기").assertCountEquals(0)
+        composeRule.onAllNodesWithText("다시 시도").assertCountEquals(0)
     }
 }
 

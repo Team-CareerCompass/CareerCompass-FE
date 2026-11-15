@@ -156,6 +156,12 @@ private fun FeedHeader(
     onEvent: (FeedUiEvent) -> Unit,
 ) {
     val spacing = CareerCompassTheme.spacing
+    val greetingStyle =
+        CareerCompassTheme.typography.headline4.copy(
+            fontSize = 17.sp,
+            lineHeight = 25.5.sp,
+            letterSpacing = (-0.2).sp,
+        )
 
     Column(
         modifier =
@@ -176,21 +182,29 @@ private fun FeedHeader(
                         .padding(end = spacing.small),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                Text(
-                    text =
-                        "${stringResource(R.string.feed_greeting, state.userName)} " +
-                            stringResource(R.string.feed_icon_wave),
-                    modifier = Modifier.semantics { heading() },
-                    color = CareerCompassTheme.colors.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style =
-                        CareerCompassTheme.typography.headline4.copy(
-                            fontSize = 17.sp,
-                            lineHeight = 25.5.sp,
-                            letterSpacing = (-0.2).sp,
-                        ),
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(spacing.xxSmall),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.feed_greeting, state.userName),
+                        modifier =
+                            Modifier
+                                .weight(1f, fill = false)
+                                .semantics { heading() },
+                        color = CareerCompassTheme.colors.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = greetingStyle,
+                    )
+                    // 손 흔드는 이모지는 장식이다. 한 Text 에 이어 붙이면 스크린 리더가 제목 끝에서
+                    // 이모지 이름까지 읽으므로, 배너들과 같게 따로 떼어 접근성 트리에서 지운다.
+                    Text(
+                        text = stringResource(R.string.feed_icon_wave),
+                        modifier = Modifier.clearAndSetSemantics {},
+                        style = greetingStyle,
+                    )
+                }
                 Text(
                     text =
                         stringResource(

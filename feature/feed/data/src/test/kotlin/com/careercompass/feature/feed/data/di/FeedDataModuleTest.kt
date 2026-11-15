@@ -41,6 +41,7 @@ class FeedDataModuleTest {
                 FeedSnapshotRepositoryImpl(
                     dataStore = FeedSnapshotStoreModule.provideFeedSnapshotDataStore(registry),
                     json = Json { ignoreUnknownKeys = true },
+                    localStoreRegistry = registry,
                 )
             repository.save(FeedSnapshot(listOf(posting(id = 1)), Instant.parse("2026-09-03T05:20:00Z")))
             assertNotNull(repository.load().getOrThrow())

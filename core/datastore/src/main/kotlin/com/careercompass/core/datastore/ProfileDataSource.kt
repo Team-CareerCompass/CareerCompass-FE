@@ -29,6 +29,8 @@ public class ProfileDataSource
     @Inject
     constructor(
         @param:ProfileDataStore private val dataStore: DataStore<Preferences>,
+        // 세션 세대 대조용 — SESSION 스코프 쓰기는 시작 시점의 세대를 들고 와야 한다([editWithinSession]).
+        private val localStoreRegistry: LocalStoreRegistry,
     ) {
         private object Keys {
             val PROFILE_JSON = stringPreferencesKey("profile_json")
@@ -53,13 +55,29 @@ public class ProfileDataSource
          */
         public val onboardingDoneHint: Flow<Boolean?> = preferencesFlow.map { prefs -> prefs[Keys.ONBOARDING_DONE_HINT] }
 
-        /** 프로필 JSON 과 그 주인의 id 를 한 번에 저장한다 — 둘이 어긋난 채로 읽히는 순간이 없어야 한다. */
+        /**
+         * 지금 세션 세대 — 서버에서 프로필을 받아 오기 전에 읽어 두었다가 [saveProfile] 에 그대로 넘긴다.
+         *
+         * 세대를 저장 시점에 읽으면 소용이 없다. 그때는 이미 앞 세션이 끝나고 다음 세대가 서 있어서, 앞 계정의
+         * 응답이 다음 계정의 저장소에 그대로 들어간다.
+         */
+        public fun currentSessionGeneration(): Long = localStoreRegistry.sessionGeneration.value
+
+        /**
+         * 프로필 JSON 과 그 주인의 id 를 한 번에 저장한다 — 둘이 어긋난 채로 읽히는 순간이 없어야 한다.
+         *
+         * [sessionGeneration] 은 이 프로필을 받아 오기 시작한 시점의 [currentSessionGeneration] 이다. 응답을
+         * 기다리는 동안 세션이 끝났으면(로그아웃·다른 계정 로그인) 저장하지 않는다 — 비워진 저장소에 앞 계정의
+         * 프로필이 되살아나면 다음 계정의 지문 게이트와 온보딩 판정이 그 값으로 열린다(#348). 기다림 없이 만든
+         * 값은 생략한다 — 호출 시점이 곧 시작 시점이다.
+         */
         public suspend fun saveProfile(
             json: String,
             userId: Long,
+            sessionGeneration: Long = currentSessionGeneration(),
         ) {
             require(json.isNotBlank()) { "profile json must not be blank" }
-            dataStore.edit { prefs ->
+            localStoreRegistry.editWithinSession(dataStore, startedAt = sessionGeneration) { prefs ->
                 prefs[Keys.PROFILE_JSON] = json
                 prefs[Keys.USER_ID] = userId
             }

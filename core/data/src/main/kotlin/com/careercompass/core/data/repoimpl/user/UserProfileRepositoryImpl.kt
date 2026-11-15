@@ -40,50 +40,74 @@ internal class UserProfileRepositoryImpl
             profileDataSource.profileJson.map { stored -> stored?.let(::decodeOrNull)?.let(UserMapper::toProfile) }
 
         override suspend fun refreshProfile(): Result<UserProfile> =
-            runCatchingCancellable { store(userApiService.getMe().requireData()) }.mapDataFailure()
+            runCatchingCancellable {
+                val startedAt = profileDataSource.currentSessionGeneration()
+                store(userApiService.getMe().requireData(), startedAt)
+            }.mapDataFailure()
 
         override suspend fun lastKnownOnboardingDone(): Boolean? =
             profile.first()?.onboardingDone ?: profileDataSource.onboardingDoneHint.first()
 
         override suspend fun updateProfile(update: UserProfileUpdate): Result<UserProfile> {
             if (update.isEmpty) return profile.first()?.let { Result.success(it) } ?: refreshProfile()
+            val startedAt = profileDataSource.currentSessionGeneration()
             return runCatchingCancellable {
-                store(userApiService.updateMe(UserMapper.toUpdateRequest(update)).requireData())
+                store(userApiService.updateMe(UserMapper.toUpdateRequest(update)).requireData(), startedAt)
             }.mapDataFailure()
         }
 
         override suspend fun replaceJobInterests(interests: List<JobInterest>): Result<Unit> {
             require(interests.size in 1..MAX_JOB_INTERESTS) { "job interests must be 1..$MAX_JOB_INTERESTS" }
             require(interests.map(JobInterest::code).distinct().size == interests.size) { "job interest codes must be unique" }
+            val startedAt = profileDataSource.currentSessionGeneration()
             return runCatchingCancellable {
                 userApiService.replaceJobInterests(JobInterestsRequestDto(interests.map(UserMapper::toJobInterestDto))).requireOk()
-                updateStored { it.copy(jobInterests = interests.map(UserMapper::toJobInterestDto)) }
+                updateStored(startedAt) { it.copy(jobInterests = interests.map(UserMapper::toJobInterestDto)) }
             }.mapDataFailure()
         }
 
         override suspend fun replaceTags(tags: List<String>): Result<Unit> {
             require(tags.size in 1..MAX_PROFILE_TAGS) { "tags must be 1..$MAX_PROFILE_TAGS" }
             require(tags.all(String::isNotBlank) && tags.distinct().size == tags.size) { "tags must be non-blank and unique" }
+            val startedAt = profileDataSource.currentSessionGeneration()
             return runCatchingCancellable {
                 userApiService.replaceTags(TagsRequestDto(tags)).requireOk()
-                updateStored { it.copy(tags = tags) }
+                updateStored(startedAt) { it.copy(tags = tags) }
             }.mapDataFailure()
         }
 
-        private suspend fun store(dto: UserProfileDto): UserProfile {
-            persist(dto)
+        private suspend fun store(
+            dto: UserProfileDto,
+            startedAt: Long,
+        ): UserProfile {
+            persist(dto, startedAt)
             return UserMapper.toProfile(dto)
         }
 
         /** 저장된 프로필이 없으면 건너뛴다 — 부분 갱신만으로 프로필을 지어내지 않는다. */
-        private suspend fun updateStored(transform: (UserProfileDto) -> UserProfileDto) {
+        private suspend fun updateStored(
+            startedAt: Long,
+            transform: (UserProfileDto) -> UserProfileDto,
+        ) {
             val current = profileDataSource.profileJson.first()?.let(::decodeOrNull) ?: return
-            persist(transform(current))
+            persist(transform(current), startedAt)
         }
 
-        /** 사용자 id 를 JSON 과 함께 남긴다 — 지문 등록 사용자와의 대조는 JSON 해석 없이 id 만 읽는다. */
-        private suspend fun persist(dto: UserProfileDto) {
-            profileDataSource.saveProfile(json = json.encodeToString(UserProfileDto.serializer(), dto), userId = dto.id)
+        /**
+         * 사용자 id 를 JSON 과 함께 남긴다 — 지문 등록 사용자와의 대조는 JSON 해석 없이 id 만 읽는다.
+         *
+         * [startedAt] 은 이 프로필을 서버에 청하기 시작한 시점의 세션 세대다. 응답을 기다리는 동안 세션이
+         * 끝났으면 저장소는 비워진 채로 남는다(#348).
+         */
+        private suspend fun persist(
+            dto: UserProfileDto,
+            startedAt: Long,
+        ) {
+            profileDataSource.saveProfile(
+                json = json.encodeToString(UserProfileDto.serializer(), dto),
+                userId = dto.id,
+                sessionGeneration = startedAt,
+            )
         }
 
         private fun decodeOrNull(stored: String): UserProfileDto? =

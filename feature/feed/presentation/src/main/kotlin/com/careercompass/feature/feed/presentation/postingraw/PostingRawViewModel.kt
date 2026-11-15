@@ -161,9 +161,11 @@ public class PostingRawViewModel
                     val openable = ExternalUrl.openableOrNull(detail.url)
                     if (openable == null) {
                         // 서버가 준 값이라고 그대로 넘기지 않는다 — 이 주소는 사용자가 등록한 게시판에서 긁혀 온다.
+                        val failure = UnsupportedExternalUrlException(ExternalUrl.schemeOrNull(detail.url))
                         errorReporter.recordFeedFailure(
-                            FeedFailureStage.PostingRaw,
-                            UnsupportedExternalUrlException(ExternalUrl.schemeOrNull(detail.url)),
+                            stage = FeedFailureStage.PostingRaw,
+                            throwable = failure,
+                            attributes = failure.reportAttributes,
                         )
                         dispatch(PostingRawReducerEvent.OpenUrlRejected)
                         return

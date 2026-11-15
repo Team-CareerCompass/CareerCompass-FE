@@ -114,6 +114,24 @@ class BoardRegisterScreenTest {
         composeRule.onNodeWithText("서비스가 잠시 점검 중이에요").assertIsDisplayed()
     }
 
+    /**
+     * 사유가 분명한 등록 실패는 그 사유를 말한다(#360).
+     *
+     * 전에는 `else` 로 떨어져 「게시판을 등록하지 못했어요. 잠시 후 다시 시도해 주세요」가 됐다.
+     * 수집을 막아 둔 사이트를 등록하려던 사용자에게 잠시 후 같은 주소로 다시 해 보라고 말하는 문장이다.
+     */
+    @Test
+    fun `등록 중 수집 차단은 차단 문구로 알린다`() {
+        repository.onRegister = { Result.failure(CoreDataFailure.BoardBlocked("BOARD_BLOCKED", RuntimeException())) }
+        val viewModel = viewModel().readyToRegister()
+        setEntryContent(viewModel)
+
+        viewModel.onEvent(BoardRegisterEvent.RegisterClicked)
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("자동 수집이 허용되지 않는 사이트예요", substring = true).assertIsDisplayed()
+    }
+
     /** 등록 요청이 응답을 기다리는 중인 화면. */
     private fun submittingScreen(): BoardRegisterViewModel {
         val viewModel = viewModel().readyToRegister()
