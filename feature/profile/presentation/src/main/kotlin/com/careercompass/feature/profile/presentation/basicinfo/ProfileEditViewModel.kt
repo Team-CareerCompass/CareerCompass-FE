@@ -150,6 +150,8 @@ public sealed interface ProfileEditReducerEvent : ReducerEvent {
         val profile: UserProfile,
     ) : ProfileEditReducerEvent
 
+    public data object LoadStarted : ProfileEditReducerEvent
+
     public data class LoadFailed(
         val kind: FailureKind,
     ) : ProfileEditReducerEvent
@@ -230,6 +232,7 @@ public class ProfileEditViewModel
         private val clock: Clock,
     ) : MviViewModel<ProfileEditIntent, ProfileEditUiState, ProfileEditReducerEvent>(ProfileEditUiState()) {
         private var saveJob: Job? = null
+        private var loadJob: Job? = null
 
         init {
             viewModelScope.launch {
@@ -237,11 +240,7 @@ public class ProfileEditViewModel
                     profile?.let { dispatch(ProfileEditReducerEvent.Prefilled(it)) }
                 }
             }
-            viewModelScope.launch {
-                refreshProfile()
-                    .onSuccess { dispatch(ProfileEditReducerEvent.Prefilled(it)) }
-                    .onFailure(::onLoadFailure)
-            }
+            retryLoad()
         }
 
         override fun onIntent(intent: ProfileEditIntent) {
@@ -262,6 +261,11 @@ public class ProfileEditViewModel
             when (event) {
                 is ProfileEditReducerEvent.Prefilled -> {
                     state.prefilledWith(event.profile)
+                }
+
+                ProfileEditReducerEvent.LoadStarted -> {
+                    // 원본이 없는 재시도만 진행 화면이 된다. 캐시로 채운 편집 폼은 계속 보인다.
+                    state.copy(loadFailure = null)
                 }
 
                 is ProfileEditReducerEvent.LoadFailed -> {
@@ -475,11 +479,14 @@ public class ProfileEditViewModel
         }
 
         private fun retryLoad() {
-            viewModelScope.launch {
-                refreshProfile()
-                    .onSuccess { dispatch(ProfileEditReducerEvent.Prefilled(it)) }
-                    .onFailure(::onLoadFailure)
-            }
+            if (loadJob?.isActive == true) return
+            dispatch(ProfileEditReducerEvent.LoadStarted)
+            loadJob =
+                viewModelScope.launch {
+                    refreshProfile()
+                        .onSuccess { dispatch(ProfileEditReducerEvent.Prefilled(it)) }
+                        .onFailure(::onLoadFailure)
+                }
         }
 
         private fun onLoadFailure(cause: Throwable) {
