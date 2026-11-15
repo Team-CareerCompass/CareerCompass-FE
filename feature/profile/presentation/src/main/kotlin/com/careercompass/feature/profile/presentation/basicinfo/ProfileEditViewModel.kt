@@ -1,5 +1,6 @@
 package com.careercompass.feature.profile.presentation.basicinfo
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.careercompass.core.common.reporting.ErrorReporter
 import com.careercompass.core.domain.error.CoreDataFailure
@@ -148,6 +149,7 @@ public sealed interface ProfileEditReducerEvent : ReducerEvent {
     /** 서버 값이 도착했다 — 사용자가 이미 고친 칸은 덮지 않는다. */
     public data class Prefilled(
         val profile: UserProfile,
+        val restoredInputs: ProfileEditInputOverrides? = null,
     ) : ProfileEditReducerEvent
 
     public data object LoadStarted : ProfileEditReducerEvent
@@ -230,16 +232,19 @@ public class ProfileEditViewModel
         private val saveProfileTags: SaveProfileTagsUseCase,
         private val errorReporter: ErrorReporter,
         private val clock: Clock,
+        savedStateHandle: SavedStateHandle,
     ) : MviViewModel<ProfileEditIntent, ProfileEditUiState, ProfileEditReducerEvent>(ProfileEditUiState()) {
         private var saveJob: Job? = null
+        private val inputDraft = ProfileEditInputDraft(savedStateHandle)
         private var loadJob: Job? = null
 
         init {
             viewModelScope.launch {
                 observeProfile().collect { profile ->
-                    profile?.let { dispatch(ProfileEditReducerEvent.Prefilled(it)) }
+                    profile?.let(::prefill)
                 }
             }
+            viewModelScope.launch { uiState.collect(inputDraft::save) }
             retryLoad()
         }
 
@@ -260,7 +265,8 @@ public class ProfileEditViewModel
         ): ProfileEditUiState =
             when (event) {
                 is ProfileEditReducerEvent.Prefilled -> {
-                    state.prefilledWith(event.profile)
+                    val prefilled = state.prefilledWith(event.profile)
+                    event.restoredInputs?.applyTo(prefilled) ?: prefilled
                 }
 
                 ProfileEditReducerEvent.LoadStarted -> {
@@ -478,13 +484,18 @@ public class ProfileEditViewModel
             )
         }
 
+        private fun prefill(profile: UserProfile) {
+            val restored = inputDraft.restoredInputs().takeIf { currentState.original == null }
+            dispatch(ProfileEditReducerEvent.Prefilled(profile, restored))
+        }
+
         private fun retryLoad() {
             if (loadJob?.isActive == true) return
             dispatch(ProfileEditReducerEvent.LoadStarted)
             loadJob =
                 viewModelScope.launch {
                     refreshProfile()
-                        .onSuccess { dispatch(ProfileEditReducerEvent.Prefilled(it)) }
+                        .onSuccess(::prefill)
                         .onFailure(::onLoadFailure)
                 }
         }
@@ -492,7 +503,7 @@ public class ProfileEditViewModel
         private fun onLoadFailure(cause: Throwable) {
             if (cause is CoreDataFailure.Unauthorized) {
                 errorReporter.recordProfileFailure(ProfileFailureStage.BasicInfoLoad, cause)
-                dispatch(ProfileEditReducerEvent.SessionEnded(ProfileSessionEnd.Expired))
+                endSession()
                 return
             }
             errorReporter.recordProfileFailure(ProfileFailureStage.BasicInfoLoad, cause)
@@ -550,14 +561,16 @@ public class ProfileEditViewModel
             }
             // 두 PUT 은 프로필을 돌려주지 않는다 — 서버가 무엇을 갖게 됐는지는 다시 읽어야 안다.
             val saved = if (form.hasJobInterestChanges || form.hasTagChanges) refreshProfile().getOrNull() else null
-            dispatch(ProfileEditReducerEvent.Saved(saved ?: profile ?: return))
+            val completed = saved ?: profile ?: return
+            inputDraft.finish()
+            dispatch(ProfileEditReducerEvent.Saved(completed))
         }
 
         /** 전체 교체가 실패했다 — 서버 값을 다시 읽어 화면을 되돌린다. 못 읽으면 일반 실패로 접는다. */
         private suspend fun onInterestsSaveFailure(cause: Throwable) {
             errorReporter.recordProfileFailure(ProfileFailureStage.InterestsSave, cause)
             if (cause is CoreDataFailure.Unauthorized) {
-                dispatch(ProfileEditReducerEvent.SessionEnded(ProfileSessionEnd.Expired))
+                endSession()
                 return
             }
             val profile = refreshProfile().getOrNull()
@@ -582,7 +595,7 @@ public class ProfileEditViewModel
             errorReporter.recordProfileFailure(ProfileFailureStage.BasicInfoSave, cause)
             when (cause) {
                 is CoreDataFailure.Unauthorized -> {
-                    dispatch(ProfileEditReducerEvent.SessionEnded(ProfileSessionEnd.Expired))
+                    endSession()
                 }
 
                 is CoreDataFailure.InvalidInput -> {
@@ -684,6 +697,11 @@ public class ProfileEditViewModel
                     ),
                 ),
             )
+        }
+
+        private fun endSession() {
+            inputDraft.finish()
+            dispatch(ProfileEditReducerEvent.SessionEnded(ProfileSessionEnd.Expired))
         }
 
         private fun onGraduationPickerEvent(event: GraduationDatePickerEvent) {
