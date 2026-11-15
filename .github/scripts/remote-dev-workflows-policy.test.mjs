@@ -5,21 +5,29 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { inspectModules } from "./resolve-pr-impact.mjs";
 
 const workflowDirectory = new URL("../workflows/", import.meta.url);
-const readWorkflow = (name) => readFile(new URL(name, workflowDirectory), "utf8");
+const readWorkflow = async (name) => (await readFile(new URL(name, workflowDirectory), "utf8")).replaceAll("\r\n", "\n");
 
-// screenshot 골든을 가진 모듈만 적는다. `:feature:profile:presentation` 은 여기 없다 — 그 모듈은
-// screenshot 플러그인을 달지 않는다(#175). 목록에 남겨 두면 폴백 task 목록이 존재하지 않는 task 를 가리켜,
-// repository-quality 가 실패해 폴백이 쓰이는 순간 screenshot 잡까지 「task not found」로 함께 빨개진다.
+// 실제 screenshot 플러그인이 켜진 모듈과 아래 테스트로 대조한다.
 const screenshotModules = [
     ":core:ui",
     ":feature:onboarding:presentation",
     ":feature:feed:presentation",
     ":feature:editor:presentation",
     ":feature:foryou:presentation",
+    ":feature:profile:presentation",
     ":feature:notification:presentation",
 ];
+
+test("baseline module policy matches screenshot-enabled Gradle modules", async () => {
+    const modules = await inspectModules(fileURLToPath(new URL("../../", import.meta.url)));
+    const actual = modules.filter((module) =>
+        module.buildSource.includes("alias(libs.plugins.compose.screenshot)"),
+    ).map((module) => module.projectPath).sort();
+    assert.deepEqual([...screenshotModules].sort(), actual);
+});
 
 test("baseline generation executes PR code without write credentials", async () => {
     const source = await readWorkflow("screenshot-baseline-generate.yml");
@@ -96,7 +104,7 @@ test("screenshot workflow fallbacks cover every baseline module", async () => {
 test("docker fallback commands target exactly the baseline modules", async () => {
     // Actions 가 멈춰 문서대로 컨테이너에서 골든을 돌리는 순간, 목록에 없는 모듈이 명령에 남아 있으면
     // Gradle 이 태스크 선택 단계에서 "Task 'updateScreenshotTest' not found" 로 죽어 나머지 모듈 골든까지
-    // 못 받는다(#351, :feature:profile:presentation 이 그렇게 남아 있었다). workflow 쪽 fallback 만
+    // 못 받는다. 플러그인 추가·제거 때 workflow 쪽 fallback 만
     // 맞춰 두면 이 경로는 아무도 검사하지 않으므로 같은 목록으로 여기서도 대조한다.
     const repositoryRoot = new URL("../../", import.meta.url);
     const [dockerfile, guide] = await Promise.all([
