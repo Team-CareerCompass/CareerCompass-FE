@@ -1,5 +1,6 @@
 package com.careercompass.careercompass_fe
 
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -43,6 +44,7 @@ import com.careercompass.core.model.user.JobInterest
 import com.careercompass.core.model.user.UserProfile
 import com.careercompass.feature.foryou.domain.model.RoadmapComparison
 import com.careercompass.feature.foryou.domain.model.RoadmapMetric
+import com.careercompass.feature.foryou.domain.model.StrengthExport
 import com.careercompass.feature.foryou.domain.testing.FakeForYouRepository
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -123,6 +125,29 @@ class AppNavigationAndroidTest {
         composeRule.onNodeWithText("피드").assertIsDisplayed()
         composeRule.onNodeWithText("마이").performClick()
         composeRule.onNodeWithText("프로필 완성도").assertIsDisplayed()
+    }
+
+    @Test
+    fun strengthExport_previewsAndCopiesExactContent() {
+        fakeAuthRepository.loggedIn = true
+        fakeUserProfileRepository.profileState.value = profile(onboardingDone = true)
+        val content = "# 내 강점\n팀과 함께 모바일 앱을 만들었습니다."
+        fakeForYouRepository.onExport = { format, _ -> Result.success(StrengthExport(format, content)) }
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        composeRule.onNodeWithText("분석").performClick()
+        composeRule.onNodeWithText("내 강점 정리").performClick()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("미리보기 만들기"))
+        composeRule.onNodeWithText("미리보기 만들기").performClick()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("클립보드에 복사"))
+        composeRule.onNodeWithText("클립보드에 복사").performClick()
+        composeRule.onNodeWithText("내 강점을 복사했어요").assertIsDisplayed()
+        scenario?.onActivity { activity ->
+            val clip = activity.getSystemService(ClipboardManager::class.java).primaryClip
+            assertEquals(content, clip?.getItemAt(0)?.text?.toString())
+            assertEquals(true, clip?.description?.extras?.getBoolean("android.content.extra.IS_SENSITIVE"))
+        }
+        composeRule.onNodeWithContentDescription("뒤로 가기").performClick()
+        composeRule.onNodeWithText("나를 위한 분석").assertIsDisplayed()
     }
 
     @Test

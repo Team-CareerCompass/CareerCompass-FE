@@ -1,0 +1,27 @@
+<resources>
+    <string name="foryou_export_title">내 강점 정리</string>
+    <string name="foryou_export_description">필요한 정보를 골라 미리 보고, 원하는 곳에 붙여넣어 보세요.</string>
+    <string name="foryou_export_sections">포함할 정보</string>
+    <string name="foryou_export_section_basic">기본 정보</string>
+    <string name="foryou_export_section_skills">핵심 기술 스택</string>
+    <string name="foryou_export_section_projects">프로젝트</string>
+    <string name="foryou_export_section_awards">수상 이력</string>
+    <string name="foryou_export_section_summary">AI 한 줄 강점 요약</string>
+    <string name="foryou_export_select_section">포함할 정보를 하나 이상 선택해 주세요.</string>
+    <string name="foryou_export_format">내보낼 형식</string>
+    <string name="foryou_export_format_markdown" translatable="false">Markdown</string>
+    <string name="foryou_export_format_notion" translatable="false">Notion</string>
+    <string name="foryou_export_format_html" translatable="false">HTML</string>
+    <string name="foryou_export_format_plain" translatable="false">Plain</string>
+    <string name="foryou_export_generate">미리보기 만들기</string>
+    <string name="foryou_export_generating">미리보기를 만드는 중이에요</string>
+    <string name="foryou_export_preview">%1$s 미리보기</string>
+    <string name="foryou_export_empty">선택한 정보로 내보낼 내용이 아직 없어요. 경험을 추가하거나 포함할 정보를 바꿔 보세요.</string>
+    <string name="foryou_export_copy">클립보드에 복사</string>
+    <string name="foryou_export_copied">내 강점을 복사했어요</string>
+    <string name="foryou_export_copy_failed">복사하지 못했어요. 미리보기의 글을 길게 눌러 복사해 주세요.</string>
+    <string name="foryou_export_no_experiences">등록한 경험 카드가 없어요</string>
+    <string name="foryou_export_no_experiences_description">경험을 추가하면 더 풍부하게 정리할 수 있어요. 기본 정보 등 현재 가진 내용은 미리 볼 수 있어요.</string>
+    <string name="foryou_export_add_experience">경험 카드 추가하기</string>
+    <string name="foryou_export_entry_description">프로필과 경험을 원하는 형식으로 정리하고 복사해요.</string>
+</resources>

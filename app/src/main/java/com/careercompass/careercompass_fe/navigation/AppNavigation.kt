@@ -121,6 +121,10 @@ public fun AppNavigation(
     val forYouExternalActions =
         remember(appState, onSessionEnded) {
             object : ForYouExternalActions {
+                override fun navigateToExperiences() {
+                    appState.backStack.pushSingleTop(Route.ExperienceCards)
+                }
+
                 override fun navigateToProfile() {
                     appState.backStack.pushSingleTop(Route.ProfileEdit)
                 }
