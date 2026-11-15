@@ -32,7 +32,10 @@ public data class ApplicationItemDraft(
  * 오타로 들어온 값을 그대로 보내면 서버가 항목마다 LLM 을 부르는 동안 사용자가 몇 분을 기다린 뒤 실패한다.
  */
 public object ApplicationItemRules {
-    /** 문항 수 상한. 자소서 한 장의 문항은 보통 3~5개다. */
+    /**
+     * 사용자가 추가하거나 생성 시작에 확정할 문항 수 상한(#413).
+     * 인식 결과는 임의로 자르지 않는다. 상한을 넘으면 모두 보여 주고 사용자가 줄인 뒤에만 시작한다.
+     */
     public const val MAX_ITEMS: Int = 10
 
     /** 질문 원문 길이 상한. */

@@ -70,6 +70,17 @@ class ApplicationSetupContentTest {
     }
 
     @Test
+    fun `인식 문항 초과는 별도 안내로 표시하고 시작을 잠근다`() {
+        composeRule.setContent(state(items = (1..12).map { itemDraft(it, "문항 $it", 300) }))
+
+        composeRule.onNodeWithText("문항이 12개예요. 초안 작성을 시작하려면 10개 이하로 줄여 주세요.").assertIsDisplayed()
+        composeRule.onNodeWithText("초안 작성 시작").assertIsNotEnabled()
+        composeRule.scrollTo(hasText("문항 12개"))
+        composeRule.onNodeWithText("문항 12개").assertIsDisplayed()
+        composeRule.onAllNodesWithText("12 / 10개").assertCountEquals(0)
+    }
+
+    @Test
     fun `문체를 고르면 그 값을 올려 보낸다`() {
         val events = mutableListOf<ApplicationSetupEvent>()
         composeRule.setContent(state(), onEvent = { events += it })

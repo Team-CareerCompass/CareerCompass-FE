@@ -185,6 +185,43 @@ class ApplicationSetupViewModelTest {
             assertEquals(ApplicationSetupMessage.LimitReached, viewModel.uiState.value.message)
         }
 
+    @Test
+    fun `인식 문항이 상한을 넘으면 모두 보존하고 시작 요청을 막는다`() =
+        runTest(dispatcher) {
+            val questions =
+                (1..12).map {
+                    com.careercompass.core.model.posting
+                        .PostingFormQuestion(order = it, question = "문항 $it", maxChars = 300)
+                }
+            postingRepository.onGetPostingDetail = { Result.success(postingDetail(questions = questions)) }
+            val viewModel = viewModel()
+
+            assertEquals(12, viewModel.uiState.value.items.size)
+            assertTrue(viewModel.uiState.value.isOverItemLimit)
+            assertFalse(viewModel.uiState.value.canStart)
+            viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.StartClicked))
+            assertTrue(applicationRepository.createDraftCalls.isEmpty())
+
+            // 편집한 문항도 상한을 넘는 동안 전송할 수 없다.
+            viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.ItemEditClicked(1)))
+            viewModel.editor(ApplicationItemEditorEvent.QuestionChanged("고친 문항"))
+            viewModel.editor(ApplicationItemEditorEvent.Submitted)
+            viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.StartClicked))
+            assertTrue(applicationRepository.createDraftCalls.isEmpty())
+
+            viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.ItemDeleteClicked(12)))
+            viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.ItemDeleteClicked(11)))
+            assertFalse(viewModel.uiState.value.isOverItemLimit)
+            assertTrue(viewModel.uiState.value.canStart)
+            applicationRepository.onCreateDraft = { _, _, _ -> Result.success(createdDraft()) }
+            viewModel.send(ApplicationSetupIntent.Screen(ApplicationSetupEvent.StartClicked))
+
+            val sent = applicationRepository.createDraftCalls.single().items!!
+            assertEquals(10, sent.size)
+            assertEquals("고친 문항", sent.first().question)
+            assertEquals((1..10).toList(), sent.map { it.order })
+        }
+
     /** 계약에 없는 필드라, 보낼 이유가 없을 때 보내면 그 필드를 모르는 서버가 거절할 여지만 만든다. */
     @Test
     fun `손보지 않고 시작하면 문항을 보내지 않는다`() =
