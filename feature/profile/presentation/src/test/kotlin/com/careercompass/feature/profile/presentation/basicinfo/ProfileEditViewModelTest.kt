@@ -1,5 +1,6 @@
 package com.careercompass.feature.profile.presentation.basicinfo
 
+import androidx.lifecycle.SavedStateHandle
 import com.careercompass.core.common.reporting.ErrorReporter
 import com.careercompass.core.domain.error.CoreDataFailure
 import com.careercompass.core.domain.testing.FakeUserProfileRepository
@@ -68,6 +69,7 @@ class ProfileEditViewModelTest {
             saveProfileTags = SaveProfileTagsUseCase(userProfileRepository),
             errorReporter = reporter,
             clock = clock,
+            savedStateHandle = SavedStateHandle(),
         )
 
     @Test

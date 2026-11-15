@@ -5,6 +5,7 @@ import com.careercompass.core.common.reporting.ErrorReporter
 import com.careercompass.core.domain.error.CoreDataFailure
 import com.careercompass.core.model.experience.Experience
 import com.careercompass.core.model.experience.MAX_EXPERIENCE_CARDS
+import com.careercompass.core.model.paging.CursorPage
 import com.careercompass.core.ui.component.ExperienceDeleteState
 import com.careercompass.core.ui.component.ExperienceEditorState
 import com.careercompass.core.ui.component.ExperienceQuickAddEvent
@@ -37,8 +38,8 @@ import javax.inject.Inject
  *
  * @property cards 지금까지 읽어 온 페이지를 이어 붙인 목록. 정렬은 서버가 준 순서 그대로다.
  * @property nextCursor null 이면 마지막 페이지다.
- * @property totalCount 전체 개수. **필터가 걸려 있으면 모른다**(null) — 서버가 필터별 총계를 주지 않고,
- *   필터된 목록의 길이를 전체인 양 적으면 상한 안내가 거짓이 된다.
+ * @property totalCount 전체 목록을 마지막 페이지까지 읽었을 때만 아는 전체 개수. 필터가 있거나 아직 다음
+ *   페이지가 있으면 null 이다. 서버가 총계를 주지 않으므로 일부 목록의 길이를 전체인 양 표시하지 않는다.
  */
 public data class ExperienceListUiState(
     val cards: List<Experience> = emptyList(),
@@ -193,13 +194,33 @@ public class ExperienceListViewModel
 
         override fun onIntent(intent: ExperienceListIntent) {
             when (intent) {
-                is ExperienceListIntent.Screen -> onEvent(intent.event)
-                ExperienceListIntent.Refresh -> load(currentState.filter)
-                ExperienceListIntent.ConsumeMessage -> dispatch(ExperienceListReducerEvent.MessageConsumed)
-                is ExperienceListIntent.Editor -> onEditorEvent(intent.event)
-                ExperienceListIntent.ConfirmDelete -> confirmDelete()
-                ExperienceListIntent.DismissDelete -> dispatch(ExperienceListReducerEvent.DeletionRequested(null))
-                ExperienceListIntent.ConsumeSessionEnded -> dispatch(ExperienceListReducerEvent.SessionEndedConsumed)
+                is ExperienceListIntent.Screen -> {
+                    onEvent(intent.event)
+                }
+
+                ExperienceListIntent.Refresh -> {
+                    load(currentState.filter)
+                }
+
+                ExperienceListIntent.ConsumeMessage -> {
+                    dispatch(ExperienceListReducerEvent.MessageConsumed)
+                }
+
+                is ExperienceListIntent.Editor -> {
+                    onEditorEvent(intent.event)
+                }
+
+                ExperienceListIntent.ConfirmDelete -> {
+                    confirmDelete()
+                }
+
+                ExperienceListIntent.DismissDelete -> {
+                    if (!currentState.isDeleting) dispatch(ExperienceListReducerEvent.DeletionRequested(null))
+                }
+
+                ExperienceListIntent.ConsumeSessionEnded -> {
+                    dispatch(ExperienceListReducerEvent.SessionEndedConsumed)
+                }
             }
         }
 
@@ -209,12 +230,14 @@ public class ExperienceListViewModel
         ): ExperienceListUiState =
             when (event) {
                 is ExperienceListReducerEvent.LoadStarted -> {
-                    // 필터를 바꾸면 커서도 처음으로 돌아간다 — 이전 필터의 페이지를 이어 붙이면 목록이 섞인다.
+                    // 같은 필터의 갱신은 목록을 남겨 LazyColumn 과 스크롤을 지킨다.
                     // load() 가 이전 이어 읽기를 취소했으므로 그 진행 상태도 함께 끝낸다.
+                    val sameFilter = state.filter == event.filter
                     state.copy(
                         filter = event.filter,
-                        cards = emptyList(),
-                        nextCursor = null,
+                        cards = if (sameFilter) state.cards else emptyList(),
+                        nextCursor = if (sameFilter) state.nextCursor else null,
+                        totalCount = if (sameFilter) state.totalCount else null,
                         isLoading = true,
                         isLoadingMore = false,
                         loadFailure = null,
@@ -225,14 +248,14 @@ public class ExperienceListViewModel
                     state.copy(
                         cards = event.cards,
                         nextCursor = event.nextCursor,
-                        totalCount = event.totalCount ?: state.totalCount,
+                        totalCount = event.totalCount,
                         isLoading = false,
                         loadFailure = null,
                     )
                 }
 
                 is ExperienceListReducerEvent.LoadFailed -> {
-                    state.copy(isLoading = false, loadFailure = event.kind)
+                    state.copy(isLoading = false, loadFailure = event.kind, totalCount = null)
                 }
 
                 ExperienceListReducerEvent.LoadMoreStarted -> {
@@ -243,7 +266,7 @@ public class ExperienceListViewModel
                     state.copy(
                         cards = state.cards + event.cards,
                         nextCursor = event.nextCursor,
-                        totalCount = event.totalCount ?: state.totalCount,
+                        totalCount = event.totalCount,
                         isLoadingMore = false,
                     )
                 }
@@ -309,6 +332,7 @@ public class ExperienceListViewModel
                 }
 
                 is ExperienceListEvent.DeleteClicked -> {
+                    if (currentState.isDeleting) return
                     val card = currentState.cards.firstOrNull { it.id == event.id }
                     if (card != null) {
                         dispatch(
@@ -425,22 +449,40 @@ public class ExperienceListViewModel
         }
 
         private fun load(filter: ExperienceTypeFilter) {
+            val retainedCount = currentState.cards.size.takeIf { filter == currentState.filter } ?: 0
             loadJob?.cancel()
             loadMoreJob?.cancel()
             dispatch(ExperienceListReducerEvent.LoadStarted(filter))
             loadJob =
                 viewModelScope.launch {
-                    getExperiences(type = filter.type)
+                    loadWindow(filter, retainedCount)
                         .onSuccess { page ->
                             dispatch(
                                 ExperienceListReducerEvent.Loaded(
                                     cards = page.items,
                                     nextCursor = page.nextCursor,
-                                    totalCount = page.items.size.takeIf { filter.type == null },
+                                    totalCount = page.items.size.takeIf { filter.type == null && page.nextCursor == null },
                                 ),
                             )
                         }.onFailure { cause -> onFailure(ProfileFailureStage.ExperienceList, cause) }
                 }
+        }
+
+        /** 첫 진입은 한 페이지만, 같은 필터의 갱신은 이미 읽은 카드 범위까지 다시 읽어 한 번에 교체한다. */
+        private suspend fun loadWindow(
+            filter: ExperienceTypeFilter,
+            retainedCount: Int,
+        ): Result<CursorPage<Experience>> {
+            val cards = mutableListOf<Experience>()
+            val visited = mutableSetOf<String?>()
+            var cursor: String? = null
+            do {
+                if (!visited.add(cursor)) break
+                val page = getExperiences(type = filter.type, cursor = cursor).getOrElse { return Result.failure(it) }
+                cards += page.items
+                cursor = page.nextCursor
+            } while (cursor != null && cards.size < retainedCount)
+            return Result.success(CursorPage(items = cards, nextCursor = cursor))
         }
 
         /** 이어 읽기 실패는 이미 보이는 목록을 덮지 않는다 — 스낵바 한 줄로 끝난다. */
@@ -458,7 +500,9 @@ public class ExperienceListViewModel
                                     cards = page.items,
                                     nextCursor = page.nextCursor,
                                     totalCount =
-                                        (currentState.cards.size + page.items.size).takeIf { state.filter.type == null },
+                                        (currentState.cards.size + page.items.size).takeIf {
+                                            state.filter.type == null && page.nextCursor == null
+                                        },
                                 ),
                             )
                         }.onFailure { cause ->
