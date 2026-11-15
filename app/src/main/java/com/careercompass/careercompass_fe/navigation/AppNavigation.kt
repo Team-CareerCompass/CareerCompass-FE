@@ -24,11 +24,12 @@ import com.careercompass.careercompass_fe.session.AppStartDestination
 import com.careercompass.careercompass_fe.session.SessionEndCause
 import com.careercompass.core.ui.component.CareerCompassBottomBar
 import com.careercompass.core.ui.component.CareerCompassBottomTab
+import com.careercompass.core.ui.navigation.FeatureStackBoundary
 import com.careercompass.core.ui.navigation.pushSingleTop
 import com.careercompass.core.ui.navigation.rememberStandardNavEntryDecorators
 import com.careercompass.core.ui.theme.CareerCompassTheme
-import com.careercompass.feature.editor.presentation.setup.ApplicationSetupScreen
-import com.careercompass.feature.editor.presentation.setup.ApplicationSetupViewModel
+import com.careercompass.feature.editor.presentation.navigation.EditorExternalActions
+import com.careercompass.feature.editor.presentation.navigation.EditorNavHost
 import com.careercompass.feature.feed.presentation.navigation.FeedEntryRequest
 import com.careercompass.feature.feed.presentation.navigation.FeedNavHost
 import com.careercompass.feature.onboarding.presentation.navigation.OnboardingNavHost
@@ -237,20 +238,24 @@ public fun AppNavigation(
                         }
                         // ── 지원서 작성 — editor 모듈의 문항 확인(#183)
                         entry<Route.ApplicationSetup> { key ->
-                            ApplicationSetupScreen(
-                                onBackClick = { appState.popBack() },
-                                onDraftStarted = { started -> appState.navigateToApplicationProgress(started.applicationId) },
-                                onSessionEnded = { onSessionEnded(SessionEndCause.Expired) },
-                                viewModel =
-                                    hiltViewModel<ApplicationSetupViewModel, ApplicationSetupViewModel.Factory>(
-                                        creationCallback = { factory -> factory.create(key.postingId) },
-                                    ),
-                            )
-                        }
-                        entry<Route.ApplicationProgressPlaceholder> {
-                            PlaceholderScreen(
-                                title = stringResource(R.string.placeholder_application_progress_title),
-                                onBackClick = { appState.popBack() },
+                            EditorNavHost(
+                                postingId = key.postingId,
+                                boundary =
+                                    object : FeatureStackBoundary {
+                                        override fun exit() {
+                                            appState.popBack()
+                                        }
+                                    },
+                                externalActions =
+                                    object : EditorExternalActions {
+                                        override fun navigateToProfile() {
+                                            appState.backStack.pushSingleTop(Route.ProfileEdit)
+                                        }
+
+                                        override fun onSessionEnded() {
+                                            onSessionEnded(SessionEndCause.Expired)
+                                        }
+                                    },
                             )
                         }
                         entry<Route.NotificationSettingsPlaceholder> {
