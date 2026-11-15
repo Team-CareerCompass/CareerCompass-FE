@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "mode": "warn",
-  "note": "develop@1ed5007a 트리에서 모듈별 :koverXmlReportCi 를 돌려 각 모듈 리포트의 집계 counter 를 그대로 옮긴 기준선이다. PR 레인이 비교하는 값과 같은 방식으로 재야 하므로 루트 병합 리포트가 아니라 모듈 리포트를 쓴다. 프로덕션 소스가 아직 없는 모듈은 잴 것이 없어 null 로 둔다. 갱신할 때는 source 의 sha 와 runUrl 을 그 수치를 낸 지점으로 함께 바꾼다.",
+  "note": "develop@1ed5007a 트리에서 모듈별 :koverXmlReportCi 를 돌려 각 모듈 리포트의 집계 counter 를 그대로 옮긴 기준선이다. PR 레인이 비교하는 값과 같은 방식으로 재야 하므로 루트 병합 리포트가 아니라 모듈 리포트를 쓴다. 프로덕션 소스가 아직 없는 모듈은 잴 것이 없어 null 로 둔다. 갱신할 때는 source 의 sha 와 runUrl 을 그 수치를 낸 지점으로 함께 바꾼다. 원래 기준선 이후 구현된 모듈은 해당 모듈의 source에 측정 커밋과 CI 실행을 따로 기록하며, module source가 없으면 공통 source를 따른다.",
   "source": {
     "ref": "develop",
     "sha": "1ed5007a526ba91abe5af4473b83d998dd00a4d3",
@@ -203,16 +203,49 @@
       }
     },
     "feature/foryou/data": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 1,
+        "covered": 40
+      },
+      "branch": {
+        "missed": 0,
+        "covered": 14
+      },
+      "source": {
+        "ref": "feat/190-foryou-data-domain",
+        "sha": "22d1b7a51f9a4f2c6815c7fd68e766e85ac1ec60",
+        "runUrl": "https://github.com/Team-CareerCompass/CareerCompass-FE/actions/runs/43669758813"
+      }
     },
     "feature/foryou/domain": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 10,
+        "covered": 71
+      },
+      "branch": {
+        "missed": 3,
+        "covered": 13
+      },
+      "source": {
+        "ref": "feat/190-foryou-data-domain",
+        "sha": "22d1b7a51f9a4f2c6815c7fd68e766e85ac1ec60",
+        "runUrl": "https://github.com/Team-CareerCompass/CareerCompass-FE/actions/runs/43669758813"
+      }
     },
     "feature/foryou/presentation": {
-      "line": null,
-      "branch": null
+      "line": {
+        "missed": 118,
+        "covered": 417
+      },
+      "branch": {
+        "missed": 165,
+        "covered": 195
+      },
+      "source": {
+        "ref": "feat/193-strength-export",
+        "sha": "bc0a3999afc9d0f17ee2e132de708b5022b97849",
+        "runUrl": "https://github.com/Team-CareerCompass/CareerCompass-FE/actions/runs/43679808993"
+      }
     },
     "feature/notification/data": {
       "line": null,

@@ -85,6 +85,7 @@ entry<FeedRoute.PostingDetail> { key ->
 | 마이 메뉴 | `[Feed, MyTab, 메뉴 화면]` | 마이 홈의 메뉴 넷(프로필 편집 · 경험 카드 · 과거 지원서 · 알림 설정)이 `MyTab` 위 한 칸으로 쌓인다(`navigateToProfileMenu`). 목적지 표를 profile 모듈이 아니라 셸이 갖는 이유는 네 화면의 주인이 서로 다르기 때문이다. 과거 지원서에서 등록으로 한 번 더 들어가면 네 칸(`[…, PastApplications, PastApplicationUploadPlaceholder]`)이 된다 |
 | 지원서 작성 | `[Feed, ApplicationSetup(postingId)]` | 공고 상세가 여는데 **피드 로컬 스택이 아니라 루트**에 쌓는다. 목적지가 다른 모듈이고, 뒤로 오면 그 공고 상세가 그대로 남아 있어야 하기 때문이다. 공고 id 를 키가 나르고, 같은 공고로 두 번 눌러도 `pushSingleTop` 이 한 장만 남긴다 |
 | 초안 작성 진행 | `[Feed, ApplicationSetup(postingId)]` 안의 `EditorRoute.Progress` | `EditorNavHost`가 로컬 `Setup`을 `Progress`로 **교체**한다. 받은 초안은 host 스코프 ViewModel이 소유하므로 Setup entry를 지워도 유지된다. 뒤로가기는 공고 상세로 돌아간다. 프로세스 복원 시 로컬 키와 동일 초안을 다시 조회할 식별자·확정 입력만 복원한다 |
+| 지원서 항목 편집 | editor 로컬 `[Progress, Editor]` | 선택 문항·수동 입력은 host 스코프 ViewModel이 소유한다. 탭 전환은 서버 저장이 아니며 뒤로는 Progress로 돌아간다. 스트림은 두 화면을 오갈 때 유지하고 host가 pause될 때 닫는다. 수동 입력은 서버 답보다 우선하며 전체 10만 자 이내로 SavedStateHandle에 보관한다 |
 
 - 인증을 끝내면 `replaceAllWith(Feed)` 로 수렴한다. 뒤로가기로 인증 화면에 돌아가지 않는다.
 - Nav3 는 스택에서 빠진 entry 의 상태를 버리므로 자리표시자 탭은 다시 들어오면 새로 그려진다. 피드 탭은 바닥에 남아 로컬 스택과 ViewModel 을 지킨다. 다른 담당 모듈의 탭이 상태를 가져야 하면 그때 탭별 스택을 둔다.
