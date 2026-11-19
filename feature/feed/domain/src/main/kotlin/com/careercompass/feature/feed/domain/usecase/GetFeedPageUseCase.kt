@@ -9,7 +9,8 @@ import java.time.LocalDate
 import javax.inject.Inject
 
 /**
- * 피드 한 페이지를 조회한다 — 서버 필터([FeedQuery.toPostingQuery]) 뒤에 클라이언트 규칙을 얹는다.
+ * 피드 한 페이지를 조회한다 — 검색어·마감일까지 서버 파라미터([FeedQuery.toPostingQuery])로 싣고, 서버가 v0.3 을
+ * 받기 전 배포에 대비해 같은 규칙을 클라이언트에서도 한 번 더 건다(#159).
  *
  * 클라이언트 규칙은 [FeedQuery.filterClientSide] 한 곳에 있다(오프라인 스냅샷 목록도 같은 함수를 쓴다).
  *
@@ -33,11 +34,12 @@ public class GetFeedPageUseCase
             query: FeedQuery,
             cursor: String? = null,
         ): Result<FeedPage> {
+            val today = LocalDate.now(clock)
             val page =
                 postingRepository
-                    .getPostings(query.toPostingQuery(cursor))
+                    .getPostings(query.toPostingQuery(cursor, today))
                     .getOrElse { return Result.failure(it) }
-            val postings = query.filterClientSide(page.items, LocalDate.now(clock))
+            val postings = query.filterClientSide(page.items, today)
             return Result.success(FeedPage(postings = postings, nextCursor = page.nextCursor))
         }
     }

@@ -9,8 +9,9 @@ import java.time.LocalDate
 /**
  * 마감일 필터 — 기능 스펙 F2-3 「필터 조건 · 마감일」(마감 임박순 / 마감일 지정 범위).
  *
- * 마감이 지난 공고는 목록에서 기본 숨김이고 [IncludeExpired]·[Range] 로만 드러난다. 서버 파라미터가 없어
- * 클라이언트에서 적용한다([GetFeedPageUseCase][com.careercompass.feature.feed.domain.usecase.GetFeedPageUseCase]).
+ * 마감이 지난 공고는 목록에서 기본 숨김이고 [IncludeExpired]·[Range] 로만 드러난다. 서버 파라미터
+ * (`dueFrom`·`dueTo`·`includeNoDueDate`·`includeExpired`, API_SPEC §5 v0.3)로 싣고, 서버 배포 전까지는 같은 규칙을
+ * 클라이언트에서도 한 번 더 건다([FeedQuery.filterClientSide], #159).
  *
  * enum 이 아니라 sealed 인 이유 — [Range] 만 값(시작·종료일)을 들고 있는데 프리셋과 배타적이다. 「프리셋
  * 하나 + 범위 필드」로 나눠 두면 둘이 어긋난 상태(7일 이내인데 범위도 걸림)가 타입에 남는다.
@@ -57,8 +58,8 @@ public sealed interface FeedDeadlineFilter {
 /**
  * 피드 목록 조회 조건 — 기능 스펙 F2-3 필터·정렬을 한 값으로 묶는다.
  *
- * 유형·게시판·최소 점수·읽지 않음·정렬은 서버 파라미터([toPostingQuery])로 옮기고,
- * [deadline]·[searchQuery] 는 서버 파라미터가 없어 클라이언트에서 적용한다.
+ * 모든 조건을 서버 파라미터([toPostingQuery])로 옮긴다. [deadline]·[searchQuery] 는 v0.3 계약(BE #56)이라 서버가
+ * 아직 받지 않는 배포에 대비해 [filterClientSide] 로 한 번 더 거른다 — 우회 장치를 걷는 것은 서버 배포 뒤다(#159).
  *
  * `data class` 가 아닌 이유 — [searchQuery] 를 **앞뒤 공백을 지운 값으로 저장**해야 하는데 data class 는
  * 생성자 인자를 가공해 저장할 수 없다. 대신 [copy]·[equals]·[hashCode]·[toString] 을 직접 제공한다.
@@ -93,24 +94,40 @@ public class FeedQuery(
 
     /**
      * 서버 `GET /postings` 쿼리로 옮긴다. 집합은 정렬해 실어 같은 조건이면 같은 요청이 되게 한다.
-     * 검색어·마감일 필터는 서버 파라미터가 없어 여기 실리지 않는다.
+     *
+     * 마감일 프리셋은 API_SPEC §5 v0.3 의 「앱 프리셋 매핑」대로 **절대 날짜**로 보낸다 — 서버가 오늘을 판정하는
+     * 자리는 범위가 없을 때 하나뿐이라, 7일·30일 이내의 기준일은 앱의 [today] 다.
+     *
+     * @param today 프리셋을 절대 날짜로 바꿀 기준일. 호출자가 주입한 시계로 만든다.
      */
     public fun toPostingQuery(
         cursor: String?,
+        today: LocalDate,
         limit: Int = PostingQuery.DEFAULT_LIMIT,
-    ): PostingQuery =
-        PostingQuery(
-            boardIds = boardIds.sorted(),
-            types = types.sortedBy(PostingType::ordinal),
-            minScore = minScore,
-            unreadOnly = unreadOnly,
-            sort = sort,
-            cursor = cursor,
-            limit = limit,
-        )
+    ): PostingQuery {
+        val base =
+            PostingQuery(
+                boardIds = boardIds.sorted(),
+                types = types.sortedBy(PostingType::ordinal),
+                minScore = minScore,
+                unreadOnly = unreadOnly,
+                searchQuery = searchQuery.ifEmpty { null },
+                sort = sort,
+                cursor = cursor,
+                limit = limit,
+            )
+        return when (deadline) {
+            FeedDeadlineFilter.All -> base.copy(dueFrom = today, includeNoDueDate = true)
+            FeedDeadlineFilter.WithinWeek -> base.copy(dueFrom = today, dueTo = today.plusDays(WEEK_DAYS), includeNoDueDate = false)
+            FeedDeadlineFilter.WithinMonth -> base.copy(dueFrom = today, dueTo = today.plusDays(MONTH_DAYS), includeNoDueDate = false)
+            FeedDeadlineFilter.IncludeExpired -> base.copy(includeExpired = true, includeNoDueDate = true)
+            is FeedDeadlineFilter.Range -> base.copy(dueFrom = deadline.start, dueTo = deadline.end, includeNoDueDate = false)
+        }
+    }
 
     /**
-     * 서버 파라미터가 없어 클라이언트가 직접 거르는 조건([deadline]·[searchQuery])을 [postings] 에 적용한다.
+     * 마감일·검색어 조건([deadline]·[searchQuery])을 클라이언트에서 [postings] 에 적용한다. 서버가 같은 조건을
+     * 이미 걸렀다면 아무것도 빼지 않는 안전망이고, 오프라인 스냅샷 경로에서는 유일한 필터다(#159).
      *
      * 조회 결과([GetFeedPageUseCase][com.careercompass.feature.feed.domain.usecase.GetFeedPageUseCase])와
      * 오프라인 스냅샷 목록이 **같은 코드**를 쓰게 하려고 규칙을 여기 한 곳에 둔다 — 두 자리로 나뉘면 마감일

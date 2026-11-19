@@ -146,6 +146,8 @@ class GetFeedPageUseCaseTest {
                     types = listOf(PostingType.Scholarship),
                     minScore = 80,
                     unreadOnly = true,
+                    dueFrom = TODAY,
+                    includeNoDueDate = true,
                     sort = PostingSort.DueAsc,
                     cursor = "abc",
                 ),

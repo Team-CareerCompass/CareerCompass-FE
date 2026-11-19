@@ -43,10 +43,10 @@ class FeedQueryTest {
     }
 
     @Test
-    fun `빈 필터는 빈 서버 쿼리로 옮긴다`() {
-        val postingQuery = FeedQuery().toPostingQuery(cursor = null)
+    fun `빈 필터는 「전체」 마감 프리셋만 실은 서버 쿼리로 옮긴다`() {
+        val postingQuery = FeedQuery().toPostingQuery(cursor = null, today = TODAY)
 
-        assertEquals(PostingQuery(), postingQuery)
+        assertEquals(PostingQuery(dueFrom = TODAY, includeNoDueDate = true), postingQuery)
         assertEquals(emptyList<Long>(), postingQuery.boardIds)
         assertEquals(emptyList<PostingType>(), postingQuery.types)
         assertEquals(null, postingQuery.minScore)
@@ -56,7 +56,7 @@ class FeedQueryTest {
     }
 
     @Test
-    fun `서버 파라미터가 있는 조건은 정렬된 목록으로 옮기고 검색어·마감일은 싣지 않는다`() {
+    fun `조건은 정렬된 목록으로 옮기고 검색어·마감일도 싣는다`() {
         val query =
             FeedQuery(
                 types = setOf(PostingType.Contest, PostingType.Recruit),
@@ -68,7 +68,7 @@ class FeedQueryTest {
                 searchQuery = "카카오",
             )
 
-        val postingQuery = query.toPostingQuery(cursor = "abc", limit = 50)
+        val postingQuery = query.toPostingQuery(cursor = "abc", today = TODAY, limit = 50)
 
         assertEquals(
             PostingQuery(
@@ -76,6 +76,10 @@ class FeedQueryTest {
                 types = listOf(PostingType.Recruit, PostingType.Contest),
                 minScore = 80,
                 unreadOnly = true,
+                searchQuery = "카카오",
+                dueFrom = TODAY,
+                dueTo = TODAY.plusDays(7),
+                includeNoDueDate = false,
                 sort = PostingSort.ScoreDesc,
                 cursor = "abc",
                 limit = 50,
@@ -142,6 +146,30 @@ class FeedQueryTest {
         assertEquals(60, copied.minScore)
         assertTrue(copied.unreadOnly)
         assertFalse(copied == base)
+    }
+
+    @Test
+    fun `마감일 프리셋은 API_SPEC v0_3 매핑대로 절대 날짜로 싣는다`() {
+        fun mapped(deadline: FeedDeadlineFilter) = FeedQuery(deadline = deadline).toPostingQuery(cursor = null, today = TODAY)
+
+        assertEquals(
+            PostingQuery(dueFrom = TODAY, dueTo = TODAY.plusDays(30), includeNoDueDate = false),
+            mapped(FeedDeadlineFilter.WithinMonth),
+        )
+        assertEquals(PostingQuery(includeExpired = true, includeNoDueDate = true), mapped(FeedDeadlineFilter.IncludeExpired))
+        assertEquals(
+            PostingQuery(dueTo = TODAY.minusDays(1), includeNoDueDate = false),
+            mapped(FeedDeadlineFilter.Range(start = null, end = TODAY.minusDays(1))),
+        )
+    }
+
+    @Test
+    fun `빈 검색어는 q 를 싣지 않는다`() {
+        assertEquals(null, FeedQuery(searchQuery = "   ").toPostingQuery(cursor = null, today = TODAY).searchQuery)
+    }
+
+    private companion object {
+        val TODAY: LocalDate = LocalDate.of(2026, 11, 19)
     }
 }
 

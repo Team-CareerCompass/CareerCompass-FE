@@ -26,6 +26,15 @@ class PostingRepositoryImplTest {
         val sort: String,
         val cursor: String?,
         val limit: Int,
+        val search: SearchParams = SearchParams(),
+    )
+
+    private data class SearchParams(
+        val q: String? = null,
+        val dueFrom: String? = null,
+        val dueTo: String? = null,
+        val includeNoDueDate: Boolean? = null,
+        val includeExpired: Boolean? = null,
     )
 
     private class FakePostingApi : PostingApiService {
@@ -38,11 +47,26 @@ class PostingRepositoryImplTest {
             types: List<String>?,
             minScore: Int?,
             unreadOnly: Boolean?,
+            q: String?,
+            dueFrom: String?,
+            dueTo: String?,
+            includeNoDueDate: Boolean?,
+            includeExpired: Boolean?,
             sort: String,
             cursor: String?,
             limit: Int,
         ): BaseResponse<PostingListDto> {
-            listCalls += ListCall(boardIds, types, minScore, unreadOnly, sort, cursor, limit)
+            listCalls +=
+                ListCall(
+                    boardIds,
+                    types,
+                    minScore,
+                    unreadOnly,
+                    sort,
+                    cursor,
+                    limit,
+                    SearchParams(q, dueFrom, dueTo, includeNoDueDate, includeExpired),
+                )
             return BaseResponse(ok = true, data = PostingListDto(postings = listOf(posting()), nextCursor = ""))
         }
 
@@ -119,6 +143,22 @@ class PostingRepositoryImplTest {
 
             repository.getPostings(PostingQuery()).getOrThrow()
             assertEquals(ListCall(null, null, null, null, "collected_desc", null, 20), api.listCalls.last())
+        }
+
+    @Test
+    fun `검색어와 마감일 조건을 v0_3 wire 파라미터로 싣는다`() =
+        runTest {
+            repository
+                .getPostings(
+                    PostingQuery(
+                        searchQuery = "인턴",
+                        dueFrom = java.time.LocalDate.of(2026, 11, 19),
+                        dueTo = java.time.LocalDate.of(2026, 11, 26),
+                        includeNoDueDate = false,
+                    ),
+                ).getOrThrow()
+
+            assertEquals(SearchParams("인턴", "2026-11-19", "2026-11-26", false, null), api.listCalls.single().search)
         }
 
     @Test

@@ -240,7 +240,14 @@ class FeedViewModelTest {
         assertTrue(state.query.unreadOnly)
         assertEquals(4, state.activeFilterCount)
         assertEquals(
-            PostingQuery(boardIds = listOf(1L), minScore = 80, unreadOnly = true),
+            PostingQuery(
+                boardIds = listOf(1L),
+                minScore = 80,
+                unreadOnly = true,
+                dueFrom = TODAY,
+                dueTo = TODAY.plusDays(7),
+                includeNoDueDate = false,
+            ),
             repository.queries.last(),
         )
         assertEquals(listOf(1L), state.postings.map(Posting::id))

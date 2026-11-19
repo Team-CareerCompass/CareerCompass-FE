@@ -203,12 +203,26 @@ public enum class PostingSort(
     ScoreDesc("score_desc"),
 }
 
-/** 공고 목록 조회 조건 — API_SPEC v0.1 §5 `GET /postings` 쿼리. */
+/**
+ * 공고 목록 조회 조건 — API_SPEC §5 `GET /postings` 쿼리.
+ *
+ * 검색어·마감일 파라미터(`q`·`dueFrom`·`dueTo`·`includeNoDueDate`·`includeExpired`)는 v0.3(BE #56) 계약이다.
+ * null 이면 보내지 않고 서버 기본값(마감일 없음 포함, 지난 마감 숨김)을 따른다.
+ *
+ * @property searchQuery 검색어 — 서버가 제목과 파싱 키워드를 대소문자 무시 부분 문자열로 찾는다.
+ * @property dueFrom 마감일 하한(그날 포함).
+ * @property dueTo 마감일 상한(그날 포함).
+ */
 public data class PostingQuery(
     val boardIds: List<Long> = emptyList(),
     val types: List<PostingType> = emptyList(),
     val minScore: Int? = null,
     val unreadOnly: Boolean = false,
+    val searchQuery: String? = null,
+    val dueFrom: LocalDate? = null,
+    val dueTo: LocalDate? = null,
+    val includeNoDueDate: Boolean? = null,
+    val includeExpired: Boolean? = null,
     val sort: PostingSort = PostingSort.CollectedDesc,
     val cursor: String? = null,
     val limit: Int = DEFAULT_LIMIT,
@@ -217,6 +231,8 @@ public data class PostingQuery(
         require(boardIds.distinct().size == boardIds.size) { "boardIds must be unique" }
         require(types.distinct().size == types.size) { "types must be unique" }
         require(minScore == null || minScore in 0..100) { "minScore must be null or within 0..100" }
+        require(searchQuery == null || searchQuery.isNotBlank()) { "searchQuery must be null or non-blank" }
+        require(dueFrom == null || dueTo == null || !dueTo.isBefore(dueFrom)) { "dueTo must not be before dueFrom" }
         require(cursor == null || cursor.isNotBlank()) { "cursor must be null or non-blank" }
         require(limit in 1..MAX_LIMIT) { "limit must be within 1..$MAX_LIMIT" }
     }
