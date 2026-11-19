@@ -52,6 +52,24 @@ class ApiFailureMapperTest {
     }
 
     @Test
+    fun `코드를 모르는 400 은 재시도 없는 입력 확인으로 간다`() {
+        val failure = failure(api("HTTP_400", 400, field = "gpa")) as CoreDataFailure.InvalidInput
+
+        assertEquals("HTTP_400", failure.code)
+        assertEquals("gpa", failure.field)
+    }
+
+    @Test
+    fun `코드를 모르는 409 는 재시도 없는 입력 확인으로 간다`() {
+        assertTrue(failure(api("HTTP_409", 409)) is CoreDataFailure.InvalidInput)
+    }
+
+    @Test
+    fun `코드를 모르는 422 는 재시도 없는 입력 확인으로 간다`() {
+        assertTrue(failure(api("SOMETHING_NEW", 422)) is CoreDataFailure.InvalidInput)
+    }
+
+    @Test
     fun `전송 실패는 NetworkUnavailable 로 옮긴다`() {
         assertTrue(Result.failure<Unit>(UnknownHostException()).mapDataFailure().exceptionOrNull() is CoreDataFailure.NetworkUnavailable)
         assertTrue(Result.failure<Unit>(UnknownHostException()).mapAuthFailure().exceptionOrNull() is CoreAuthFailure.NetworkUnavailable)

@@ -41,6 +41,7 @@
 | `RATE_LIMITED` | 429 | `RateLimited` | 요청이 너무 많아요 | 잠시 후 다시 시도해 주세요 | 재시도 | ✅ |
 | `LLM_UNAVAILABLE` | 503 | `ServiceUnavailable` | 서비스가 잠시 점검 중이에요 | AI 분석 서버를 손보고 있어요. 조금 뒤에 다시 열어 주세요 | 재시도 | ✅ |
 | `INTERNAL_ERROR` | 500·5xx | `Unexpected` | 문제가 생겼어요 | 잠시 후 다시 시도해 주세요 | 재시도 | ✅ |
+| (코드 미확인) | 400·409·422 | `InvalidInput` | (위 `INVALID_INPUT` 과 같음) | | 없음 | ❌ |
 | (사유 미확인) | — | `Unexpected` | (위와 같음) | (위와 같음) | 재시도 | ✅ |
 
 코드 14종 · 갈래 14개다. **코드와 갈래는 1:1 이 아니다.**
@@ -54,7 +55,7 @@
 
 같은 요청을 그대로 다시 보내면 **같은 답이 온다** — 여기에 재시도 버튼을 주면 사용자는 버튼이 있으니 누르고 같은 실패를 다시 만난다.
 
-`PROFILE_INCOMPLETE` · `PARSING_FAILED` · `LIMIT_EXCEEDED` · `DUPLICATE_BOARD` · `BOARD_BLOCKED` · `PERMISSION_DENIED` · `INVALID_INPUT` · 404.
+`PROFILE_INCOMPLETE` · `PARSING_FAILED` · `LIMIT_EXCEEDED` · `DUPLICATE_BOARD` · `BOARD_BLOCKED` · `PERMISSION_DENIED` · `INVALID_INPUT` · 404, 그리고 코드를 알아보지 못한 400·409·422(#359). 셋은 서버 계약상 결정적 실패라 status 만으로 재시도 없는 `InvalidInput` 에 접는다.
 
 이 중 셋에는 대신 **상황을 실제로 바꾸는 길**이 붙는다: 프로필 채우기 · 정리하기 · 다시 로그인.
 

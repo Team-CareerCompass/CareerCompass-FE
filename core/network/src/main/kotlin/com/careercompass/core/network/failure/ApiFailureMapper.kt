@@ -139,7 +139,9 @@ public fun ApiException.toDataFailure(): Throwable =
         }
 
         else -> {
+            // 코드를 모르는 400·409·422 는 결정적 실패다 — 그대로 다시 보내면 같은 답이 오므로 재시도 없는 갈래로 접는다(#359).
             when (status) {
+                400, 409, 422 -> CoreDataFailure.InvalidInput(code, field, this)
                 401 -> CoreDataFailure.Unauthorized(code, this)
                 403 -> CoreDataFailure.Forbidden(code, this)
                 404 -> CoreDataFailure.NotFound(code, this)
