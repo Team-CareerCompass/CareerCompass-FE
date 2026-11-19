@@ -43,6 +43,9 @@ public enum class ProfileFailureStage(
     /** `DELETE /past-applications/{id}` — 서버가 S3 원본까지 지운다. */
     PastApplicationDelete("past_application_delete"),
 
+    /** `POST /past-applications/upload` — 직접 쓴 지원서를 TXT 로 올린다. */
+    PastApplicationUpload("past_application_upload"),
+
     BiometricToggle("biometric_toggle"),
     ThemeMode("theme_mode"),
     Logout("logout"),

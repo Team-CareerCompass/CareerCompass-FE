@@ -59,10 +59,6 @@ public sealed interface Route : NavKey {
     @Serializable
     public data object PastApplications : Route
 
-    /** 과거 지원서 등록(업로드·직접 작성) — profile 모듈(#181). 그 화면이 붙기 전까지 자리표시자다. */
-    @Serializable
-    public data object PastApplicationUploadPlaceholder : Route
-
     /**
      * 지원서 작성 첫 화면 — editor 모듈의 문항 확인(#183). 공고 상세의 초안 버튼이 연다.
      *

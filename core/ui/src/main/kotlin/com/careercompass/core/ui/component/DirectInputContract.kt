@@ -1,7 +1,7 @@
-package com.careercompass.feature.onboarding.presentation.pastapplication
+package com.careercompass.core.ui.component
 
 import androidx.compose.runtime.Immutable
-import com.careercompass.feature.onboarding.presentation.shared.model.OnboardingFieldError
+import com.careercompass.core.model.user.ProfileFieldViolation
 
 /**
  * Step 4 「직접 입력하기」 시트 상태 — 라벨과 본문을 받아 TXT 지원서로 업로드한다(F1-4 「직접 입력」).
@@ -12,8 +12,8 @@ import com.careercompass.feature.onboarding.presentation.shared.model.Onboarding
 public data class DirectInputState(
     public val label: String = "",
     public val content: String = "",
-    public val labelError: OnboardingFieldError? = null,
-    public val contentError: OnboardingFieldError? = null,
+    public val labelError: ProfileFieldViolation? = null,
+    public val contentError: ProfileFieldViolation? = null,
     public val isSubmitting: Boolean = false,
 ) {
     public val isInputEnabled: Boolean

@@ -14,6 +14,9 @@
     <string name="profile_past_application_deleted">지원서를 지웠어요</string>
     <string name="profile_past_application_delete_failed">지우지 못했어요</string>
     <string name="profile_past_application_category_failed">분류를 바꾸지 못했어요</string>
+    <string name="profile_past_application_uploaded">지원서를 올렸어요</string>
+    <string name="profile_past_application_upload_failed">올리지 못했어요</string>
+    <string name="profile_past_application_upload_too_large">본문이 너무 길어요. 10MB 안으로 줄여 주세요</string>
 
     <string name="profile_past_application_delete_dialog_title">이 지원서를 지울까요?</string>
     <string name="profile_past_application_delete_dialog_message">%1$s 와 원본 파일이 서버에서 함께 지워져요. 되돌릴 수 없어요</string>

@@ -194,15 +194,14 @@ class AppStateTest {
         }
     }
 
-    /** 마이 메뉴 화면 위에 등록 화면까지 쌓여 네 칸이어도(`AppNavigation` 의 과거 지원서 등록) 탭 전환이 전부 걷어낸다. */
+    /** 직접 작성은 목록의 시트다. 탭 전환은 마이 메뉴 화면까지 걷어낸다. */
     @Test
     fun `마이 메뉴 화면에서 탭을 누르면 피드 위 한 칸만 남는다`() {
         val state = stateOn(Route.Feed)
         state.navigateToTab(CareerCompassBottomTab.My)
         state.navigateToProfileMenu(ProfileHomeMenu.PastApplications)
-        state.backStack.pushSingleTop(Route.PastApplicationUploadPlaceholder)
         assertEquals(
-            listOf(Route.Feed, Route.MyTab, Route.PastApplications, Route.PastApplicationUploadPlaceholder),
+            listOf(Route.Feed, Route.MyTab, Route.PastApplications),
             state.keys(),
         )
 

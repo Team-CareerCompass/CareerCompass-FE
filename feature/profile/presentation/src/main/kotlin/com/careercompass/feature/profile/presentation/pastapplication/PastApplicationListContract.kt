@@ -10,6 +10,15 @@ public enum class PastApplicationListMessage {
     /** 상한(10개)에 닿아 추가 진입점을 막았다. */
     LimitReached,
 
+    /** 직접 쓴 지원서를 올렸다. */
+    Uploaded,
+
+    /** 업로드가 실패했다 — 쓰던 글은 시트에 그대로 남는다. */
+    UploadFailed,
+
+    /** 본문이 업로드 상한(10MB)을 넘었다. */
+    UploadTooLarge,
+
     /** 분류를 바꾸지 못했다 — 칩은 원래 값으로 남는다. */
     CategoryUpdateFailed,
 

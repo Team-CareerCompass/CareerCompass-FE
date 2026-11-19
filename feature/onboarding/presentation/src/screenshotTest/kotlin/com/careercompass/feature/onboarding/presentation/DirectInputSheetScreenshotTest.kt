@@ -4,10 +4,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
+import com.careercompass.core.model.user.ProfileFieldViolation
+import com.careercompass.core.ui.component.DirectInputSheet
+import com.careercompass.core.ui.component.DirectInputState
 import com.careercompass.core.ui.theme.CareerCompassTheme
-import com.careercompass.feature.onboarding.presentation.pastapplication.DirectInputSheet
-import com.careercompass.feature.onboarding.presentation.pastapplication.DirectInputState
-import com.careercompass.feature.onboarding.presentation.shared.model.OnboardingFieldError
 
 @PreviewTest
 @Preview(name = "Direct input empty", widthDp = 360, heightDp = 800)
@@ -36,8 +36,8 @@ public fun DirectInputErrorPreview() {
     DirectInputPreviewHost(
         state =
             DirectInputState(
-                labelError = OnboardingFieldError.Required,
-                contentError = OnboardingFieldError.Required,
+                labelError = ProfileFieldViolation.Required,
+                contentError = ProfileFieldViolation.Required,
             ),
     )
 }

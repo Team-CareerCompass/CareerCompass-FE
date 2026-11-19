@@ -1,6 +1,8 @@
 package com.careercompass.feature.onboarding.presentation.flow
 
+import com.careercompass.core.model.application.PastApplicationLabelRules
 import com.careercompass.core.model.user.GraduationDateRules
+import com.careercompass.core.model.user.ProfileFieldViolation
 import com.careercompass.feature.onboarding.presentation.shared.model.OnboardingFieldError
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -58,11 +60,11 @@ class OnboardingFormValidationTest {
 
     @Test
     fun `지원서 라벨은 공백만 있으면 거부하고 길이 상한을 검사한다`() {
-        assertEquals(OnboardingFieldError.Required, PastApplicationLabelRules.validate("   "))
+        assertEquals(ProfileFieldViolation.Required, PastApplicationLabelRules.validate("   "))
         assertNull(PastApplicationLabelRules.validate(" 2024 카카오 인턴 자소서 "))
         assertNull(PastApplicationLabelRules.validate("가".repeat(PastApplicationLabelRules.MAX_LENGTH)))
         assertEquals(
-            OnboardingFieldError.TooLong(PastApplicationLabelRules.MAX_LENGTH),
+            ProfileFieldViolation.TooLong(PastApplicationLabelRules.MAX_LENGTH),
             PastApplicationLabelRules.validate("가".repeat(PastApplicationLabelRules.MAX_LENGTH + 1)),
         )
         assertEquals("2024 카카오 인턴 자소서", PastApplicationLabelRules.normalize(" 2024 카카오 인턴 자소서 "))

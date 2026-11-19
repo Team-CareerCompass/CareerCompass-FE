@@ -64,13 +64,14 @@ Figma 09 Edge Cases 는 상태 화면을 **다섯 장**만 그려 두었다 — 
 | 프로필 편집 | 프리필할 값이 없을 때만 `CareerCompassFailureState`(실패 표 #204) · 기본 정보 저장 실패는 스낵바 `profile_edit_save_failed` · **전체 교체(직무·태그) 실패는 서버 값으로 되돌리고** `profile_edit_interests_reverted` | 첫 조회만 화면 가운데 진행 표시 | 없음 | 없음 | 오프라인과 같은 길 | 셸에 알림 → 로그인 |
 | 경험 카드 편집 시트 | 저장 실패는 시트를 열어 둔 채 스낵바 `profile_experience_save_failed` (상한 거부는 `profile_experience_limit_reached`) | 저장 중 시트 잠금(닫기 무시) | — | 없음 | 오프라인과 같은 길 | 셸에 알림 → 로그인 |
 | 경험 카드 목록 | 읽은 카드가 없을 때만 `CareerCompassFailureState`(실패 표 #204 · `FailureSurface.ExperienceCard`) · 이어 읽기 실패는 스낵바 `profile_experience_load_more_failed` | 첫 조회만 화면 가운데 진행 표시 | `CareerCompassEmptyState` × 2사유(미등록 → 「첫 카드 만들기」 · 필터 → 「전체 보기」) | 없음 | 오프라인과 같은 길 | 셸에 알림 → 로그인 |
+| 지원서 직접 작성 시트 | 업로드 실패는 시트를 열어 둔 채 스낵바 `profile_past_application_upload_failed` (상한은 `_limit_reached` · 10MB 초과는 `_upload_too_large`) | 올리는 중 시트 잠금(닫기 무시) | — | 없음 | 오프라인과 같은 길 | 셸에 알림 → 로그인 |
 | 과거 지원서 목록 | 읽은 지원서가 없을 때만 `CareerCompassFailureState`(실패 표 #204 · `FailureSurface.Application`) · 분류 변경·삭제 실패는 스낵바 | 첫 조회만 화면 가운데 진행 표시 | `CareerCompassEmptyState` — 사유 하나(아직 안 올렸다) → 「첫 지원서 올리기」 | 없음 | 오프라인과 같은 길 | 셸에 알림 → 로그인 |
 | 지원서 작성(문항 확인) | 공고를 못 읽으면 `CareerCompassFailureState`(실패 표 #204 · `FailureSurface.Posting`) · 생성 실패는 문항을 그대로 두고 실패 표의 사유별 문장으로 스낵바(생성 문맥은 `Unspecified`, #414) | 첫 조회만 화면 가운데 진행 표시 · 생성 중에는 버튼 잠금 + 「초안을 준비하고 있어요…」 | **빈 결과가 실패가 아니다** — 인식된 문항이 0개면 「공고에서 항목을 찾지 못했어요」와 함께 직접 쓰는 자리를 연다(F4-1) | 없음 | 오프라인과 같은 길 · 생성 중 503(LLM 장애)은 스낵바 | 셸에 알림 → 로그인 |
 | 지원서 문항 편집 시트 | 없음 — 서버를 부르지 않는다 | 없음 | — | 없음 | 없음 | 없음 |
-| 분석·지원서 탭 · 자리표시자 화면 4종 | 미구현 | 미구현 | `CareerCompassEmptyState`(자리표시자) | 미구현 | 미구현 | 미구현 |
+| 분석·지원서 탭 · 자리표시자 화면 3종 | 미구현 | 미구현 | `CareerCompassEmptyState`(자리표시자) | 미구현 | 미구현 | 미구현 |
 
 `feature/foryou` · `feature/notification` 은 **Kotlin 파일이 하나도 없다.** 빌드 스크립트만 있는 자리표시자다. `feature/editor` 는 지원서 작성 첫 화면(#183)이 서면서 domain·data·presentation 세 모듈에 코드가 들어왔지만 **탭 진입점은 아직 없다.** 그 화면을 여는 것은 공고 상세의 「지원서 초안 작성하기」다. 그래서 하단 탭 「분석」과 「지원서」 두 칸은 여전히 앱 셸의 `PlaceholderTabScreen` 이 그린다.
-`feature/profile` 은 마이 홈(#175) · 프로필 편집(#176 · #177) · 경험 카드 목록과 편집 시트(#178 · #179) · 과거 지원서 목록(#180)이 서 있다. 셸의 `PlaceholderScreen` 으로 남은 자리는 넷이다: 알림 목록(#195 · notification), 지원서 등록(#181 · profile), 초안 작성 진행(#184 · editor), 알림 설정(#196 · notification).
+`feature/profile` 은 마이 홈(#175) · 프로필 편집(#176 · #177) · 경험 카드 목록과 편집 시트(#178 · #179) · 과거 지원서 목록(#180)이 서 있다. 셸의 `PlaceholderScreen` 으로 남은 자리는 셋이다: 알림 목록(#195 · notification), 초안 작성 진행(#184 · editor), 알림 설정(#196 · notification).
 
 지문 등록 시트는 **실패를 가르지 않는 자리**다. `BiometricEnrollViewModel` 이 `registerBiometric()` 의 실패를 사유와 무관하게 `RegistrationFailed(Registration)` 한 갈래로 접어, 네트워크 단절도 503 도 401 도 같은 한 줄(`onboarding_biometric_enroll_failure_registration`)로 보인다. 401 이어도 셸에 세션 종료를 알리지 않는다. 시트는 흐름을 막지 않기로 한 자리라 어느 실패로 끝나도 원래 이동을 이어 준다(§2.1 · §2.6).
 

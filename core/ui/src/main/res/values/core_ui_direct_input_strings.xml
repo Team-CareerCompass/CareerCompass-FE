@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="core_ui_direct_input_title">직접 입력하기</string>
+    <string name="core_ui_direct_input_label_label">지원서 이름 *</string>
+    <string name="core_ui_direct_input_label_placeholder">예: 2024 카카오 인턴 자소서</string>
+    <string name="core_ui_direct_input_content_label">내용 *</string>
+    <string name="core_ui_direct_input_content_placeholder">지원서 내용을 붙여 넣거나 입력해 주세요</string>
+    <string name="core_ui_direct_input_submit">업로드</string>
+</resources>

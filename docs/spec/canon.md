@@ -67,7 +67,6 @@ BE 저장소에 전했다 — 「진행 중이면 기존 것을 돌려준다」 
 | 직무·학교 목록 엔드포인트 | 온보딩의 두 피커가 로컬 상수로 돈다 | — |
 | 과거 지원서 응답의 파일 이름·형식 | 목록의 형식 배지(F1-4). `PastApplication` 은 id · label · items · createdAt 뿐이라 화면이 만들어 낼 수 없다 — 라벨에서 확장자를 읽는 우회는 「2024 카카오.pdf 지원서」 같은 값에서 엉뚱한 형식을 읽는다([#121](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/121) 이 이미 밟은 함정이다) | [#180](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/180) · [BE #60](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/60) |
 | 과거 지원서 라벨 수정 엔드포인트 | 목록에서 라벨 고치기(F1-4). §4 는 업로드 요청 필드로만 라벨을 받는다 | [#180](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/180) · [BE #60](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/60) |
-| 지원서를 텍스트로 받는 엔드포인트 | 앱 안에서 직접 써서 등록(F1-4 「등록 방식」 표의 둘 중 하나) | [#181](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/181) |
 | 지원 이력 응답의 공고 제목·기관 | 지원 이력 목록(F4-4)이 「어느 공고에 낸 것인가」를 못 쓴다. §6 의 지원서 스키마는 `id`·`status`·`items` 뿐이고, `postingId` 로 공고를 한 건씩 다시 읽는 우회는 목록 한 페이지에 20번의 왕복을 만든다 | [#188](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/188) |
 | 지원서 단건 조회(`GET /applications/{id}`) | 스트림이 끊긴 뒤 지금 상태를 다시 읽는 길. 지금은 `POST /applications` 가 「진행 중이면 기존 것을 돌려준다」는 규칙에 기대 복구한다 — 그 규칙이 서버에 들어가지 않으면 재시도가 초안을 하나 더 만든다 | [#182](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/182) · [BE #37](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/37) |
 | For You 추천 응답의 공고 요약 | 추천 카드가 `postingId` 만 받아 제목·기관·마감을 못 그린다. 건마다 §5 의 공고 상세를 다시 읽는 우회는 한 화면(최대 11건)에 11번의 왕복을 만든다 | [#191](https://github.com/Team-CareerCompass/CareerCompass-FE/issues/191) |
@@ -109,6 +108,28 @@ F4-1 은 초안을 만들기 전에 **인식된 문항을 사용자에게 확인
 
 서버 쪽에 필요한 것 — `POST /applications` 의 `items` 필드와, 「진행 중이면 기존 것을 돌려준다」 규칙.
 BE 저장소에 전했다 — `items` 요청 필드는 [BE #58](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/58), 「진행 중이면 기존 것을 돌려준다」 규칙은 [BE #57](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/57).
+
+## 지원서 텍스트 등록의 계약 (F1-4 의 빈 곳, #181 판정)
+
+F1-4 는 과거 지원서를 「파일 업로드」와 「직접 입력」 둘로 받게 정했는데, API_SPEC v0.1 §4 에는
+`POST /past-applications/upload`(multipart) 만 있고 텍스트 본문을 받는 자리가 없다.
+
+| 물음 | 판정 | 근거 |
+| --- | --- | --- |
+| 텍스트용 엔드포인트를 새로 요구할 것인가 | **아니다. 텍스트를 TXT 파일로 만들어 같은 엔드포인트로 보낸다** (`pastApplicationTextUpload`) | 서버가 업로드 뒤에 하는 일(텍스트 추출 → AI 항목 분류 → 저장)이 두 경로에서 완전히 같고, `txt` 는 §4 가 이미 받는 형식이라 추출 단계마저 같다. 입구를 둘로 만들면 서버는 같은 파이프라인을 두 번 열어야 하고, 두 입구는 언젠가 갈린다 — 한쪽만 상한이 바뀌거나 한쪽만 분류기가 업데이트되는 식이다. **서버 저장소에 요구할 것이 없다는 것이 이 선택의 값이다** |
+| 파일명은 무엇으로 하는가 | 라벨에서 만들고 경로 구분자만 걷어 낸다 | 서버는 이름을 저장 키로 쓰지 않지만, multipart 의 `filename` 이 경로처럼 보이면 중간 프록시가 다르게 다룰 수 있다 |
+| 여러 항목이 한 본문에 섞이면 | 그대로 보낸다 | 항목을 나누는 것은 서버의 일이다(F1-4 「하나의 지원서 파일에 여러 항목이 혼재할 수 있으므로 항목을 분리하여 저장」). 파일 업로드도 같은 길을 지난다 |
+
+이 판정은 온보딩 Step 4 가 이미 쓰던 것을 명시적 계약으로 끌어올린 것이고, 온보딩과 마이 탭의 두 화면이
+이제 같은 함수 하나를 지난다.
+
+서버 구현의 선행 작업은 [BE #19](https://github.com/Team-CareerCompass/CareerCompass-BE/issues/19)다.
+이 이슈가 직접 입력을 같은 저장소에 넣는 경로도 포함하므로 텍스트 전용 엔드포인트 이슈를 중복 생성하지 않는다.
+
+마이 탭의 입력 복원은 온보딩(#133·#137)과 같은 규칙이다. 라벨·본문만 `SavedStateHandle` 에 저장하고
+시트를 다시 열 때 복원한다. 진행 상태·오류·일회성 신호는 복원하지 않으며 취소·업로드 성공·세션 종료 시
+초안을 지운다. Bundle 크기 제한 때문에 본문은 10만 자까지만 복원한다. 이를 넘긴 본문은 일부를 잘라
+되살리지 않고 초안에서 제거한다. 이 제한은 서버 업로드 상한(10MB)과 별개다.
 
 ## 새 불일치를 발견하면
 
