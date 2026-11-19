@@ -21,8 +21,10 @@ import javax.inject.Singleton
  * 확정 거절([Outcome.AuthenticationRejected])은 락 안에서 세션 정리까지 끝내고 그 결과를 액세스 토큰에 묶어
  * 공유한다 — 같은 토큰으로 들어온 대기자는 재발급을 치지 않고 같은 결과를 받는다.
  *
- * 일시 실패(전송·5xx·예상 밖)는 **그 회전이 진행되는 동안 락을 기다린 호출에만** 공유하고 영구 캐시하지 않는다
- * (#79). 대기자가 같은 refresh 로 재발급을 다시 치면, 응답만 유실되고 서버는 회전을 끝낸 경우 소비된 refresh 를
+ * 일시 실패(전송·5xx·예상 밖)는 **그 회전이 진행되는 동안 락을 기다린 호출과, 실패 직후 [TRANSIENT_SHARE_WINDOW_NANOS]
+ * 안에 같은 토큰으로 들어온 호출에만** 공유하고 영구 캐시하지 않는다(#79). 뒤쪽 창이 필요한 이유: 같은 순간 401 을
+ * 받은 요청들도 응답이 도착한 순서대로 하나씩 들어오므로, 첫 시도가 빨리 끝나면 같은 묶음의 대기자가 「끝난 뒤」에
+ * 도착한다. 대기자가 같은 refresh 로 재발급을 다시 치면, 응답만 유실되고 서버는 회전을 끝낸 경우 소비된 refresh 를
  * 다시 보내게 되고 서버의 재사용 탐지가 계보를 폐기해 강제 로그아웃이 된다. 서버의 30초 유예가 이 경합을 일부
  * 흡수하지만(API_SPEC §1 v0.2) 클라이언트가 두 번째 호출을 만들지 않는 편이 확실하다. 실패가 끝난 뒤 새로 들어온
  * 호출은 회전을 다시 시도하므로 복구는 막히지 않는다.
@@ -91,8 +93,17 @@ public class TokenReissuer
         /** 끝난 회전 시도의 일련번호. 호출자는 락 밖에서 이 값을 읽어 「내가 기다리는 동안 끝난 시도」를 가른다. */
         @Volatile private var finishedAttempts: Long = 0
 
-        /** 마지막 일시 실패 — (액세스 토큰, 그 시도의 일련번호, 결과). */
-        private var transientFailure: Triple<String, Long, Outcome.Failure>? = null
+        private class TransientFailure(
+            val accessToken: String,
+            val attempt: Long,
+            val finishedAtNanos: Long,
+            val failure: Outcome.Failure,
+        )
+
+        private var transientFailure: TransientFailure? = null
+
+        /** 단조 시계. 테스트가 공유 창을 넘기려고 바꾼다. */
+        internal var monotonicNanos: () -> Long = System::nanoTime
 
         private var rejectedAccessToken: String? = null
         private var rejection: Outcome.AuthenticationRejected? = null
@@ -110,8 +121,11 @@ public class TokenReissuer
         ): Outcome {
             val attemptsSeenOnEntry = finishedAttempts
             synchronized(this) {
-                transientFailure?.let { (token, attempt, failure) ->
-                    if (token == expectedAccessToken && attempt > attemptsSeenOnEntry) return failure
+                transientFailure?.let { last ->
+                    val sameBatch =
+                        last.attempt > attemptsSeenOnEntry ||
+                            monotonicNanos() - last.finishedAtNanos < TRANSIENT_SHARE_WINDOW_NANOS
+                    if (last.accessToken == expectedAccessToken && sameBatch) return last.failure
                 }
                 // 저장 토큰 비교보다 먼저다 — 세션 정리 뒤엔 저장 토큰이 비어 있어 아래 가드를 그냥 통과한다.
                 rejection?.let { if (expectedAccessToken == rejectedAccessToken) return it }
@@ -146,7 +160,7 @@ public class TokenReissuer
                     val failure = classifyFailure(rotationException)
                     rememberIfRejected(expectedAccessToken, failure)
                     if (failure !is Outcome.AuthenticationRejected) {
-                        transientFailure = Triple(expectedAccessToken, attempt, failure)
+                        transientFailure = TransientFailure(expectedAccessToken, attempt, monotonicNanos(), failure)
                     }
                     reportObservableFailure(failure)
                     return failure
@@ -227,5 +241,8 @@ public class TokenReissuer
         private companion object {
             /** API_SPEC v0.1 §9 — 토큰 없음/만료·무효는 재로그인만이 해법이다. */
             val REJECTION_CODES = setOf("AUTH_REQUIRED", "AUTH_INVALID")
+
+            /** 같은 순간 실패한 요청 묶음으로 보는 시간. 사용자가 다시 시도하는 간격보다 짧아야 복구를 막지 않는다. */
+            const val TRANSIENT_SHARE_WINDOW_NANOS: Long = 2_000_000_000L
         }
     }

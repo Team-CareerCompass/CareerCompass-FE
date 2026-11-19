@@ -137,9 +137,11 @@ class TokenReissuerTest {
                     Result.failure(ApiException(code = "AUTH_INVALID", serverMessage = null, fallbackMessage = "거절", status = 401))
                 }
             }
-        val reissuer = reissuer(repository)
+        var now = 0L
+        val reissuer = reissuer(repository).apply { monotonicNanos = { now } }
 
         val first = reissuer.reissue(expectedAccessToken = "old", trigger = Trigger.Unauthorized)
+        now += 3_000_000_000L
         val second = reissuer.reissue(expectedAccessToken = "old", trigger = Trigger.Preemptive)
 
         assertTrue(first is TokenReissuer.Outcome.AuthenticationRejected)
@@ -181,16 +183,18 @@ class TokenReissuerTest {
         assertEquals("transport", reporter.attributes.single()["failure_kind"])
     }
 
-    /** 일시 실패는 영구 캐시하지 않는다 — 실패가 끝난 뒤 새로 들어온 호출은 회전을 다시 시도해 복구할 수 있다(#79). */
+    /** 일시 실패는 영구 캐시하지 않는다 — 공유 창이 지난 뒤 새로 들어온 호출은 회전을 다시 시도해 복구할 수 있다(#79). */
     @Test
-    fun `일시 실패가 끝난 뒤 들어온 호출은 회전을 다시 시도한다`() {
+    fun `일시 실패의 공유 창이 지난 뒤 들어온 호출은 회전을 다시 시도한다`() {
         val repository =
             FakeAuthRepository(accessToken = "old", refreshToken = "refresh").apply {
                 onRotateToken = { Result.failure(ApiException("INTERNAL_ERROR", null, "장애", status = 503)) }
             }
-        val reissuer = reissuer(repository)
+        var now = 0L
+        val reissuer = reissuer(repository).apply { monotonicNanos = { now } }
 
         val first = reissuer.reissue(expectedAccessToken = "old", trigger = Trigger.Unauthorized)
+        now += 3_000_000_000L
         val second = reissuer.reissue(expectedAccessToken = "old", trigger = Trigger.Unauthorized)
 
         assertTrue(first is TokenReissuer.Outcome.ServerFailure)
@@ -198,6 +202,23 @@ class TokenReissuerTest {
         assertEquals(2, repository.rotateTokenCalls)
         assertEquals(0, repository.clearSessionCalls)
         assertEquals(listOf("server", "server"), reporter.attributes.map { it["failure_kind"] })
+    }
+
+    @Test
+    fun `일시 실패 직후 같은 토큰으로 들어온 호출은 같은 묶음으로 보고 실패를 공유한다`() {
+        val repository =
+            FakeAuthRepository(accessToken = "old", refreshToken = "refresh").apply {
+                onRotateToken = { Result.failure(IOException("reset")) }
+            }
+        var now = 0L
+        val reissuer = reissuer(repository).apply { monotonicNanos = { now } }
+
+        reissuer.reissue(expectedAccessToken = "old", trigger = Trigger.Unauthorized)
+        now += 500_000_000L
+        val late = reissuer.reissue(expectedAccessToken = "old", trigger = Trigger.Unauthorized)
+
+        assertTrue(late is TokenReissuer.Outcome.TransportFailure)
+        assertEquals(1, repository.rotateTokenCalls)
     }
 
     @Test
