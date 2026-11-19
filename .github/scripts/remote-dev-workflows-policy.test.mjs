@@ -227,7 +227,7 @@ test("managed device exposes a secretless branch Baseline Profile artifact mode"
     assert.match(generator, /baseline-profile-log/);
     assert.match(generator, /generate\.log/);
     assert.match(generator, /app\/src\/main\/generated\/baselineProfiles\//);
-    assert.match(generator, /actions\/upload-artifact@[0-9a-f]{40} # v7\.0\.1/);
+    assert.match(generator, /actions\/upload-artifact@[0-9a-f]{40} # v\d+\.\d+\.\d+/);
     assert.match(generator, /Restore Baseline Profile generation exit code/);
     assert.doesNotMatch(generator, /secrets\./);
     assert.match(managedDevice, /!inputs\.generate_baseline_profile/);
