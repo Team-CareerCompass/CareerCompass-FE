@@ -12,6 +12,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
 import java.net.UnknownHostException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class TokenReissuerTest {
     private class RecordingReporter : ErrorReporter {
@@ -179,12 +181,9 @@ class TokenReissuerTest {
         assertEquals("transport", reporter.attributes.single()["failure_kind"])
     }
 
-    /**
-     * 이슈 79 가 고칠 현재 동작의 측정이다. 거절과 달리 일시 실패는 액세스 토큰에 묶어 공유하지 않으므로, 같은
-     * 토큰을 든 다음 호출이 회전을 처음부터 다시 시도한다. 재시도 정책이 정해지면 이 기대값이 먼저 바뀐다.
-     */
+    /** 일시 실패는 영구 캐시하지 않는다 — 실패가 끝난 뒤 새로 들어온 호출은 회전을 다시 시도해 복구할 수 있다(#79). */
     @Test
-    fun `현재 동작 측정 - 일시 실패 뒤 같은 액세스 토큰으로 다시 부르면 회전을 또 시도한다`() {
+    fun `일시 실패가 끝난 뒤 들어온 호출은 회전을 다시 시도한다`() {
         val repository =
             FakeAuthRepository(accessToken = "old", refreshToken = "refresh").apply {
                 onRotateToken = { Result.failure(ApiException("INTERNAL_ERROR", null, "장애", status = 503)) }
@@ -214,5 +213,97 @@ class TokenReissuerTest {
 
         assertTrue(reissuer(serverFailure).reissue("old", Trigger.Unauthorized) is TokenReissuer.Outcome.ServerFailure)
         assertTrue(reissuer(rejected).reissue("old", Trigger.Unauthorized) is TokenReissuer.Outcome.AuthenticationRejected)
+    }
+
+    /**
+     * N 개 호출이 같은 액세스 토큰으로 동시에 들어온 경우. 첫 호출이 회전하는 동안 나머지는 락을 기다리고,
+     * 회전 결과(성공·거절·일시 실패)를 그대로 받는다 — 같은 refresh 로 재발급을 다시 치지 않는다(#79).
+     */
+    private fun concurrentOutcomes(
+        result: () -> Result<TokenBundle>,
+        callers: Int = 4,
+    ): Pair<FakeAuthRepository, List<TokenReissuer.Outcome>> {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val repository =
+            FakeAuthRepository(accessToken = "old", refreshToken = "refresh").apply {
+                onRotateToken = {
+                    entered.countDown()
+                    check(release.await(5, TimeUnit.SECONDS))
+                    result().onSuccess { bundle ->
+                        accessToken = bundle.accessToken
+                        refreshToken = bundle.refreshToken
+                    }
+                }
+            }
+        val reissuer = reissuer(repository)
+        val outcomes = arrayOfNulls<TokenReissuer.Outcome>(callers)
+        val leader = Thread { outcomes[0] = reissuer.reissue("old", Trigger.Unauthorized) }.apply { start() }
+        check(entered.await(5, TimeUnit.SECONDS))
+        val waiters =
+            (1 until callers).map { index ->
+                Thread { outcomes[index] = reissuer.reissue("old", Trigger.Unauthorized) }.apply { start() }
+            }
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (waiters.any { it.state != Thread.State.BLOCKED }) {
+            check(System.nanoTime() < deadline) { "대기자가 락에 막히지 않았다" }
+            Thread.sleep(1)
+        }
+        release.countDown()
+        (waiters + leader).forEach { it.join(5_000) }
+        return repository to outcomes.map { requireNotNull(it) }
+    }
+
+    @Test
+    fun `동시 진입 - 회전 성공은 대기자에게 새 토큰으로 공유된다`() {
+        val (repository, outcomes) = concurrentOutcomes({ Result.success(TokenBundle("new", "refresh-2", 3600)) })
+
+        assertEquals(TokenReissuer.Outcome.Rotated("new"), outcomes.first())
+        assertTrue(outcomes.drop(1).all { it == TokenReissuer.Outcome.TokenAlreadyChanged("new") })
+        assertEquals(1, repository.rotateTokenCalls)
+    }
+
+    @Test
+    fun `동시 진입 - 401 거절은 한 번만 정리하고 모두 거절을 받는다`() {
+        val (repository, outcomes) =
+            concurrentOutcomes({ Result.failure(ApiException("AUTH_INVALID", null, "거절", status = 401)) })
+
+        assertTrue(outcomes.all { it is TokenReissuer.Outcome.AuthenticationRejected })
+        assertEquals(1, repository.rotateTokenCalls)
+        assertEquals(1, repository.clearSessionCalls)
+    }
+
+    @Test
+    fun `동시 진입 - 전송 실패는 대기자와 공유하고 재발급을 반복하지 않는다`() {
+        val (repository, outcomes) = concurrentOutcomes({ Result.failure(IOException("reset")) })
+
+        assertTrue(outcomes.all { it is TokenReissuer.Outcome.TransportFailure })
+        assertEquals(1, repository.rotateTokenCalls)
+        assertEquals(0, repository.clearSessionCalls)
+        assertEquals(listOf("transport"), reporter.attributes.map { it["failure_kind"] })
+    }
+
+    @Test
+    fun `동시 진입 - 5xx 는 대기자와 공유하고 재발급을 반복하지 않는다`() {
+        val (repository, outcomes) =
+            concurrentOutcomes({ Result.failure(ApiException("INTERNAL_ERROR", null, "장애", status = 500)) })
+
+        assertTrue(outcomes.all { it is TokenReissuer.Outcome.ServerFailure })
+        assertEquals(1, repository.rotateTokenCalls)
+        assertEquals(0, repository.clearSessionCalls)
+    }
+
+    /**
+     * 서버는 회전을 끝냈는데 응답이 유실된 경우. 대기자가 이미 소비된 refresh 로 다시 치면 서버의 재사용 탐지가
+     * 계보를 폐기해 강제 로그아웃이 된다 — 공유 덕분에 그 두 번째 호출 자체가 나가지 않는다.
+     */
+    @Test
+    fun `동시 진입 - 응답 유실은 소비된 refresh 를 다시 보내지 않는다`() {
+        val (repository, outcomes) = concurrentOutcomes({ Result.failure(java.net.SocketTimeoutException("lost")) })
+
+        assertTrue(outcomes.all { it is TokenReissuer.Outcome.TransportFailure })
+        assertEquals(1, repository.rotateTokenCalls)
+        assertEquals(0, repository.clearSessionCalls)
+        assertEquals("old", repository.accessToken)
     }
 }

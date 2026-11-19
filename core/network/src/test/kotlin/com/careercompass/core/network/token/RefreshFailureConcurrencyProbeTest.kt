@@ -38,9 +38,9 @@ import java.util.concurrent.TimeoutException
  * 거절(401)의 「1회」는 확정된 설계다. [TokenReissuer] 가 거절을 액세스 토큰에 묶어 공유하므로 대기자가 몇이든
  * refresh 도 세션 정리도 한 번이고, 그 계약이 깨지는 것을 막는 회귀 가드다.
  *
- * 일시 실패(500)의 「8회」는 설계가 아니라 **지금 코드의 측정치**다. 일시 실패는 공유되지 않아 대기자가 각자 다시
- * 치며, 이 동작을 고치는 것은 이슈 79 의 몫이다(서버의 refresh 재사용 정책이 정해져야 착수한다). 그때 기대값만
- * 바꾸면 되도록 숫자를 여기 고정해 둔다 — 결함을 옳은 동작으로 굳히려는 것이 아니다.
+ * 일시 실패(500)도 「1회」다(#79). 회전이 진행되는 동안 락을 기다린 대기자는 그 일시 실패를 그대로 받고 같은
+ * refresh 를 다시 보내지 않는다 — 응답이 유실된 회전 뒤 소비된 refresh 를 재전송해 서버의 재사용 탐지가 계보를
+ * 폐기하는 길을 막는다. 공유는 그 시도에 한하고 영구 캐시가 아니다.
  *
  * 동시 진입은 인증 인터셉터 뒤에 둔 게이트로 만든다. 그러지 않으면 첫 스레드가 나머지가 도착하기 전에 재발급을
  * 끝내 경합이 우연히 비켜 간다. 8건은 비동기(`enqueue`)가 아니라 스레드별 동기 호출로 쏜다 — 비동기 경로는
@@ -136,18 +136,14 @@ class RefreshFailureConcurrencyProbeTest {
         assertEquals(1, repository.clearSessionCalls)
     }
 
-    /**
-     * 이슈 79 가 고칠 현재 동작의 측정이다. 8 은 「이래야 한다」가 아니라 「지금 이렇다」이며, 재시도 정책이 정해지면
-     * 이 기대값이 먼저 바뀐다.
-     */
     @Test
-    fun `현재 동작 측정 - 일시 실패면 대기자 8건이 각자 refresh 를 쳐 8회가 나간다`() {
+    fun `회귀 가드 - 일시 실패가 동시에 들어와도 refresh 는 한 번이고 세션은 남는다`() {
         refreshReply = LocalHttpServer.Reply(500, SERVER_ERROR_BODY)
 
         val outcomes = fireConcurrently(CONCURRENT_CALLS)
 
-        assertEquals(CONCURRENT_CALLS, server.requests.count { it.path == REFRESH_PATH })
-        assertEquals(CONCURRENT_CALLS, repository.rotateTokenCalls)
+        assertEquals(1, server.requests.count { it.path == REFRESH_PATH })
+        assertEquals(1, repository.rotateTokenCalls)
         // 일시 실패는 현재 요청만 실패시킨다. 세션은 그대로 남아 다음 요청이 다시 시도할 수 있다.
         assertTrue(outcomes.all { it.exceptionOrNull() is IOException })
         assertEquals(0, repository.clearSessionCalls)

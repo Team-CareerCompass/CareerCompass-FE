@@ -19,8 +19,13 @@ import javax.inject.Singleton
  * ([Outcome.SessionChanged]).
  *
  * 확정 거절([Outcome.AuthenticationRejected])은 락 안에서 세션 정리까지 끝내고 그 결과를 액세스 토큰에 묶어
- * 공유한다 — 같은 토큰으로 들어온 대기자는 재발급을 치지 않고 같은 결과를 받는다. 일시 실패는 공유하지
- * 않는다(재시도가 성립하는 실패라 캐시하면 복구를 막는다).
+ * 공유한다 — 같은 토큰으로 들어온 대기자는 재발급을 치지 않고 같은 결과를 받는다.
+ *
+ * 일시 실패(전송·5xx·예상 밖)는 **그 회전이 진행되는 동안 락을 기다린 호출에만** 공유하고 영구 캐시하지 않는다
+ * (#79). 대기자가 같은 refresh 로 재발급을 다시 치면, 응답만 유실되고 서버는 회전을 끝낸 경우 소비된 refresh 를
+ * 다시 보내게 되고 서버의 재사용 탐지가 계보를 폐기해 강제 로그아웃이 된다. 서버의 30초 유예가 이 경합을 일부
+ * 흡수하지만(API_SPEC §1 v0.2) 클라이언트가 두 번째 호출을 만들지 않는 편이 확실하다. 실패가 끝난 뒤 새로 들어온
+ * 호출은 회전을 다시 시도하므로 복구는 막히지 않는다.
  */
 @Singleton
 public class TokenReissuer
@@ -83,6 +88,12 @@ public class TokenReissuer
             ) : Failure
         }
 
+        /** 끝난 회전 시도의 일련번호. 호출자는 락 밖에서 이 값을 읽어 「내가 기다리는 동안 끝난 시도」를 가른다. */
+        @Volatile private var finishedAttempts: Long = 0
+
+        /** 마지막 일시 실패 — (액세스 토큰, 그 시도의 일련번호, 결과). */
+        private var transientFailure: Triple<String, Long, Outcome.Failure>? = null
+
         private var rejectedAccessToken: String? = null
         private var rejection: Outcome.AuthenticationRejected? = null
 
@@ -97,7 +108,11 @@ public class TokenReissuer
             expectedAccessToken: String,
             trigger: Trigger,
         ): Outcome {
+            val attemptsSeenOnEntry = finishedAttempts
             synchronized(this) {
+                transientFailure?.let { (token, attempt, failure) ->
+                    if (token == expectedAccessToken && attempt > attemptsSeenOnEntry) return failure
+                }
                 // 저장 토큰 비교보다 먼저다 — 세션 정리 뒤엔 저장 토큰이 비어 있어 아래 가드를 그냥 통과한다.
                 rejection?.let { if (expectedAccessToken == rejectedAccessToken) return it }
 
@@ -118,6 +133,8 @@ public class TokenReissuer
                 }
 
                 val rotationResult = runBlocking { authRepository.get().rotateToken() }
+                val attempt = ++finishedAttempts
+                transientFailure = null
                 val rotationException = rotationResult.exceptionOrNull()
                 if (rotationException is SessionEndedException) {
                     lastRotation = null
@@ -128,6 +145,9 @@ public class TokenReissuer
                     expiryTracker.clear()
                     val failure = classifyFailure(rotationException)
                     rememberIfRejected(expectedAccessToken, failure)
+                    if (failure !is Outcome.AuthenticationRejected) {
+                        transientFailure = Triple(expectedAccessToken, attempt, failure)
+                    }
                     reportObservableFailure(failure)
                     return failure
                 }
