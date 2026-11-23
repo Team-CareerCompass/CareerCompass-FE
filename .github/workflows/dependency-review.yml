@@ -35,7 +35,7 @@ jobs:
       #   2. Submit PR Dependency Graph   — trusted workflow_run 에서 artifact 를 제출한다.
       # 이 job 은 1번과 동시에 출발하므로 제출이 끝날 때까지 snapshot warning 을 재시도한다.
       - name: Fail on newly introduced high-severity vulnerabilities
-        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
         with:
           fail-on-scopes: runtime, development, unknown
           fail-on-severity: high
